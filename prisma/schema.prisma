@@ -1,0 +1,267 @@
+// Backgammon Tournament Platform — Prisma Schema v3
+//
+// Auth:    Supabase handles email/password. supabaseUid links our row to auth.users.
+// Roles:   Stored in Player.role — checked in Server Actions and middleware.
+// Stats:   Cached on TournamentMember (points/wins/losses), updated atomically
+//          in a $transaction with every match completion.
+// FKs:     Match/MatchGame use TournamentMember.id for player refs (guest-safe).
+// Matches: A Match is the top-level contest (race to N points).
+//          MatchGames are individual games within the match.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN               // Full platform access
+  TOURNAMENT_MANAGER  // Create and manage own tournaments
+  PLAYER              // Join tournaments, record games
+}
+
+enum GameType {
+  NORMAL      // Standard win            — ×1
+  GAMMON      // Loser bore off nothing  — ×2
+  BACKGAMMON  // Loser had checkers on bar/in home — ×3
+}
+
+enum TournamentFormat {
+  ROUND_ROBIN
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  SWISS
+}
+
+enum TournamentStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum MemberRole {
+  ORGANIZER
+  PARTICIPANT
+}
+
+enum MatchStatus {
+  PENDING    // Scheduled, not yet started
+  ACTIVE     // In progress
+  COMPLETED  // Match over, winner decided
+}
+
+enum OpeningType {
+  RUNNING_GAME    // Both sides racing off the board
+  BLITZ           // Aggressive prime-building / hitting
+  PRIME_VS_PRIME  // Both sides building primes
+  BACK_GAME       // One side deliberately falls behind
+  HOLDING_GAME    // Anchor strategy (bar-point or opponent's 5-point)
+  ANCHOR_GAME     // Deep anchor on opponent's home board
+  CUSTOM          // Other / annotated by note
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYER
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Player {
+  id          String   @id @default(uuid())
+  supabaseUid String   @unique @map("supabase_uid")
+  email       String   @unique
+  name        String
+  role        UserRole @default(PLAYER)
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  memberships        TournamentMember[]
+  createdTournaments Tournament[]       @relation("TournamentCreator")
+  recordedGames      Game[]             @relation("GameRecorder")
+  recordedMatches    Match[]            @relation("MatchRecorder")
+
+  @@map("players")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOURNAMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Tournament {
+  id           String           @id @default(uuid())
+  name         String
+  description  String?
+  location     String?
+  code         String           @unique
+  format       TournamentFormat @default(ROUND_ROBIN)
+  status       TournamentStatus @default(DRAFT)
+  pointsPerWin Int              @default(1) @map("points_per_win")
+  matchLength  Int?             @map("match_length")
+  maxPlayers   Int?             @map("max_players")
+  startDate    DateTime?        @map("start_date")
+  createdById  String           @map("created_by")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt      @map("updated_at")
+  deletedAt    DateTime?        @map("deleted_at")
+  archivedAt   DateTime?        @map("archived_at")
+
+  createdBy Player             @relation("TournamentCreator", fields: [createdById], references: [id])
+  members   TournamentMember[]
+  games     Game[]
+  matches   Match[]
+
+  @@index([createdById])
+  @@index([status])
+  @@map("tournaments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOURNAMENT MEMBER
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TournamentMember {
+  id           String     @id @default(uuid())
+  tournamentId String     @map("tournament_id")
+  playerId     String?    @map("player_id")
+  guestName    String?    @map("guest_name")
+  memberRole   MemberRole @default(PARTICIPANT) @map("member_role")
+  points       Int        @default(0)  // tournament points (wins × pointsPerWin)
+  wins         Int        @default(0)
+  losses       Int        @default(0)
+  joinedAt     DateTime   @default(now()) @map("joined_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player     Player?    @relation(fields: [playerId], references: [id], onDelete: SetNull)
+
+  // Legacy standalone game relations
+  gamesWon  Game[] @relation("GameWinner")
+  gamesLost Game[] @relation("GameLoser")
+
+  // Match relations
+  player1Matches   Match[]     @relation("MatchPlayer1")
+  player2Matches   Match[]     @relation("MatchPlayer2")
+  wonMatches       Match[]     @relation("MatchWinner")
+  ownedCubeMatches Match[]     @relation("MatchCubeOwner")
+  wonMatchGames    MatchGame[] @relation("MatchGameWinner")
+  lostMatchGames   MatchGame[] @relation("MatchGameLoser")
+
+  @@unique([tournamentId, playerId], name: "unique_member_per_tournament")
+  @@index([tournamentId])
+  @@index([playerId])
+  @@map("tournament_members")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MATCH
+// The top-level contest between two players (race to targetScore match points).
+//
+// Scoring:
+//   Each game within the match awards: cubeValue × gameTypeMultiplier points.
+//   (NORMAL×1, GAMMON×2, BACKGAMMON×3)
+//   First player to reach targetScore wins the match.
+//
+// Cube state:
+//   cubeValue    — current accepted cube value (1|2|4|8|16|32|64)
+//   cubeOwnerId  — null = center (either may double); set = only owner may double next
+//   After each game completes, cube resets to center (value=1, owner=null).
+//
+// Standings cache:
+//   On match completion a $transaction increments winner.wins, winner.points,
+//   and loser.losses on TournamentMember.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Match {
+  id           String      @id @default(uuid())
+  tournamentId String      @map("tournament_id")
+  player1Id    String      @map("player1_id")   // TournamentMember.id
+  player2Id    String      @map("player2_id")   // TournamentMember.id
+  targetScore  Int         @map("target_score")
+  player1Score Int         @default(0) @map("player1_score")
+  player2Score Int         @default(0) @map("player2_score")
+  cubeValue    Int         @default(1) @map("cube_value")   // accepted value
+  cubeOwnerId  String?     @map("cube_owner_id")            // null = center
+  status       MatchStatus @default(PENDING)
+  winnerId     String?     @map("winner_id")
+  openingType  OpeningType? @map("opening_type")
+  notes        String?
+  startedAt    DateTime?   @map("started_at")
+  completedAt  DateTime?   @map("completed_at")
+  duration     Int?        // seconds, filled on completion
+  recordedById String      @map("recorded_by")   // Player.id
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt      @map("updated_at")
+
+  tournament Tournament        @relation(fields: [tournamentId],  references: [id], onDelete: Cascade)
+  player1    TournamentMember  @relation("MatchPlayer1",   fields: [player1Id],   references: [id], onDelete: Restrict)
+  player2    TournamentMember  @relation("MatchPlayer2",   fields: [player2Id],   references: [id], onDelete: Restrict)
+  winner     TournamentMember? @relation("MatchWinner",    fields: [winnerId],    references: [id], onDelete: SetNull)
+  cubeOwner  TournamentMember? @relation("MatchCubeOwner", fields: [cubeOwnerId], references: [id], onDelete: SetNull)
+  recordedBy Player            @relation("MatchRecorder",  fields: [recordedById],references: [id], onDelete: Restrict)
+  games      MatchGame[]
+
+  @@index([tournamentId, status])
+  @@index([tournamentId, createdAt(sort: Desc)])
+  @@index([player1Id])
+  @@index([player2Id])
+  @@map("matches")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MATCH GAME
+// One individual game within a Match.
+// Points awarded = cubeValue × gameTypeMultiplier.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MatchGame {
+  id            String   @id @default(uuid())
+  matchId       String   @map("match_id")
+  gameNumber    Int      @map("game_number")  // 1-based, auto-incremented
+  winnerId      String   @map("winner_id")    // TournamentMember.id
+  loserId       String   @map("loser_id")     // TournamentMember.id
+  cubeValue     Int      @map("cube_value")
+  gameType      GameType @default(NORMAL) @map("game_type")
+  pointsAwarded Int      @map("points_awarded")  // cube × gameTypeMultiplier
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  match  Match            @relation(fields: [matchId],   references: [id], onDelete: Cascade)
+  winner TournamentMember @relation("MatchGameWinner", fields: [winnerId], references: [id], onDelete: Restrict)
+  loser  TournamentMember @relation("MatchGameLoser",  fields: [loserId],  references: [id], onDelete: Restrict)
+
+  @@index([matchId, gameNumber])
+  @@map("match_games")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GAME (legacy — standalone games outside match context)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Game {
+  id           String   @id @default(uuid())
+  tournamentId String   @map("tournament_id")
+  winnerId     String   @map("winner_id")
+  loserId      String   @map("loser_id")
+  multiplier   Int      @default(1)
+  gameType     GameType @default(NORMAL) @map("game_type")
+  points       Int
+  notes        String?
+  recordedById String   @map("recorded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tournament Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  winner     TournamentMember @relation("GameWinner", fields: [winnerId], references: [id], onDelete: Restrict)
+  loser      TournamentMember @relation("GameLoser",  fields: [loserId],  references: [id], onDelete: Restrict)
+  recordedBy Player           @relation("GameRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@index([tournamentId, createdAt(sort: Desc)])
+  @@index([winnerId])
+  @@index([loserId])
+  @@map("games")
+}

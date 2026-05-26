@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS
+   All values are defined as space-separated HSL channels so Tailwind can
+   inject the alpha-value modifier (e.g. bg-surface-raised/50 → 50% opacity).
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Surfaces — dark mahogany/walnut wood progression */
+  --surface-canvas:    22 28%  3%;   /* #090704 — deepest background */
+  --surface-base:      24 26%  6%;   /* #100d08 — page body           */
+  --surface-raised:    25 24% 10%;   /* #1c1710 — card surface        */
+  --surface-elevated:  26 22% 14%;   /* #261f16 — elevated card       */
+  --surface-muted:     26 20% 18%;   /* #30271b — section divider bg  */
+  --surface-subtle:    27 18% 23%;   /* #3d3225 — hover state         */
+
+  /* Gold — antique brass / warm gold */
+  --gold:        40 62% 55%;         /* #c9a84c — primary accent      */
+  --gold-dim:    38 55% 32%;         /* #7d5e24 — muted gold          */
+  --gold-bright: 43 75% 65%;         /* #e8c56a — hover / highlight   */
+  --gold-muted:  40 35% 42%;         /* #8a7038 — very subtle gold    */
+
+  /* Ink — text hierarchy on dark backgrounds */
+  --ink:         38 42% 90%;         /* #ede5d3 — primary text        */
+  --ink-muted:   35 22% 56%;         /* #a39070 — secondary text      */
+  --ink-subtle:  30 18% 36%;         /* #6b5640 — placeholder / hint  */
+
+  /* Lines — borders */
+  --line:        25 24% 16%;         /* #2a2218 — default border      */
+  --line-gold:   40 45% 28%;         /* #5c4a22 — gold-tinted border  */
+
+  /* Semantic */
+  --win:         142 32% 32%;        /* #346645 — win / positive      */
+  --loss:          0 35% 36%;        /* #783535 — loss / negative     */
+  --warning:      38 72% 44%;        /* #c07e14 — amber / cube        */
+
+  /* Typography */
+  --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Georgia', 'Times New Roman', serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+
+  /* Focus ring */
+  --ring: 40 62% 55%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BASE LAYER
+   ───────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface-base text-ink font-sans;
+    min-height: 100dvh;
+  }
+
+  /* Headings inherit the display font for premium feel */
+  h1, h2, h3 {
+    @apply font-display tracking-tight;
+  }
+
+  /* Focus visible ring — gold-tinted */
+  :focus-visible {
+    @apply outline-none ring-2 ring-gold/60 ring-offset-2 ring-offset-surface-base;
+  }
+
+  /* Scrollbar — subtle dark */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-muted rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-subtle;
+  }
+
+  /* Selection highlight — gold */
+  ::selection {
+    @apply bg-gold/20 text-ink;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   COMPONENT LAYER — shared patterns
+   ───────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  /* The board-line texture — a very subtle diagonal grain overlay
+     applied to the page background to evoke a premium wooden surface */
+  .wood-texture {
+    background-image:
+      repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 2px,
+        hsl(var(--surface-muted) / 0.15) 2px,
+        hsl(var(--surface-muted) / 0.15) 3px
+      );
+  }
+
+  /* Gold shimmer — applied to loading skeletons */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--surface-raised)) 25%,
+      hsl(var(--surface-elevated)) 50%,
+      hsl(var(--surface-raised)) 75%
+    );
+    background-size: 400% 100%;
+    @apply animate-shimmer;
+  }
+
+  /* Glow ring — used on active/highlighted cards */
+  .ring-gold-glow {
+    box-shadow:
+      0 0 0 1px hsl(var(--gold) / 0.25),
+      0 0 16px 0 hsl(var(--gold) / 0.08);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UTILITY LAYER — one-off helpers
+   ───────────────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
