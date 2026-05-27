@@ -1,13 +1,16 @@
 'use client'
 
-import { useFormState, useFormStatus } from 'react-dom'
-import Link                            from 'next/link'
-import { Mail, Lock }                  from 'lucide-react'
-import { login }                       from '@/actions/auth'
-import { Button }                      from '@/components/ui/button'
-import { Input }                       from '@/components/ui/input'
-import { GoogleOAuthButton }           from '@/components/auth/google-oauth-button'
-import type { ActionResult }           from '@/types'
+import { useState }                        from 'react'
+import { useFormState, useFormStatus }     from 'react-dom'
+import Link                                from 'next/link'
+import { Mail, Lock, Phone }               from 'lucide-react'
+import { login }                           from '@/actions/auth'
+import { Button }                          from '@/components/ui/button'
+import { Input }                           from '@/components/ui/input'
+import { GoogleOAuthButton }               from '@/components/auth/google-oauth-button'
+import { AppleOAuthButton }                from '@/components/auth/apple-oauth-button'
+import { PhoneAuthForm }                   from '@/components/auth/phone-auth-form'
+import type { ActionResult }               from '@/types'
 
 const INITIAL_STATE: ActionResult = { success: true, data: undefined }
 
@@ -22,13 +25,35 @@ function SubmitButton() {
 
 export function LoginForm() {
   const [state, formAction] = useFormState(login, INITIAL_STATE)
+  const [showPhone, setShowPhone] = useState(false)
 
+  // ── Phone mode ──────────────────────────────────────────────────────────────
+  if (showPhone) {
+    return (
+      <PhoneAuthForm onBack={() => setShowPhone(false)} />
+    )
+  }
+
+  // ── Default sign-in options ─────────────────────────────────────────────────
   return (
-    <div className="space-y-5">
-      {/* Google OAuth */}
+    <div className="space-y-3">
+      {/* Social / one-tap options */}
       <GoogleOAuthButton label="Continue with Google" />
+      <AppleOAuthButton  label="Continue with Apple" />
 
-      <div className="relative flex items-center gap-3">
+      {/* Phone button */}
+      <Button
+        type="button"
+        variant="secondary"
+        className="w-full gap-2"
+        size="lg"
+        onClick={() => setShowPhone(true)}
+      >
+        <Phone className="h-4 w-4" />
+        Continue with Phone
+      </Button>
+
+      <div className="relative flex items-center gap-3 py-1">
         <div className="flex-1 border-t border-line" />
         <span className="text-xs text-ink-subtle">or with email</span>
         <div className="flex-1 border-t border-line" />

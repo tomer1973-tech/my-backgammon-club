@@ -1,12 +1,15 @@
 'use client'
 
-import { useFormState, useFormStatus } from 'react-dom'
-import { User, Mail, Lock, MailCheck } from 'lucide-react'
-import { register }                    from '@/actions/auth'
-import type { RegisterResult }         from '@/actions/auth'
-import { Button }                      from '@/components/ui/button'
-import { Input }                       from '@/components/ui/input'
-import { GoogleOAuthButton }           from '@/components/auth/google-oauth-button'
+import { useState }                        from 'react'
+import { useFormState, useFormStatus }     from 'react-dom'
+import { User, Mail, Lock, MailCheck, Phone } from 'lucide-react'
+import { register }                        from '@/actions/auth'
+import type { RegisterResult }             from '@/actions/auth'
+import { Button }                          from '@/components/ui/button'
+import { Input }                           from '@/components/ui/input'
+import { GoogleOAuthButton }               from '@/components/auth/google-oauth-button'
+import { AppleOAuthButton }                from '@/components/auth/apple-oauth-button'
+import { PhoneAuthForm }                   from '@/components/auth/phone-auth-form'
 
 const INITIAL_STATE: RegisterResult = { success: true, data: undefined }
 
@@ -20,9 +23,10 @@ function SubmitButton() {
 }
 
 export function RegisterForm() {
-  const [state, formAction] = useFormState(register, INITIAL_STATE)
+  const [state,      formAction] = useFormState(register, INITIAL_STATE)
+  const [showPhone,  setShowPhone]  = useState(false)
 
-  // Email confirmation required — show a success / check-your-inbox screen
+  // ── Email confirmation required ─────────────────────────────────────────────
   if (state.success && state.data?.requiresConfirmation) {
     return (
       <div className="flex flex-col items-center gap-4 py-4 text-center">
@@ -53,12 +57,33 @@ export function RegisterForm() {
     )
   }
 
-  return (
-    <div className="space-y-5">
-      {/* Google OAuth */}
-      <GoogleOAuthButton label="Sign up with Google" />
+  // ── Phone mode ──────────────────────────────────────────────────────────────
+  if (showPhone) {
+    return (
+      <PhoneAuthForm onBack={() => setShowPhone(false)} />
+    )
+  }
 
-      <div className="relative flex items-center gap-3">
+  // ── Default registration options ────────────────────────────────────────────
+  return (
+    <div className="space-y-3">
+      {/* Social / one-tap options */}
+      <GoogleOAuthButton label="Sign up with Google" />
+      <AppleOAuthButton  label="Sign up with Apple" />
+
+      {/* Phone button */}
+      <Button
+        type="button"
+        variant="secondary"
+        className="w-full gap-2"
+        size="lg"
+        onClick={() => setShowPhone(true)}
+      >
+        <Phone className="h-4 w-4" />
+        Sign up with Phone
+      </Button>
+
+      <div className="relative flex items-center gap-3 py-1">
         <div className="flex-1 border-t border-line" />
         <span className="text-xs text-ink-subtle">or with email</span>
         <div className="flex-1 border-t border-line" />

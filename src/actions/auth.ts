@@ -1,9 +1,11 @@
 'use server'
 
-import { redirect } from 'next/navigation'
-import { headers }  from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
-import { db }           from '@/lib/db'
+import { redirect }       from 'next/navigation'
+import { revalidatePath }  from 'next/cache'
+import { headers }         from 'next/headers'
+import { createClient }    from '@/lib/supabase/server'
+import { db }              from '@/lib/db'
+import { requireSessionUser } from '@/lib/session'
 import {
   loginSchema,
   registerSchema,
@@ -254,4 +256,152 @@ export async function updatePassword(
   }
 
   redirect('/')
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE PROFILE  (name update from /settings)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type UpdateProfileResult = ActionResult<{ saved: boolean } | undefined>
+
+export async function updateProfile(
+  _prev: UpdateProfileResult,
+  formData: FormData,
+): Promise<UpdateProfileResult> {
+  const user = await requireSessionUser()
+
+  const name = (formData.get('name') as string | null)?.trim() ?? ''
+  if (!name)           return { success: false, error: 'Name is required.' }
+  if (name.length < 2) return { success: false, error: 'Name must be at least 2 characters.' }
+  if (name.length > 60) return { success: false, error: 'Name must be 60 characters or fewer.' }
+
+  await db.player.update({
+    where: { id: user.id },
+    data:  { name },
+  })
+
+  // Keep Supabase user metadata in sync
+  try {
+    const supabase = createClient()
+    await supabase.auth.updateUser({ data: { name } })
+  } catch {
+    // Non-fatal — DB is the source of truth
+  }
+
+  revalidatePath('/settings')
+  return { success: true, data: { saved: true } }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHONE AUTH HELPERS  (called client-side after Supabase OTP verification)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Checks whether the current session user already has a player profile.
+ * Called immediately after phone OTP verification succeeds on the client.
+ *
+ * Returns { isNew: true }  → user just registered, needs to pick a name
+ * Returns { isNew: false } → returning user, safe to redirect to dashboard
+ */
+export async function checkPhoneUserProfile(): Promise<ActionResult<{ isNew: boolean }>> {
+  let supabase
+  try {
+    supabase = createClient()
+  } catch (err) {
+    console.error('[auth/checkPhoneUserProfile] createClient error:', err)
+    return { success: false, error: 'Service temporarily unavailable. Please try again.' }
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated.' }
+
+  const existing = await db.player.findUnique({
+    where:  { supabaseUid: user.id },
+    select: { id: true },
+  })
+
+  return { success: true, data: { isNew: !existing } }
+}
+
+/**
+ * Creates the player profile for a phone-auth user who just registered.
+ * Must be called after checkPhoneUserProfile returns { isNew: true }.
+ */
+export async function createPhoneUserProfile(
+  name: string,
+): Promise<ActionResult> {
+  const trimmed = name.trim()
+  if (!trimmed || trimmed.length < 2) return { success: false, error: 'Name must be at least 2 characters.' }
+  if (trimmed.length > 60)            return { success: false, error: 'Name must be 60 characters or fewer.' }
+
+  let supabase
+  try {
+    supabase = createClient()
+  } catch (err) {
+    console.error('[auth/createPhoneUserProfile] createClient error:', err)
+    return { success: false, error: 'Service temporarily unavailable. Please try again.' }
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated.' }
+
+  try {
+    await db.player.upsert({
+      where:  { supabaseUid: user.id },
+      update: { name: trimmed },   // idempotent — update name if called again
+      create: {
+        supabaseUid: user.id,
+        // Phone-only users have no email → use a stable unique placeholder
+        email: user.email ?? `${user.id}@phone.user`,
+        name:  trimmed,
+        role:  'PLAYER',
+      },
+    })
+  } catch (err) {
+    console.error('[auth/createPhoneUserProfile] DB error:', err)
+    return { success: false, error: 'Failed to create profile. Please try again.' }
+  }
+
+  // Keep Supabase user metadata in sync
+  try {
+    await supabase.auth.updateUser({ data: { name: trimmed } })
+  } catch {
+    // Non-fatal
+  }
+
+  revalidatePath('/')
+  return { success: true, data: undefined }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE AVATAR  (emoji, flag, or base64 photo from /settings)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function updateAvatar(
+  avatarValue: string | null,
+): Promise<UpdateProfileResult> {
+  const user = await requireSessionUser()
+
+  if (avatarValue !== null) {
+    const isDataUrl = avatarValue.startsWith('data:image/')
+    const isFlag    = /^flag:[a-z]{2}$/.test(avatarValue)          // e.g. "flag:us"
+    const isEmoji   = !isFlag && avatarValue.length <= 8 &&
+                      !avatarValue.startsWith('http') &&
+                      !avatarValue.startsWith('/')
+    if (!isDataUrl && !isFlag && !isEmoji) {
+      return { success: false, error: 'Invalid avatar format.' }
+    }
+    if (isDataUrl && avatarValue.length > 210_000) {
+      return { success: false, error: 'Image is too large. Please choose a smaller photo.' }
+    }
+  }
+
+  await db.player.update({
+    where: { id: user.id },
+    data:  { avatarUrl: avatarValue },
+  })
+
+  revalidatePath('/settings')
+  revalidatePath('/players')
+  return { success: true, data: { saved: true } }
 }

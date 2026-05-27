@@ -53,16 +53,21 @@ export async function GET(request: Request) {
     //   • Google OAuth first-time sign-in
     //   • Email confirmation when the DB write during register failed
     try {
+      // Apple "Hide My Email" returns a relay address — email is always set
+      // for OAuth providers but may be absent for phone-auth users.
+      const email = user.email ?? `${user.id}@phone.user`
+
       await db.player.upsert({
         where:  { supabaseUid: user.id },
-        update: { email: user.email! },  // keep email in sync
+        update: { email },  // keep email in sync
         create: {
           supabaseUid: user.id,
-          email:       user.email!,
+          email,
           name:
             user.user_metadata?.full_name ??
             user.user_metadata?.name ??
-            user.email!.split('@')[0],
+            user.email?.split('@')[0] ??
+            'Player',
           role: 'PLAYER',
         },
       })
