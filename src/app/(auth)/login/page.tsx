@@ -4,7 +4,11 @@ import { LoginForm }      from '@/components/auth/login-form'
 
 export const metadata: Metadata = { title: 'Sign In' }
 
-export default function LoginPage() {
+interface Props {
+  searchParams: { from?: string; error?: string }
+}
+
+export default function LoginPage({ searchParams }: Props) {
   return (
     <div className="animate-fade-in">
       {/* Brand mark */}
@@ -20,6 +24,13 @@ export default function LoginPage() {
           Sign in to your account
         </p>
       </div>
+
+      {/* OAuth / callback error banner */}
+      {searchParams.error && (
+        <div className="mb-4 rounded-lg border border-loss/40 bg-loss/10 px-4 py-3 text-sm text-loss text-center">
+          {decodeURIComponent(searchParams.error)}
+        </div>
+      )}
 
       {/* Form card */}
       <div className="rounded-2xl border border-line bg-surface-raised shadow-lg p-6">

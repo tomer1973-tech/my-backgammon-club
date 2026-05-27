@@ -4,28 +4,36 @@ import { createMiddlewareClient }   from '@/lib/supabase/middleware'
 /**
  * Route protection middleware.
  *
- * Rules:
- *  - /login and /register → redirect to / if already authed
- *  - All other non-static routes → redirect to /login if not authed
- *  - API routes under /api/tournaments/* also require auth
+ * Public routes (no auth required):
+ *   /login, /register, /forgot-password, /verify-email
+ *   /auth/*  — OAuth callbacks, email confirmation, password reset links
+ *
+ * All other routes redirect to /login when unauthenticated.
+ * Auth pages redirect to / when already authenticated.
  */
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createMiddlewareClient(request)
   const { pathname }           = request.nextUrl
 
-  // Supabase refreshes the session on every middleware call.
+  // Supabase refreshes the session token on every middleware call.
   const { data: { user } } = await supabase.auth.getUser()
   const isAuthed = !!user
 
-  const isAuthPage = pathname === '/login' || pathname === '/register'
+  // Routes that are public (no login required)
+  const isPublicRoute =
+    pathname === '/login'            ||
+    pathname === '/register'         ||
+    pathname === '/forgot-password'  ||
+    pathname === '/verify-email'     ||
+    pathname.startsWith('/auth/')    // /auth/callback, etc.
 
-  // If already signed in, bounce away from auth pages
-  if (isAuthPage && isAuthed) {
+  // Redirect authenticated users away from auth pages
+  if (isPublicRoute && isAuthed && !pathname.startsWith('/auth/')) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // If not signed in and not on an auth page, redirect to login
-  if (!isAuthPage && !isAuthed) {
+  // Redirect unauthenticated users to login (preserve intended destination)
+  if (!isPublicRoute && !isAuthed) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('from', pathname)
     return NextResponse.redirect(loginUrl)
@@ -39,9 +47,9 @@ export const config = {
     /*
      * Match all request paths EXCEPT:
      *  - _next/static (Next.js build assets)
-     *  - _next/image (image optimisation)
+     *  - _next/image  (image optimisation)
      *  - favicon.ico
-     *  - public files (images, fonts…)
+     *  - public static files (images, fonts…)
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
