@@ -42,32 +42,33 @@ export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCa
         )}
       >
         {/* Card body — links to detail page */}
-        <Link href={`/tournaments/${t.id}`} className="flex flex-col gap-3 p-5">
-          {/* Top row: name + status */}
+        <Link href={`/tournaments/${t.id}`} className="flex flex-col gap-4 p-5">
+          {/* Top row: status badge */}
           <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h3 className="truncate text-sm font-semibold text-ink group-hover:text-gold transition-colors">
-                {t.name}
-              </h3>
-              {t.isOwner && (
-                <span className="mt-0.5 flex items-center gap-1 text-xs text-gold/70">
-                  <Crown className="h-3 w-3" />
-                  Your tournament
-                </span>
-              )}
-            </div>
             <StatusBadge status={t.status} className="shrink-0" />
+            {t.isOwner && (
+              <span className="flex items-center gap-1 text-[10px] text-gold/70">
+                <Crown className="h-3 w-3" />
+                Yours
+              </span>
+            )}
+          </div>
+
+          {/* Name */}
+          <div>
+            <h3 className="text-base font-bold text-ink group-hover:text-gold transition-colors leading-tight">
+              {t.name}
+            </h3>
           </div>
 
           {/* Meta row */}
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-subtle">
+          <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-ink-subtle">
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />
-              {t.memberCount} {t.memberCount === 1 ? 'player' : 'players'}
-              {t.maxPlayers ? ` / ${t.maxPlayers}` : ''}
+              {t.memberCount}{t.maxPlayers ? `/${t.maxPlayers}` : ''} players
             </span>
             {t.location && (
-              <span className="flex items-center gap-1 truncate">
+              <span className="flex items-center gap-1 truncate max-w-[120px]">
                 <MapPin className="h-3 w-3 shrink-0" />
                 {t.location}
               </span>
@@ -85,19 +86,19 @@ export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCa
         </Link>
 
         {/* Actions row */}
-        <div className="flex items-center gap-2 border-t border-line/50 px-5 py-3">
+        <div className="flex items-center gap-2 border-t border-line/50 px-4 py-3">
           <Button
             asChild
-            size="sm"
+            size="default"
             variant={t.isMember && t.status === 'ACTIVE' ? 'default' : 'secondary'}
             className={cn(
-              'flex-1 gap-1.5 text-xs',
+              'flex-1 gap-1.5',
               t.isMember && t.status === 'ACTIVE' && 'shadow-gold',
             )}
           >
             <Link href={`/tournaments/${t.id}`}>
               {t.isMember ? 'Open' : 'View'}
-              <ArrowRight className="h-3 w-3" />
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
 
