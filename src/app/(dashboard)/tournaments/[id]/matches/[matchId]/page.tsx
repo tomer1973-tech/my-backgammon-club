@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound }      from 'next/navigation'
 import { getMatch }      from '@/actions/match'
+import { getMatchLikes } from '@/actions/social'
 import { MatchScreen }   from '@/components/match/match-screen'
 
 export const dynamic = 'force-dynamic'
@@ -21,5 +22,10 @@ export default async function MatchPage({ params }: Props) {
   // Verify match belongs to this tournament
   if (match.tournamentId !== params.id) notFound()
 
-  return <MatchScreen initialMatch={match} />
+  // Fetch like data for the social bar (only relevant when completed)
+  const likeData = match.status === 'COMPLETED'
+    ? await getMatchLikes(match.id).catch(() => ({ count: 0, likedByMe: false }))
+    : { count: 0, likedByMe: false }
+
+  return <MatchScreen initialMatch={match} initialLikeData={likeData} />
 }

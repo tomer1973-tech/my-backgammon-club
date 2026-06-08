@@ -3,7 +3,7 @@
 import Link              from 'next/link'
 import { usePathname }   from 'next/navigation'
 import {
-  Trophy, BarChart2, Users, Settings, type LucideIcon,
+  Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, type LucideIcon,
 } from 'lucide-react'
 import { cn }            from '@/lib/utils'
 import { NAV_ITEMS }     from './nav-items'
@@ -12,7 +12,7 @@ import { Badge }         from '@/components/ui/badge'
 import type { SessionUser } from '@/types'
 
 // Icon map — driven by the string names in nav-items.ts
-const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings }
+const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap }
 
 const ROLE_VARIANT = {
   ADMIN:               'admin',
@@ -42,11 +42,12 @@ export function SidebarNav({ user }: SidebarNavProps) {
 
       {/* Nav links */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {NAV_ITEMS.map(item => {
-          const Icon = ICONS[item.icon]
-          const active = item.matchExact
+        {NAV_ITEMS.filter(item => !item.adminOnly || user.role === 'ADMIN').map(item => {
+          const Icon     = ICONS[item.icon]
+          const active   = item.matchExact
             ? pathname === item.href
             : pathname.startsWith(item.href)
+          const isQuick  = item.href === '/quick-game'
 
           return (
             <Link
@@ -55,17 +56,27 @@ export function SidebarNav({ user }: SidebarNavProps) {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium',
                 'transition-all duration-150',
-                active
-                  ? 'bg-gold/10 text-gold border border-gold/20'
-                  : 'text-ink-muted hover:text-ink hover:bg-surface-raised border border-transparent',
+                isQuick && !active
+                  ? 'text-gold border border-gold/20 bg-gold/5 hover:bg-gold/10 hover:border-gold/40'
+                  : active
+                    ? 'bg-gold/10 text-gold border border-gold/20'
+                    : 'text-ink-muted hover:text-ink hover:bg-surface-raised border border-transparent',
               )}
             >
               {Icon && (
                 <Icon
-                  className={cn('h-4 w-4 flex-shrink-0', active ? 'text-gold' : 'text-ink-subtle')}
+                  className={cn(
+                    'h-4 w-4 flex-shrink-0',
+                    isQuick || active ? 'text-gold' : 'text-ink-subtle',
+                  )}
                 />
               )}
               {item.label}
+              {isQuick && !active && (
+                <span className="ml-auto rounded-full bg-gold/20 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
+                  Free
+                </span>
+              )}
             </Link>
           )
         })}
@@ -74,7 +85,9 @@ export function SidebarNav({ user }: SidebarNavProps) {
       {/* User footer */}
       <div className="border-t border-line px-4 py-4">
         <div className="flex items-center gap-3">
-          <Avatar name={user.name} src={user.avatarUrl} size="sm" />
+          <Avatar name={user.name} src={user.avatarUrl} size="sm"
+            className="ring-1 ring-gold/30 ring-offset-1 ring-offset-surface-base border-none"
+          />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-ink truncate">{user.name}</p>
             <Badge

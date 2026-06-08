@@ -86,6 +86,8 @@ export interface SessionUser {
   name:        string
   role:        UserRole
   avatarUrl?:  string | null
+  bio?:        string | null
+  isPrivate?:  boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

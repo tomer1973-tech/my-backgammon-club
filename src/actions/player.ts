@@ -110,10 +110,7 @@ export async function addMemberByEmail(
 
   const { tournamentId, email } = parsed.data
 
-  if (!await canManageTournament(tournamentId, user.id, user.role)) {
-    return { success: false, error: 'You do not have permission to add players to this tournament.' }
-  }
-
+  // Any logged-in user may add players
   const tournament = await db.tournament.findUnique({
     where:  { id: tournamentId, deletedAt: null },
     select: { maxPlayers: true, _count: { select: { members: true } } },
@@ -168,10 +165,7 @@ export async function addGuestMember(
 
   const { tournamentId, guestName } = parsed.data
 
-  if (!await canManageTournament(tournamentId, user.id, user.role)) {
-    return { success: false, error: 'You do not have permission to add players to this tournament.' }
-  }
-
+  // Any logged-in user may add players
   const tournament = await db.tournament.findUnique({
     where:  { id: tournamentId, deletedAt: null },
     select: { maxPlayers: true, _count: { select: { members: true } } },

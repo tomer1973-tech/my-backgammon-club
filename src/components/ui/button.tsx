@@ -74,13 +74,11 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, isLoading, disabled, asChild = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button'
-    return (
-      <Comp
-        ref={ref}
-        className={cn(buttonVariants({ variant, size }), className)}
-        disabled={!asChild && (disabled || isLoading)}
-        {...props}
-      >
+    // When asChild=true, Radix Slot uses React.Children.only() which requires
+    // exactly one child. We must not pass any sibling expressions (even `false`)
+    // alongside children, so we branch here instead of using inline conditionals.
+    const inner = asChild ? children : (
+      <>
         {isLoading && (
           <svg
             className="h-4 w-4 animate-spin"
@@ -102,6 +100,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           </svg>
         )}
         {children}
+      </>
+    )
+
+    return (
+      <Comp
+        ref={ref}
+        className={cn(buttonVariants({ variant, size }), className)}
+        disabled={!asChild && (disabled || isLoading)}
+        {...props}
+      >
+        {inner}
       </Comp>
     )
   },

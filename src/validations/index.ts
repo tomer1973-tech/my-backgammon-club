@@ -150,6 +150,8 @@ export const createMatchSchema = z
     player1Id:    uuidSchema,
     player2Id:    uuidSchema,
     targetScore:  z.number().int().min(1).max(99),
+    // ISO string for scheduled matches; absent = start immediately
+    scheduledAt:  z.string().datetime({ offset: true }).optional(),
   })
   .refine(d => d.player1Id !== d.player2Id, {
     message: 'A player cannot play against themselves',

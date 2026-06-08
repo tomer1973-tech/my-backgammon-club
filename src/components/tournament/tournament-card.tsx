@@ -2,7 +2,7 @@
 
 import Link                         from 'next/link'
 import { useState }                 from 'react'
-import { MapPin, Users, Calendar, Crown, MoreVertical, Trash2, Archive } from 'lucide-react'
+import { MapPin, Users, Calendar, Crown, MoreVertical, Trash2, Archive, ArrowRight } from 'lucide-react'
 import { Button }                   from '@/components/ui/button'
 import { FormatBadge }              from './format-badge'
 import { StatusBadge }              from './status-badge'
@@ -35,10 +35,10 @@ export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCa
       <div
         className={cn(
           'group relative flex flex-col rounded-xl border bg-surface-raised',
-          'transition-all duration-200 hover:border-gold/40 hover:shadow-gold',
+          'transition-all duration-200',
           t.status === 'ACTIVE'
-            ? 'border-win/30'
-            : 'border-line',
+            ? 'border-win/30 hover:border-win/60 hover:shadow-[0_0_0_1px_hsl(var(--win)/0.15),0_4px_20px_hsl(var(--win)/0.08)]'
+            : 'border-line hover:border-gold/40 hover:shadow-gold',
         )}
       >
         {/* Card body — links to detail page */}
@@ -86,9 +86,18 @@ export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCa
 
         {/* Actions row */}
         <div className="flex items-center gap-2 border-t border-line/50 px-5 py-3">
-          <Button asChild size="sm" variant="secondary" className="flex-1 text-xs">
+          <Button
+            asChild
+            size="sm"
+            variant={t.isMember && t.status === 'ACTIVE' ? 'default' : 'secondary'}
+            className={cn(
+              'flex-1 gap-1.5 text-xs',
+              t.isMember && t.status === 'ACTIVE' && 'shadow-gold',
+            )}
+          >
             <Link href={`/tournaments/${t.id}`}>
               {t.isMember ? 'Open' : 'View'}
+              <ArrowRight className="h-3 w-3" />
             </Link>
           </Button>
 

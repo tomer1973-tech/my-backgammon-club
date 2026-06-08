@@ -23,7 +23,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const player = await db.player.findUnique({
     where: { supabaseUid: user.id },
-    select: { id: true, email: true, name: true, role: true, avatarUrl: true },
+    select: { id: true, email: true, name: true, role: true, avatarUrl: true, bio: true, isPrivate: true },
   })
 
   if (!player) return null
@@ -35,6 +35,8 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     name:        player.name,
     role:        player.role,
     avatarUrl:   player.avatarUrl,
+    bio:         player.bio,
+    isPrivate:   player.isPrivate,
   }
 })
 

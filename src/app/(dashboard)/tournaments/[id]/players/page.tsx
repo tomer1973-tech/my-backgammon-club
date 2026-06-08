@@ -31,7 +31,8 @@ export default async function PlayersPage({ params }: Props) {
   }
 
   const user      = await getSessionUser()
-  const canManage = tournament.isOwner || tournament.userRole === 'ORGANIZER' || user?.role === 'ADMIN'
+  // Any logged-in user can add players to a tournament
+  const canManage = !!user
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">

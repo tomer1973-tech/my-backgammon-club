@@ -27,13 +27,21 @@ import { RecordGamePanel }             from './record-game-panel'
 import { GameLog }                     from './game-log'
 import { DoubleDialog }                from './double-dialog'
 import { MatchCompleteDialog }         from './match-complete-dialog'
+import { LikeButton }                  from '@/components/social/like-button'
+import { ShareButton }                 from '@/components/social/share-button'
 import type { Match, MatchGame, MatchStatus, OpeningType } from '@/types'
 
-interface MatchScreenProps {
-  initialMatch: Match
+interface LikeData {
+  count:     number
+  likedByMe: boolean
 }
 
-export function MatchScreen({ initialMatch }: MatchScreenProps) {
+interface MatchScreenProps {
+  initialMatch:    Match
+  initialLikeData?: LikeData
+}
+
+export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps) {
   // Local state — mirrors DB, updated optimistically after each action
   const [match, setMatch] = useState(initialMatch)
 
@@ -202,6 +210,26 @@ export function MatchScreen({ initialMatch }: MatchScreenProps) {
         <div className="rounded-xl border border-line bg-surface-raised px-5 py-4">
           <p className="text-xs text-ink-subtle">Opening style</p>
           <p className="mt-0.5 text-sm font-medium text-ink">{match.openingType.replace(/_/g, ' ')}</p>
+        </div>
+      )}
+
+      {/* Social bar — like + share for completed matches */}
+      {isOver && (
+        <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-raised px-5 py-4">
+          <LikeButton
+            matchId={match.id}
+            initialLiked={initialLikeData?.likedByMe ?? false}
+            initialCount={initialLikeData?.count ?? 0}
+          />
+          <ShareButton
+            matchId={match.id}
+            player1Name={match.player1Name}
+            player2Name={match.player2Name}
+            player1Score={match.player1Score}
+            player2Score={match.player2Score}
+            winnerName={match.winnerName ?? match.player1Name}
+            tournamentName={match.tournamentName}
+          />
         </div>
       )}
 

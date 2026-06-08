@@ -216,13 +216,13 @@ export async function getStandings(tournamentId: string): Promise<StandingsRow[]
 
 export async function createMatch(
   data: unknown,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; scheduled: boolean }>> {
   const user = await requireSessionUser()
 
   const parsed = createMatchSchema.safeParse(data)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
 
-  const { tournamentId, player1Id, player2Id, targetScore } = parsed.data
+  const { tournamentId, player1Id, player2Id, targetScore, scheduledAt } = parsed.data
 
   // Verify both members belong to this tournament
   const [m1, m2] = await Promise.all([
@@ -232,8 +232,8 @@ export async function createMatch(
   if (!m1 || m1.tournamentId !== tournamentId) return { success: false, error: 'Player 1 is not in this tournament.' }
   if (!m2 || m2.tournamentId !== tournamentId) return { success: false, error: 'Player 2 is not in this tournament.' }
 
-  // Check for already-active match between these two
-  const active = await db.match.findFirst({
+  // Check for already-active/scheduled match between these two
+  const existing = await db.match.findFirst({
     where: {
       tournamentId,
       status: { in: ['PENDING', 'ACTIVE'] },
@@ -243,23 +243,26 @@ export async function createMatch(
       ],
     },
   })
-  if (active) return { success: false, error: 'These players already have an active match.' }
+  if (existing) return { success: false, error: 'These players already have an active or scheduled match.' }
 
+  const isScheduled = !!scheduledAt
   const match = await db.match.create({
     data: {
       tournamentId,
       player1Id,
       player2Id,
       targetScore,
-      status:      'ACTIVE',   // skip PENDING — create and start immediately
-      startedAt:   new Date(),
+      status:       isScheduled ? 'PENDING' : 'ACTIVE',
+      scheduledAt:  scheduledAt ? new Date(scheduledAt) : null,
+      startedAt:    isScheduled ? null : new Date(),
       recordedById: user.id,
     },
     select: { id: true },
   })
 
   revalidatePath(`/tournaments/${tournamentId}/matches`)
-  return { success: true, data: { id: match.id } }
+  revalidatePath('/schedule')
+  return { success: true, data: { id: match.id, scheduled: isScheduled } }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -621,5 +624,110 @@ export async function setMatchScore(
   })
 
   revalidatePath(`/tournaments/${match.tournamentId}/matches/${matchId}`)
+  return { success: true, data: undefined }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCHEDULED MATCH HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface UpcomingMatch {
+  id:            string
+  tournamentId:  string
+  tournamentName: string
+  player1Name:   string
+  player2Name:   string
+  targetScore:   number
+  scheduledAt:   Date | null
+  createdAt:     Date
+}
+
+/** All PENDING matches (across all tournaments the current user is in). */
+export async function getUpcomingMatches(): Promise<UpcomingMatch[]> {
+  const user = await requireSessionUser()
+
+  // Find tournament IDs the user belongs to
+  const memberships = await db.tournamentMember.findMany({
+    where: { playerId: user.id },
+    select: { tournamentId: true },
+  })
+  const tournamentIds = memberships.map(m => m.tournamentId)
+
+  const matches = await db.match.findMany({
+    where: {
+      tournamentId: { in: tournamentIds },
+      status: 'PENDING',
+    },
+    include: {
+      tournament: { select: { name: true } },
+      player1:    { select: { player: { select: { name: true } }, guestName: true } },
+      player2:    { select: { player: { select: { name: true } }, guestName: true } },
+    },
+    orderBy: [
+      { scheduledAt: { sort: 'asc', nulls: 'last' } },
+      { createdAt: 'asc' },
+    ],
+  })
+
+  return matches.map(m => ({
+    id:             m.id,
+    tournamentId:   m.tournamentId,
+    tournamentName: m.tournament.name,
+    player1Name:    m.player1.player?.name ?? m.player1.guestName ?? 'Unknown',
+    player2Name:    m.player2.player?.name ?? m.player2.guestName ?? 'Unknown',
+    targetScore:    m.targetScore,
+    scheduledAt:    m.scheduledAt,
+    createdAt:      m.createdAt,
+  }))
+}
+
+/** Start a scheduled (PENDING) match immediately. */
+export async function startScheduledMatch(matchId: string): Promise<ActionResult> {
+  const user = await requireSessionUser()
+
+  const match = await db.match.findUnique({
+    where: { id: matchId },
+    select: { status: true, tournamentId: true, player1Id: true, player2Id: true },
+  })
+  if (!match) return { success: false, error: 'Match not found.' }
+  if (match.status !== 'PENDING') return { success: false, error: 'Match is not pending.' }
+
+  // Must be a member of the tournament
+  const membership = await db.tournamentMember.findFirst({
+    where: { tournamentId: match.tournamentId, playerId: user.id },
+  })
+  if (!membership && user.role !== 'ADMIN') {
+    return { success: false, error: 'You are not a member of this tournament.' }
+  }
+
+  await db.match.update({
+    where: { id: matchId },
+    data:  { status: 'ACTIVE', startedAt: new Date() },
+  })
+
+  revalidatePath(`/tournaments/${match.tournamentId}/matches`)
+  revalidatePath('/schedule')
+  return { success: true, data: undefined }
+}
+
+/** Cancel (delete) a scheduled (PENDING) match. */
+export async function cancelScheduledMatch(matchId: string): Promise<ActionResult> {
+  const user = await requireSessionUser()
+
+  const match = await db.match.findUnique({
+    where: { id: matchId },
+    select: { status: true, tournamentId: true, recordedById: true },
+  })
+  if (!match) return { success: false, error: 'Match not found.' }
+  if (match.status !== 'PENDING') return { success: false, error: 'Only pending matches can be cancelled.' }
+
+  if (match.recordedById !== user.id && user.role !== 'ADMIN') {
+    return { success: false, error: 'Only the creator or an admin can cancel this match.' }
+  }
+
+  await db.match.delete({ where: { id: matchId } })
+
+  revalidatePath(`/tournaments/${match.tournamentId}/matches`)
+  revalidatePath('/schedule')
   return { success: true, data: undefined }
 }

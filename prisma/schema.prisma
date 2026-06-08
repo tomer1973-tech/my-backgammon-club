@@ -53,6 +53,12 @@ enum MemberRole {
   PARTICIPANT
 }
 
+enum FollowRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
 enum MatchStatus {
   PENDING    // Scheduled, not yet started
   ACTIVE     // In progress
@@ -80,6 +86,8 @@ model Player {
   name        String
   role        UserRole @default(PLAYER)
   avatarUrl   String?  @map("avatar_url")
+  bio         String?  @map("bio")
+  isPrivate   Boolean  @default(false) @map("is_private")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt      @map("updated_at")
 
@@ -87,6 +95,14 @@ model Player {
   createdTournaments Tournament[]       @relation("TournamentCreator")
   recordedGames      Game[]             @relation("GameRecorder")
   recordedMatches    Match[]            @relation("MatchRecorder")
+
+  following          Follow[]             @relation("Follower")
+  followers          Follow[]             @relation("Following")
+  likedMatches       MatchLike[]
+  ownedGroups        FriendGroup[]        @relation("GroupCreator")
+  groupMemberships   FriendGroupMember[]
+  followRequestsSent     FollowRequest[]  @relation("FollowRequestFrom")
+  followRequestsReceived FollowRequest[]  @relation("FollowRequestTo")
 
   @@map("players")
 }
@@ -192,6 +208,7 @@ model Match {
   winnerId     String?     @map("winner_id")
   openingType  OpeningType? @map("opening_type")
   notes        String?
+  scheduledAt  DateTime?   @map("scheduled_at")   // null = start immediately
   startedAt    DateTime?   @map("started_at")
   completedAt  DateTime?   @map("completed_at")
   duration     Int?        // seconds, filled on completion
@@ -206,6 +223,7 @@ model Match {
   cubeOwner  TournamentMember? @relation("MatchCubeOwner", fields: [cubeOwnerId], references: [id], onDelete: SetNull)
   recordedBy Player            @relation("MatchRecorder",  fields: [recordedById],references: [id], onDelete: Restrict)
   games      MatchGame[]
+  likes      MatchLike[]
 
   @@index([tournamentId, status])
   @@index([tournamentId, createdAt(sort: Desc)])
@@ -264,4 +282,72 @@ model Game {
   @@index([winnerId])
   @@index([loserId])
   @@map("games")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SOCIAL FEATURES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  follower    Player   @relation("Follower",  fields: [followerId],  references: [id], onDelete: Cascade)
+  following   Player   @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model MatchLike {
+  id        String   @id @default(uuid())
+  matchId   String   @map("match_id")
+  playerId  String   @map("player_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  match     Match    @relation(fields: [matchId],  references: [id], onDelete: Cascade)
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  @@unique([matchId, playerId])
+  @@index([matchId])
+  @@map("match_likes")
+}
+
+model FriendGroup {
+  id          String   @id @default(uuid())
+  name        String
+  createdById String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+  createdBy   Player   @relation("GroupCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  members     FriendGroupMember[]
+  @@index([createdById])
+  @@map("friend_groups")
+}
+
+model FriendGroupMember {
+  id       String      @id @default(uuid())
+  groupId  String      @map("group_id")
+  playerId String      @map("player_id")
+  joinedAt DateTime    @default(now()) @map("joined_at")
+  group    FriendGroup @relation(fields: [groupId],  references: [id], onDelete: Cascade)
+  player   Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  @@unique([groupId, playerId])
+  @@index([groupId])
+  @@map("friend_group_members")
+}
+
+model FollowRequest {
+  id        String              @id @default(uuid())
+  fromId    String              @map("from_id")
+  toId      String              @map("to_id")
+  status    FollowRequestStatus @default(PENDING)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt      @map("updated_at")
+  from      Player              @relation("FollowRequestFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to        Player              @relation("FollowRequestTo",   fields: [toId],   references: [id], onDelete: Cascade)
+  @@unique([fromId, toId])
+  @@index([fromId])
+  @@index([toId])
+  @@map("follow_requests")
 }

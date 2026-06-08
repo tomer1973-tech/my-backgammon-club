@@ -13,7 +13,7 @@
 
 import { useState, useMemo }     from 'react'
 import Link                      from 'next/link'
-import { Plus, LogIn, Search, Trophy, Filter } from 'lucide-react'
+import { Plus, LogIn, Search, Trophy, Filter, Zap } from 'lucide-react'
 import { Button }                from '@/components/ui/button'
 import { Input }                 from '@/components/ui/input'
 import { TournamentCard }        from './tournament-card'
@@ -78,26 +78,55 @@ export function LobbyClient({ initialTournaments }: LobbyClientProps) {
         <div>
           <h1 className="text-2xl font-bold text-ink">Lobby</h1>
           <p className="text-sm text-ink-muted mt-0.5">
-            {tournaments.filter(t => !t.deletedAt).length} tournaments
+            {tournaments.filter(t => !t.deletedAt).length} tournament{tournaments.filter(t => !t.deletedAt).length !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="secondary"
+            variant="ghost"
             size="sm"
             onClick={() => setJoinOpen(true)}
-            className="gap-1.5"
+            className="gap-1.5 border border-line hover:border-gold/40"
           >
             <LogIn className="h-4 w-4" />
             Join
           </Button>
-          <Button asChild size="sm" className="gap-1.5">
+          <Button asChild size="sm" className="gap-1.5 shadow-gold">
             <Link href="/tournaments/new">
               <Plus className="h-4 w-4" />
               New tournament
             </Link>
           </Button>
         </div>
+      </div>
+
+      {/* Quick Game CTA banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-gold/25 bg-surface-raised
+        flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5">
+        {/* Ambient glow */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0
+            bg-[radial-gradient(ellipse_60%_100%_at_0%_50%,hsl(var(--gold)/0.07),transparent)]"
+        />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl
+            border border-gold/30 bg-gold/10 text-2xl shadow-gold">
+            🎲
+          </div>
+          <div>
+            <h3 className="font-semibold text-ink leading-tight">Quick Game</h3>
+            <p className="text-xs text-ink-muted mt-0.5">
+              Instant scoring for any number of players — no account needed
+            </p>
+          </div>
+        </div>
+        <Button asChild className="relative shrink-0 gap-2 shadow-gold" size="sm">
+          <Link href="/quick-game">
+            <Zap className="h-3.5 w-3.5" />
+            Play Now
+          </Link>
+        </Button>
       </div>
 
       {/* Search + filter row */}

@@ -3,15 +3,19 @@
 import Link            from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Trophy, BarChart2, Users, Settings, type LucideIcon,
+  Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, type LucideIcon,
 } from 'lucide-react'
 import { cn }          from '@/lib/utils'
 import { NAV_ITEMS }   from './nav-items'
 
-const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings }
+const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap }
 
-export function MobileNav() {
+// Mobile nav needs role — we pass it via a wrapper that reads from layout
+interface MobileNavProps { userRole?: string }
+
+export function MobileNav({ userRole }: MobileNavProps) {
   const pathname = usePathname()
+  const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || userRole === 'ADMIN')
 
   return (
     <nav
@@ -20,7 +24,7 @@ export function MobileNav() {
         pb-[env(safe-area-inset-bottom)]"
     >
       <div className="flex items-center justify-around px-2 py-2">
-        {NAV_ITEMS.map(item => {
+        {visibleItems.map(item => {
           const Icon = ICONS[item.icon]
           const active = item.matchExact
             ? pathname === item.href
