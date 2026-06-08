@@ -25,7 +25,8 @@ export async function middleware(request: NextRequest) {
     pathname === '/register'         ||
     pathname === '/forgot-password'  ||
     pathname === '/verify-email'     ||
-    pathname.startsWith('/auth/')    // /auth/callback, etc.
+    pathname.startsWith('/auth/')    || // /auth/callback, etc.
+    pathname.startsWith('/quick-game')  // no-account quick game mode
 
   // Redirect authenticated users away from auth pages
   if (isPublicRoute && isAuthed && !pathname.startsWith('/auth/')) {

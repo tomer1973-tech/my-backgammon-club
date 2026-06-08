@@ -37,6 +37,22 @@ export default function LoginPage({ searchParams }: Props) {
         <LoginForm />
       </div>
 
+      {/* Quick game — no account needed */}
+      <div className="mt-4 rounded-xl border border-line-gold/30 bg-surface-raised/60 px-4 py-3
+        flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-ink">Just want to play?</p>
+          <p className="text-xs text-ink-subtle">Score a quick game — no account needed</p>
+        </div>
+        <Link
+          href="/quick-game"
+          className="shrink-0 rounded-lg border border-line-gold/50 bg-surface-elevated
+            px-3 py-2 text-xs font-semibold text-gold hover:bg-gold/10 transition-colors"
+        >
+          Quick Game →
+        </Link>
+      </div>
+
       {/* Footer */}
       <p className="mt-6 text-center text-sm text-ink-subtle">
         Don&apos;t have an account?{' '}
