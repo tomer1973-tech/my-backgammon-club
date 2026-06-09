@@ -50,33 +50,56 @@ const TYPE_LABEL: Record<GameType, string> = {
 const GAME_TYPES: GameType[] = ['NORMAL', 'GAMMON', 'BACKGAMMON']
 
 const TARGET_OPTIONS = [
-  { v: 1,  l: '1 pt  — Quick'    },
-  { v: 3,  l: '3 pts'            },
-  { v: 5,  l: '5 pts'            },
-  { v: 7,  l: '7 pts — Standard' },
-  { v: 9,  l: '9 pts'            },
-  { v: 11, l: '11 pts — Long'    },
-  { v: 13, l: '13 pts'           },
-  { v: 15, l: '15 pts'           },
+  { v: 1,  l: '1 pt'   },
+  { v: 2,  l: '2 pts'  },
+  { v: 3,  l: '3 pts'  },
+  { v: 4,  l: '4 pts'  },
+  { v: 5,  l: '5 pts'  },
+  { v: 6,  l: '6 pts'  },
+  { v: 7,  l: '7 pts'  },
+  { v: 8,  l: '8 pts'  },
+  { v: 9,  l: '9 pts'  },
+  { v: 10, l: '10 pts' },
+  { v: 11, l: '11 pts' },
+  { v: 12, l: '12 pts' },
+  { v: 13, l: '13 pts' },
+  { v: 14, l: '14 pts' },
+  { v: 15, l: '15 pts' },
 ]
 
-const LS_KEY = 'qg_roster_v1'
+const LS_KEY        = 'qg_roster_v1'
+const LS_RACE_TO    = 'qg_race_to_v1'
 
 function uid() { return Math.random().toString(36).slice(2, 10) }
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export function QuickGameClient() {
-  const [roster,   setRoster]  = useState<Player[]>([])
-  const [phase,    setPhase]   = useState<Phase>('roster')
-  const [match,    setMatch]   = useState<ActiveMatch | null>(null)
-  const [hydrated, setHydrated] = useState(false)
+  const [roster,       setRoster]      = useState<Player[]>([])
+  const [phase,        setPhase]       = useState<Phase>('roster')
+  const [match,        setMatch]       = useState<ActiveMatch | null>(null)
+  const [hydrated,     setHydrated]    = useState(false)
+  const [defaultRaceTo, setDefaultRaceTo] = useState(7)
 
-  // Load roster from localStorage once on mount
+  // Load roster (and optional race-to pref) from localStorage once on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(LS_KEY)
-      if (saved) setRoster(JSON.parse(saved))
+      if (saved) {
+        const players: Player[] = JSON.parse(saved)
+        setRoster(players)
+        // If we arrived with a pre-built roster (≥2 players), jump to setup
+        if (players.length >= 2) setPhase('setup')
+      }
+    } catch {}
+    try {
+      const savedRaceTo = localStorage.getItem(LS_RACE_TO)
+      if (savedRaceTo) {
+        const n = parseInt(savedRaceTo, 10)
+        if (!isNaN(n)) setDefaultRaceTo(n)
+        // Consume it so the next manual visit starts fresh
+        localStorage.removeItem(LS_RACE_TO)
+      }
     } catch {}
     setHydrated(true)
   }, [])
@@ -173,6 +196,7 @@ export function QuickGameClient() {
       {phase === 'setup'    && (
         <SetupPhase
           roster={roster}
+          defaultTarget={defaultRaceTo}
           onStart={startMatch}
           onBack={() => setPhase('roster')}
         />
@@ -311,15 +335,16 @@ function RosterPhase({
 // ─── Setup Phase ───────────────────────────────────────────────────────────────
 
 function SetupPhase({
-  roster, onStart, onBack,
+  roster, defaultTarget, onStart, onBack,
 }: {
-  roster:   Player[]
-  onStart:  (p1: Player, p2: Player, target: number) => void
-  onBack:   () => void
+  roster:        Player[]
+  defaultTarget: number
+  onStart:       (p1: Player, p2: Player, target: number) => void
+  onBack:        () => void
 }) {
   const [p1Id,   setP1Id]   = useState<string | null>(null)
   const [p2Id,   setP2Id]   = useState<string | null>(null)
-  const [target, setTarget] = useState(7)
+  const [target, setTarget] = useState(defaultTarget)
 
   const p1 = roster.find(p => p.id === p1Id)
   const p2 = roster.find(p => p.id === p2Id)
@@ -360,7 +385,7 @@ function SetupPhase({
           <label className="block text-xs font-medium text-ink-muted uppercase tracking-wide mb-2">
             Race to
           </label>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5">
             {TARGET_OPTIONS.map(o => (
               <button
                 key={o.v}

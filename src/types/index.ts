@@ -85,9 +85,10 @@ export interface SessionUser {
   email:       string
   name:        string
   role:        UserRole
-  avatarUrl?:  string | null
-  bio?:        string | null
-  isPrivate?:  boolean
+  avatarUrl?:   string | null
+  bio?:         string | null
+  isPrivate?:   boolean
+  isSuspended?: boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

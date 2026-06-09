@@ -35,9 +35,9 @@ export function Dialog({ open, onClose, title, children, className, size = 'md' 
     const dialog = ref.current
     if (!dialog) return
     if (open) {
-      dialog.showModal()
+      if (!dialog.open) dialog.showModal()
     } else {
-      dialog.close()
+      if (dialog.open) dialog.close()
     }
   }, [open])
 

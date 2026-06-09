@@ -731,3 +731,34 @@ export async function cancelScheduledMatch(matchId: string): Promise<ActionResul
   revalidatePath('/schedule')
   return { success: true, data: undefined }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ABANDON ACTIVE MATCH
+// Voids an in-progress match — no winner recorded, standings unchanged.
+// Only the match creator or an ADMIN can abandon.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function abandonMatch(matchId: string): Promise<ActionResult> {
+  const user = await requireSessionUser()
+
+  const match = await db.match.findUnique({
+    where:  { id: matchId },
+    select: { status: true, tournamentId: true, recordedById: true },
+  })
+  if (!match) return { success: false, error: 'Match not found.' }
+  if (match.status === 'COMPLETED') {
+    return { success: false, error: 'Completed matches cannot be abandoned.' }
+  }
+
+  if (match.recordedById !== user.id && user.role !== 'ADMIN') {
+    return { success: false, error: 'Only the match creator or an admin can abandon this match.' }
+  }
+
+  // Delete the match (cascades match games)
+  await db.match.delete({ where: { id: matchId } })
+
+  revalidatePath(`/tournaments/${match.tournamentId}/matches`)
+  revalidatePath(`/tournaments/${match.tournamentId}`)
+  revalidatePath('/schedule')
+  return { success: true, data: undefined }
+}

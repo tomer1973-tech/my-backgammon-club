@@ -18,9 +18,11 @@
  * after each server action without a full page refresh.
  */
 
-import { useState }                    from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import Link                            from 'next/link'
-import { ChevronLeft, Clock }          from 'lucide-react'
+import { useRouter }                   from 'next/navigation'
+import { ChevronLeft, Clock, Trash2 }  from 'lucide-react'
+import { abandonMatch, cancelScheduledMatch } from '@/actions/match'
 import { ScoreBoard }                  from './score-board'
 import { DoublingCube }                from './doubling-cube'
 import { RecordGamePanel }             from './record-game-panel'
@@ -58,6 +60,19 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
 
   const isOver    = match.status === 'COMPLETED'
   const isActive  = match.status === 'ACTIVE'
+  const isPending = match.status === 'PENDING'
+
+  const router = useRouter()
+  const [abandonPending, startAbandonTransition] = useTransition()
+  const [confirmAbandon, setConfirmAbandon]      = useState(false)
+
+  function handleAbandon() {
+    startAbandonTransition(async () => {
+      const action = isPending ? cancelScheduledMatch : abandonMatch
+      const res = await action(match.id)
+      if (res.success) router.push(`/tournaments/${match.tournamentId}/matches`)
+    })
+  }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -124,9 +139,20 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
   }
 
   // ── Duration display ───────────────────────────────────────────────────────
-  const startedAt  = match.startedAt ? new Date(match.startedAt) : null
-  const durationMs = startedAt ? Date.now() - startedAt.getTime() : 0
-  const durationMin = Math.floor(durationMs / 60000)
+  const startedAt   = match.startedAt ? new Date(match.startedAt) : null
+  const [nowMs, setNowMs] = useState<number>(0)
+
+  useEffect(() => {
+    // Only start the clock on the client (avoids SSR mismatch)
+    setNowMs(Date.now())
+    if (!isActive || !startedAt) return
+    const interval = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(interval)
+  }, [isActive, startedAt])
+
+  const durationMin = startedAt && nowMs > 0
+    ? Math.floor((nowMs - startedAt.getTime()) / 60000)
+    : 0
 
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
@@ -147,6 +173,38 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
             </>
           )}
           {isOver && <span className="text-gold font-medium">Completed</span>}
+
+          {/* Abandon / Cancel button for non-completed matches */}
+          {!isOver && (
+            confirmAbandon ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-loss text-xs font-medium">
+                  {isPending ? 'Cancel this match?' : 'Abandon match?'}
+                </span>
+                <button
+                  onClick={handleAbandon}
+                  disabled={abandonPending}
+                  className="rounded-lg bg-loss/10 border border-loss/30 text-loss text-xs font-semibold px-2 py-1 hover:bg-loss/20 transition-colors disabled:opacity-50"
+                >
+                  {abandonPending ? '…' : 'Yes, remove it'}
+                </button>
+                <button
+                  onClick={() => setConfirmAbandon(false)}
+                  className="rounded-lg border border-line text-ink-muted text-xs px-2 py-1 hover:border-gold/30 transition-colors"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmAbandon(true)}
+                className="flex items-center gap-1 rounded-lg border border-line text-ink-subtle text-xs px-2 py-1 hover:border-loss/40 hover:text-loss transition-colors"
+              >
+                <Trash2 className="h-3 w-3" />
+                {isPending ? 'Cancel' : 'Abandon'}
+              </button>
+            )
+          )}
         </div>
       </div>
 

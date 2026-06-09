@@ -41,14 +41,15 @@ export async function getAdminStats(): Promise<AdminStats> {
 // ── Player list ───────────────────────────────────────────────────────────────
 
 export interface AdminPlayer {
-  id:         string
-  name:       string
-  email:      string
-  role:       string
-  avatarUrl:  string | null
-  bio:        string | null
-  isPrivate:  boolean
-  createdAt:  Date
+  id:          string
+  name:        string
+  email:       string
+  role:        string
+  avatarUrl:   string | null
+  bio:         string | null
+  isPrivate:   boolean
+  isSuspended: boolean
+  createdAt:   Date
   totalMatches:     number
   totalTournaments: number
   followerCount:    number
@@ -65,15 +66,16 @@ export async function getAllPlayersAdmin(query?: string): Promise<AdminPlayer[]>
       ],
     } : undefined,
     select: {
-      id:        true,
-      name:      true,
-      email:     true,
-      role:      true,
-      avatarUrl: true,
-      bio:       true,
-      isPrivate: true,
-      createdAt: true,
-      _count:    { select: { followers: true } },
+      id:          true,
+      name:        true,
+      email:       true,
+      role:        true,
+      avatarUrl:   true,
+      bio:         true,
+      isPrivate:   true,
+      isSuspended: true,
+      createdAt:   true,
+      _count:      { select: { followers: true } },
       memberships: {
         select: { wins: true, losses: true },
         where:  { tournament: { deletedAt: null } },
@@ -86,14 +88,15 @@ export async function getAllPlayersAdmin(query?: string): Promise<AdminPlayer[]>
     const totalWins   = p.memberships.reduce((s, m) => s + m.wins,   0)
     const totalLosses = p.memberships.reduce((s, m) => s + m.losses, 0)
     return {
-      id:         p.id,
-      name:       p.name,
-      email:      p.email,
-      role:       p.role,
-      avatarUrl:  p.avatarUrl,
-      bio:        p.bio,
-      isPrivate:  p.isPrivate,
-      createdAt:  p.createdAt,
+      id:          p.id,
+      name:        p.name,
+      email:       p.email,
+      role:        p.role,
+      avatarUrl:   p.avatarUrl,
+      bio:         p.bio,
+      isPrivate:   p.isPrivate,
+      isSuspended: p.isSuspended,
+      createdAt:   p.createdAt,
       totalMatches:     totalWins + totalLosses,
       totalTournaments: p.memberships.length,
       followerCount:    p._count.followers,
@@ -170,4 +173,65 @@ export async function adminResetAvatar(playerId: string): Promise<ActionResult> 
   revalidatePath('/admin')
   revalidatePath(`/players/${playerId}`)
   return { success: true, data: undefined }
+}
+
+// ── Suspend / unsuspend player ────────────────────────────────────────────────
+
+export async function adminToggleSuspend(
+  playerId: string,
+  suspend: boolean,
+): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (playerId === admin.id) {
+    return { success: false, error: 'You cannot suspend your own account.' }
+  }
+  await db.player.update({
+    where: { id: playerId },
+    data:  { isSuspended: suspend },
+  })
+  revalidatePath('/admin')
+  revalidatePath('/players')
+  revalidatePath(`/players/${playerId}`)
+  return { success: true, data: undefined }
+}
+
+// ── Global leaderboard ────────────────────────────────────────────────────────
+
+export interface LeaderboardEntry {
+  id:        string
+  name:      string
+  avatarUrl: string | null
+  wins:      number
+  losses:    number
+  points:    number
+  winRate:   number
+}
+
+export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
+  const rows = await db.tournamentMember.groupBy({
+    by:      ['playerId'],
+    where:   { playerId: { not: null } },
+    _sum:    { wins: true, losses: true, points: true },
+    orderBy: { _sum: { wins: 'desc' } },
+    take:    limit,
+  })
+
+  const playerIds = rows.map(r => r.playerId!).filter(Boolean)
+  const players = await db.player.findMany({
+    where:  { id: { in: playerIds } },
+    select: { id: true, name: true, avatarUrl: true },
+  })
+  const playerMap = new Map(players.map(p => [p.id, p]))
+
+  return rows
+    .filter(r => r.playerId && playerMap.has(r.playerId))
+    .map(r => {
+      const p       = playerMap.get(r.playerId!)!
+      const wins    = r._sum.wins    ?? 0
+      const losses  = r._sum.losses  ?? 0
+      const points  = r._sum.points  ?? 0
+      const total   = wins + losses
+      const winRate = total > 0 ? Math.round((wins / total) * 100) : 0
+      return { id: p.id, name: p.name, avatarUrl: p.avatarUrl, wins, losses, points, winRate }
+    })
 }

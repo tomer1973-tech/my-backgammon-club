@@ -1,20 +1,15 @@
 'use client'
 
-/**
- * AdminPlayerTable — searchable, fully interactive player management table.
- * Inline role editing, delete with confirm, avatar reset, bio preview.
- */
-
 import { useState, useTransition } from 'react'
 import Link                        from 'next/link'
 import { useRouter }               from 'next/navigation'
 import {
-  Search, Shield, User, Trash2, RotateCcw, ChevronDown, Check, X, ExternalLink,
+  Search, Trash2, RotateCcw, Check, X, ExternalLink, Ban, ShieldOff,
 } from 'lucide-react'
 import { Avatar }              from '@/components/ui/avatar'
 import { Button }              from '@/components/ui/button'
 import { Input }               from '@/components/ui/input'
-import { adminUpdatePlayer, adminDeletePlayer, adminResetAvatar } from '@/actions/admin'
+import { adminUpdatePlayer, adminDeletePlayer, adminResetAvatar, adminToggleSuspend } from '@/actions/admin'
 import type { AdminPlayer }    from '@/actions/admin'
 import { cn }                  from '@/lib/utils'
 
@@ -31,13 +26,13 @@ interface Props {
 
 export function AdminPlayerTable({ initialPlayers, currentUserId }: Props) {
   const router = useRouter()
-  const [query, setQuery] = useState('')
-  const [players, setPlayers] = useState(initialPlayers)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName]   = useState('')
-  const [editBio,  setEditBio]    = useState('')
-  const [editRole, setEditRole]   = useState('')
-  const [pending, startTransition] = useTransition()
+  const [query, setQuery]           = useState('')
+  const [players, setPlayers]       = useState(initialPlayers)
+  const [editingId, setEditingId]   = useState<string | null>(null)
+  const [editName, setEditName]     = useState('')
+  const [editBio,  setEditBio]      = useState('')
+  const [editRole, setEditRole]     = useState('')
+  const [pending, startTransition]  = useTransition()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const filtered = query.trim()
@@ -48,25 +43,15 @@ export function AdminPlayerTable({ initialPlayers, currentUserId }: Props) {
     : players
 
   function startEdit(p: AdminPlayer) {
-    setEditingId(p.id)
-    setEditName(p.name)
-    setEditBio(p.bio ?? '')
-    setEditRole(p.role)
+    setEditingId(p.id); setEditName(p.name); setEditBio(p.bio ?? ''); setEditRole(p.role)
   }
-
   function cancelEdit() { setEditingId(null) }
 
   function saveEdit(playerId: string) {
     startTransition(async () => {
-      const res = await adminUpdatePlayer(playerId, {
-        name: editName,
-        bio:  editBio || null,
-        role: editRole,
-      })
+      const res = await adminUpdatePlayer(playerId, { name: editName, bio: editBio || null, role: editRole })
       if (res.success) {
-        setPlayers(prev => prev.map(p =>
-          p.id === playerId ? { ...p, name: editName, bio: editBio || null, role: editRole } : p
-        ))
+        setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, name: editName, bio: editBio || null, role: editRole } : p))
         setEditingId(null)
       }
     })
@@ -75,19 +60,21 @@ export function AdminPlayerTable({ initialPlayers, currentUserId }: Props) {
   function deletePlayer(playerId: string) {
     startTransition(async () => {
       const res = await adminDeletePlayer(playerId)
-      if (res.success) {
-        setPlayers(prev => prev.filter(p => p.id !== playerId))
-        setConfirmDelete(null)
-      }
+      if (res.success) { setPlayers(prev => prev.filter(p => p.id !== playerId)); setConfirmDelete(null) }
     })
   }
 
   function resetAvatar(playerId: string) {
     startTransition(async () => {
       const res = await adminResetAvatar(playerId)
-      if (res.success) {
-        setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, avatarUrl: null } : p))
-      }
+      if (res.success) setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, avatarUrl: null } : p))
+    })
+  }
+
+  function toggleSuspend(playerId: string, currentlySuspended: boolean) {
+    startTransition(async () => {
+      const res = await adminToggleSuspend(playerId, !currentlySuspended)
+      if (res.success) setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, isSuspended: !currentlySuspended } : p))
     })
   }
 
@@ -117,6 +104,7 @@ export function AdminPlayerTable({ initialPlayers, currentUserId }: Props) {
           return (
             <div key={player.id} className={cn(
               'px-5 py-4 transition-colors',
+              player.isSuspended ? 'bg-loss/5 border-l-2 border-loss/30' : '',
               isEditing ? 'bg-surface-elevated' : 'hover:bg-surface-elevated/50',
             )}>
               <div className="flex items-start gap-4">
@@ -124,11 +112,8 @@ export function AdminPlayerTable({ initialPlayers, currentUserId }: Props) {
                 <div className="relative shrink-0">
                   <Avatar name={player.name} src={player.avatarUrl} size="md" />
                   {player.avatarUrl && (
-                    <button
-                      onClick={() => resetAvatar(player.id)}
-                      title="Reset avatar"
-                      className="absolute -top-1 -right-1 rounded-full bg-surface-base border border-line p-0.5 text-ink-subtle hover:text-loss transition-colors"
-                    >
+                    <button onClick={() => resetAvatar(player.id)} title="Reset avatar"
+                      className="absolute -top-1 -right-1 rounded-full bg-surface-base border border-line p-0.5 text-ink-subtle hover:text-loss transition-colors">
                       <RotateCcw className="h-2.5 w-2.5" />
                     </button>
                   )}
@@ -137,63 +122,41 @@ export function AdminPlayerTable({ initialPlayers, currentUserId }: Props) {
                 {/* Main info */}
                 <div className="flex-1 min-w-0">
                   {isEditing ? (
-                    /* Edit mode */
                     <div className="space-y-2">
-                      <input
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
+                      <input value={editName} onChange={e => setEditName(e.target.value)}
                         className="w-full rounded-lg border border-line bg-surface-base px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold/40"
-                        placeholder="Display name"
-                      />
-                      <textarea
-                        value={editBio}
-                        onChange={e => setEditBio(e.target.value)}
-                        rows={2}
+                        placeholder="Display name" />
+                      <textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={2}
                         className="w-full rounded-lg border border-line bg-surface-base px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
-                        placeholder="Bio (optional)"
-                        maxLength={200}
-                      />
-                      {/* Role selector */}
+                        placeholder="Bio (optional)" maxLength={200} />
                       <div className="flex gap-2">
                         {ROLE_OPTIONS.map(r => (
-                          <button
-                            key={r.value}
-                            onClick={() => setEditRole(r.value)}
-                            className={cn(
-                              'flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors',
-                              editRole === r.value
-                                ? 'border-gold bg-gold/10 text-gold'
-                                : 'border-line text-ink-muted hover:border-gold/40',
-                            )}
-                          >
+                          <button key={r.value} onClick={() => setEditRole(r.value)}
+                            className={cn('flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors',
+                              editRole === r.value ? 'border-gold bg-gold/10 text-gold' : 'border-line text-ink-muted hover:border-gold/40')}>
                             {r.label}
                           </button>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    /* View mode */
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          href={`/players/${player.id}`}
-                          className="text-sm font-semibold text-ink hover:text-gold transition-colors flex items-center gap-1"
-                        >
-                          {player.name}
-                          <ExternalLink className="h-3 w-3 opacity-50" />
+                        <Link href={`/players/${player.id}`}
+                          className="text-sm font-semibold text-ink hover:text-gold transition-colors flex items-center gap-1">
+                          {player.name}<ExternalLink className="h-3 w-3 opacity-50" />
                         </Link>
                         <RolePill role={player.role} />
-                        {isSelf && (
-                          <span className="text-[10px] bg-gold/10 text-gold px-1.5 py-0.5 rounded-full font-medium">You</span>
+                        {isSelf && <span className="text-[10px] bg-gold/10 text-gold px-1.5 py-0.5 rounded-full font-medium">You</span>}
+                        {player.isSuspended && (
+                          <span className="text-[10px] bg-loss/15 text-loss px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+                            <Ban className="h-2.5 w-2.5" /> Suspended
+                          </span>
                         )}
-                        {player.isPrivate && (
-                          <span className="text-[10px] bg-surface-elevated text-ink-subtle px-1.5 py-0.5 rounded-full">Private</span>
-                        )}
+                        {player.isPrivate && <span className="text-[10px] bg-surface-elevated text-ink-subtle px-1.5 py-0.5 rounded-full">Private</span>}
                       </div>
                       <p className="text-xs text-ink-subtle mt-0.5 truncate">{player.email}</p>
-                      {player.bio && (
-                        <p className="text-xs text-ink-muted mt-1 line-clamp-1">{player.bio}</p>
-                      )}
+                      {player.bio && <p className="text-xs text-ink-muted mt-1 line-clamp-1">{player.bio}</p>}
                       <div className="flex gap-3 mt-1.5 text-[11px] text-ink-subtle">
                         <span>{player.totalTournaments} tournaments</span>
                         <span>{player.totalMatches} matches</span>
@@ -205,40 +168,47 @@ export function AdminPlayerTable({ initialPlayers, currentUserId }: Props) {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                   {isEditing ? (
                     <>
                       <Button size="sm" onClick={() => saveEdit(player.id)} isLoading={pending} className="gap-1">
                         <Check className="h-3.5 w-3.5" /> Save
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={cancelEdit}>
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
+                      <Button size="sm" variant="ghost" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
                     </>
                   ) : (
                     <>
-                      <Button size="sm" variant="secondary" onClick={() => startEdit(player)} className="text-xs">
-                        Edit
-                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => startEdit(player)} className="text-xs">Edit</Button>
+
                       {!isSelf && (
-                        confirmDelete === player.id ? (
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="destructive" onClick={() => deletePlayer(player.id)} isLoading={pending} className="text-xs">
-                              Confirm
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)} className="text-xs">
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : (
+                        <>
+                          {/* Suspend / Unsuspend */}
                           <Button
-                            size="sm" variant="ghost"
-                            onClick={() => setConfirmDelete(player.id)}
-                            className="text-ink-subtle hover:text-loss"
+                            size="sm"
+                            variant={player.isSuspended ? 'secondary' : 'ghost'}
+                            onClick={() => toggleSuspend(player.id, player.isSuspended)}
+                            isLoading={pending}
+                            title={player.isSuspended ? 'Unsuspend user' : 'Suspend user'}
+                            className={cn('text-xs gap-1', player.isSuspended ? 'text-win' : 'text-loss hover:text-loss')}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            {player.isSuspended
+                              ? <><ShieldOff className="h-3.5 w-3.5" /> Unsuspend</>
+                              : <><Ban className="h-3.5 w-3.5" /> Suspend</>
+                            }
                           </Button>
-                        )
+
+                          {/* Delete */}
+                          {confirmDelete === player.id ? (
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="destructive" onClick={() => deletePlayer(player.id)} isLoading={pending} className="text-xs">Confirm delete</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)} className="text-xs">Cancel</Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(player.id)} className="text-ink-subtle hover:text-loss">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </>
                       )}
                     </>
                   )}
@@ -250,7 +220,7 @@ export function AdminPlayerTable({ initialPlayers, currentUserId }: Props) {
       </div>
 
       <div className="px-5 py-3 border-t border-line text-xs text-ink-subtle">
-        {filtered.length} of {players.length} players
+        {filtered.length} of {players.length} players · {players.filter(p => p.isSuspended).length} suspended
       </div>
     </div>
   )
@@ -263,9 +233,5 @@ function RolePill({ role }: { role: string }) {
     PLAYER:             { label: 'Player',    cls: 'bg-surface-elevated text-ink-subtle' },
   }
   const { label, cls } = map[role] ?? map.PLAYER
-  return (
-    <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', cls)}>
-      {label}
-    </span>
-  )
+  return <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', cls)}>{label}</span>
 }
