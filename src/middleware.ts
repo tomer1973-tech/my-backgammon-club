@@ -19,19 +19,23 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const isAuthed = !!user
 
-  // Routes that are public (no login required)
-  const isPublicRoute =
-    pathname === '/login'            ||
-    pathname === '/register'         ||
-    pathname === '/forgot-password'  ||
-    pathname === '/verify-email'     ||
-    pathname.startsWith('/auth/')    || // /auth/callback, etc.
-    pathname.startsWith('/quick-game')  // no-account quick game mode
+  // Auth-only pages: redirect to / when already signed in
+  // (so logged-in users don't see the login/register forms)
+  const isAuthPage =
+    pathname === '/login'           ||
+    pathname === '/register'        ||
+    pathname === '/forgot-password' ||
+    pathname === '/verify-email'
 
-  // Redirect authenticated users away from auth pages
-  if (isPublicRoute && isAuthed && !pathname.startsWith('/auth/')) {
+  if (isAuthPage && isAuthed) {
     return NextResponse.redirect(new URL('/', request.url))
   }
+
+  // Public routes that anyone can access regardless of auth status
+  const isPublicRoute =
+    isAuthPage                      ||
+    pathname.startsWith('/auth/')   || // /auth/callback, etc.
+    pathname.startsWith('/quick-game') // no-account quick game mode
 
   // Redirect unauthenticated users to login (preserve intended destination)
   if (!isPublicRoute && !isAuthed) {
