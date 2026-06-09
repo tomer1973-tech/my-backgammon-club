@@ -163,11 +163,12 @@ export function QuickMatchDialog({ open, onClose, currentUser }: QuickMatchDialo
   // Render
   // ─────────────────────────────────────────────────────────────────────────
 
-  const canStart = roster.length >= 2
+  const canStart    = roster.length >= 1
+  const hasOpponent = roster.length >= 2
 
   return (
     <Dialog open={open} onClose={onClose} title="Quick Game Setup" size="lg">
-      <div className="flex flex-col gap-5 p-5 overflow-y-auto max-h-[80vh]">
+      <div className="flex flex-col gap-5">
 
         {/* ── Players ───────────────────────────────────────────────────── */}
         <section>
@@ -262,14 +263,16 @@ export function QuickMatchDialog({ open, onClose, currentUser }: QuickMatchDialo
 
           {/* Add guest */}
           {!showGuestInput ? (
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => setShowGuestInput(true)}
-              className="mt-2.5 flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink transition-colors"
+              className="mt-2.5 w-full gap-2"
             >
-              <UserPlus className="h-3.5 w-3.5" />
-              Add guest player (no account needed)
-            </button>
+              <UserPlus className="h-4 w-4" />
+              Add opponent / guest (no account needed)
+            </Button>
           ) : (
             <div className="mt-2.5 flex items-center gap-2">
               <input
@@ -341,9 +344,9 @@ export function QuickMatchDialog({ open, onClose, currentUser }: QuickMatchDialo
 
         {/* ── Footer ────────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-2.5 pt-1">
-          {!canStart && (
+          {!hasOpponent && (
             <p className="text-center text-xs text-ink-subtle">
-              Add at least one more player to start
+              Add an opponent above — or continue and add them on the next screen
             </p>
           )}
 
@@ -359,20 +362,23 @@ export function QuickMatchDialog({ open, onClose, currentUser }: QuickMatchDialo
 
             <Button
               type="button"
-              className={cn(
-                'flex-[2] gap-2',
-                canStart && 'shadow-gold',
-              )}
-              disabled={!canStart}
+              className={cn('flex-[2] gap-2', hasOpponent && 'shadow-gold')}
               onClick={handleStart}
             >
               <Zap className="h-4 w-4" />
-              Start Game
-              {canStart && (
-                <span className="flex items-center gap-0.5 text-xs opacity-70">
-                  · {roster.length} players
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </span>
+              {hasOpponent ? (
+                <>
+                  Start Game
+                  <span className="flex items-center gap-0.5 text-xs opacity-70">
+                    · {roster.length} players
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </span>
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ChevronRight className="h-4 w-4" />
+                </>
               )}
             </Button>
           </div>
