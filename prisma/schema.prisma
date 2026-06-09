@@ -89,6 +89,8 @@ model Player {
   bio         String?  @map("bio")
   isPrivate    Boolean  @default(false) @map("is_private")
   isSuspended  Boolean  @default(false) @map("is_suspended")
+  quickWins    Int      @default(0)     @map("quick_wins")
+  quickLosses  Int      @default(0)     @map("quick_losses")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt      @map("updated_at")
 

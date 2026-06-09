@@ -1,147 +1,152 @@
 'use client'
 
 /**
- * QuickGameClient — no sign-in required backgammon scorer.
+ * QuickGameClient — instant backgammon scorer.
  *
- * Phases:
- *   roster  → add / manage players (saved to localStorage)
- *   setup   → pick 2 players + match length
- *   playing → live score tracking
- *   complete → winner + rematch / new pairing / back to roster
+ * ─── Entry paths ─────────────────────────────────────────────────────────
+ *
+ * 1. Via Quick Match dialog (lobby):
+ *    Lobby writes roster + race-to to localStorage → navigates to /quick-game.
+ *    On mount we read both keys and jump DIRECTLY to the live scoreboard.
+ *    No roster screen, no setup screen, no P1/P2 selection.
+ *
+ * 2. Direct navigation to /quick-game:
+ *    Shows "Add players" + race-to selector.
+ *    Start becomes available as soon as ≥ 2 players are added.
+ *
+ * ─── Stats recording ─────────────────────────────────────────────────────
+ *
+ * When a match completes, the component auto-calls saveQuickGameResult for
+ * any player whose ID is a real DB UUID (registered account).
+ *   • Guest IDs ('guest:…')  → skipped silently
+ *   • Local temp IDs ('local:…') → skipped silently
+ *   • Registered UUIDs       → quickWins / quickLosses incremented
+ *
+ * If the caller is not signed in, the server action returns
+ * { success: false, error: 'not-signed-in' } and we show a sign-in CTA
+ * instead.
  */
 
-import { useState, useEffect, useRef, KeyboardEvent } from 'react'
-import Link         from 'next/link'
-import { UserPlus, X, Trophy, RefreshCcw, Users, Target,
-         CheckCircle2, ChevronLeft, Zap, RotateCcw }  from 'lucide-react'
+import { useState, useEffect, useRef }   from 'react'
+import Link                               from 'next/link'
+import {
+  UserPlus, X, Trophy, RotateCcw, RefreshCcw,
+  Zap, CheckCircle2, ChevronDown, ChevronUp,
+  Users, LogIn, Save,
+} from 'lucide-react'
 import { Avatar }   from '@/components/ui/avatar'
 import { Button }   from '@/components/ui/button'
-import { Input }    from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { cn }       from '@/lib/utils'
+import { saveQuickGameResult } from '@/actions/quick-match'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Player { id: string; name: string }
+interface QPlayer   { id: string; name: string }
+type GameType     = 'NORMAL' | 'GAMMON' | 'BACKGAMMON'
+type Phase        = 'roster' | 'playing' | 'complete'
+type SaveStatus   = 'idle' | 'saving' | 'saved' | 'not-needed' | 'login-required'
 
-type GameType   = 'NORMAL' | 'GAMMON' | 'BACKGAMMON'
-type Phase      = 'roster' | 'setup' | 'playing' | 'complete'
+interface GameRecord { winnerId: string; type: GameType; pts: number }
 
-interface GameRecord { winnerId: string; type: GameType; points: number }
-
-interface ActiveMatch {
-  p1:          Player
-  p2:          Player
-  target:      number
-  p1Score:     number
-  p2Score:     number
-  games:       GameRecord[]
-  winnerId:    string | null
+interface LiveMatch {
+  /** First player */
+  a:        QPlayer
+  /** Second player */
+  b:        QPlayer
+  target:   number
+  scoreA:   number
+  scoreB:   number
+  games:    GameRecord[]
+  /** null while match is in progress */
+  winnerId: string | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MULTIPLIER: Record<GameType, number> = { NORMAL: 1, GAMMON: 2, BACKGAMMON: 3 }
-const TYPE_LABEL: Record<GameType, string> = {
-  NORMAL:     'Normal',
-  GAMMON:     'Gammon',
-  BACKGAMMON: 'Backgammon',
-}
-const GAME_TYPES: GameType[] = ['NORMAL', 'GAMMON', 'BACKGAMMON']
+const MULT:  Record<GameType, number> = { NORMAL: 1, GAMMON: 2, BACKGAMMON: 3 }
+const LABEL: Record<GameType, string> = { NORMAL: 'Normal', GAMMON: 'Gammon', BACKGAMMON: 'Backgammon' }
+const GTYPES: GameType[]              = ['NORMAL', 'GAMMON', 'BACKGAMMON']
+const RACE_OPTIONS                    = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
-const TARGET_OPTIONS = [
-  { v: 1,  l: '1 pt'   },
-  { v: 2,  l: '2 pts'  },
-  { v: 3,  l: '3 pts'  },
-  { v: 4,  l: '4 pts'  },
-  { v: 5,  l: '5 pts'  },
-  { v: 6,  l: '6 pts'  },
-  { v: 7,  l: '7 pts'  },
-  { v: 8,  l: '8 pts'  },
-  { v: 9,  l: '9 pts'  },
-  { v: 10, l: '10 pts' },
-  { v: 11, l: '11 pts' },
-  { v: 12, l: '12 pts' },
-  { v: 13, l: '13 pts' },
-  { v: 14, l: '14 pts' },
-  { v: 15, l: '15 pts' },
-]
+const LS_ROSTER  = 'qg_roster_v1'
+const LS_RACE_TO = 'qg_race_to_v1'
 
-const LS_KEY        = 'qg_roster_v1'
-const LS_RACE_TO    = 'qg_race_to_v1'
+/** UUID shape = a registered player DB record.  Used to decide whether to save stats. */
+const isUUID = (id: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
-function uid() { return Math.random().toString(36).slice(2, 10) }
+/** Generate a local (non-DB) player ID for roster-phase additions. */
+function uid() { return 'local:' + Math.random().toString(36).slice(2, 10) }
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export function QuickGameClient() {
-  const [roster,       setRoster]      = useState<Player[]>([])
-  const [phase,        setPhase]       = useState<Phase>('roster')
-  const [match,        setMatch]       = useState<ActiveMatch | null>(null)
-  const [hydrated,     setHydrated]    = useState(false)
-  const [defaultRaceTo, setDefaultRaceTo] = useState(7)
+  const [roster,   setRoster]   = useState<QPlayer[]>([])
+  const [phase,    setPhase]    = useState<Phase>('roster')
+  const [match,    setMatch]    = useState<LiveMatch | null>(null)
+  const [hydrated, setHydrated] = useState(false)
 
-  // Load roster (and optional race-to pref) from localStorage once on mount
+  // ── Load from localStorage on mount ───────────────────────────────────
   useEffect(() => {
+    let players: QPlayer[]    = []
+    let preRace: number | null = null
+
     try {
-      const saved = localStorage.getItem(LS_KEY)
-      if (saved) {
-        const players: Player[] = JSON.parse(saved)
-        setRoster(players)
-        // If we arrived with a pre-built roster (≥2 players), jump to setup
-        if (players.length >= 2) setPhase('setup')
-      }
+      const r = localStorage.getItem(LS_ROSTER)
+      if (r) players = JSON.parse(r)
     } catch {}
+
     try {
-      const savedRaceTo = localStorage.getItem(LS_RACE_TO)
-      if (savedRaceTo) {
-        const n = parseInt(savedRaceTo, 10)
-        if (!isNaN(n)) setDefaultRaceTo(n)
-        // Consume it so the next manual visit starts fresh
+      const rt = localStorage.getItem(LS_RACE_TO)
+      if (rt) {
+        const n = parseInt(rt, 10)
+        if (!isNaN(n)) preRace = n
+        // Consume race-to so a manual re-visit starts fresh
         localStorage.removeItem(LS_RACE_TO)
       }
     } catch {}
+
+    setRoster(players)
+
+    // Pre-configured via dialog: skip setup, go straight to scoring
+    if (players.length >= 2 && preRace !== null) {
+      setMatch({
+        a: players[0], b: players[1],
+        target: preRace,
+        scoreA: 0, scoreB: 0,
+        games: [], winnerId: null,
+      })
+      setPhase('playing')
+    }
+
     setHydrated(true)
   }, [])
 
-  // Persist roster on every change
+  // ── Persist roster for direct-navigation mode ──────────────────────────
   useEffect(() => {
     if (!hydrated) return
-    try { localStorage.setItem(LS_KEY, JSON.stringify(roster)) } catch {}
+    try { localStorage.setItem(LS_ROSTER, JSON.stringify(roster)) } catch {}
   }, [roster, hydrated])
 
-  function addPlayer(name: string) {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    if (roster.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) return
-    setRoster(prev => [...prev, { id: uid(), name: trimmed }])
-  }
+  // ── Match actions ──────────────────────────────────────────────────────
 
-  function removePlayer(id: string) {
-    setRoster(prev => prev.filter(p => p.id !== id))
-  }
-
-  function startMatch(p1: Player, p2: Player, target: number) {
-    setMatch({ p1, p2, target, p1Score: 0, p2Score: 0, games: [], winnerId: null })
+  function startMatch(a: QPlayer, b: QPlayer, target: number) {
+    setMatch({ a, b, target, scoreA: 0, scoreB: 0, games: [], winnerId: null })
     setPhase('playing')
   }
 
   function recordGame(winnerId: string, type: GameType) {
     if (!match || match.winnerId) return
-    const points  = MULTIPLIER[type]
-    const isP1Win = winnerId === match.p1.id
-
-    const newP1 = match.p1Score + (isP1Win ? points : 0)
-    const newP2 = match.p2Score + (isP1Win ? 0 : points)
-    const done  = newP1 >= match.target || newP2 >= match.target
-    const w     = done ? winnerId : null
-
-    const updated: ActiveMatch = {
-      ...match,
-      p1Score:  newP1,
-      p2Score:  newP2,
-      games:    [...match.games, { winnerId, type, points }],
-      winnerId: w,
+    const pts    = MULT[type]
+    const isAWin = winnerId === match.a.id
+    const scoreA = match.scoreA + (isAWin ? pts : 0)
+    const scoreB = match.scoreB + (isAWin ? 0  : pts)
+    const done   = scoreA >= match.target || scoreB >= match.target
+    const updated = {
+      ...match, scoreA, scoreB,
+      games:    [...match.games, { winnerId, type, pts }],
+      winnerId: done ? winnerId : null,
     }
     setMatch(updated)
     if (done) setPhase('complete')
@@ -149,96 +154,110 @@ export function QuickGameClient() {
 
   function rematch() {
     if (!match) return
-    setMatch({ ...match, p1Score: 0, p2Score: 0, games: [], winnerId: null })
+    setMatch({ ...match, scoreA: 0, scoreB: 0, games: [], winnerId: null })
     setPhase('playing')
   }
 
-  function newPairing() {
-    setMatch(null)
-    setPhase('setup')
-  }
-
-  function backToRoster() {
+  function newGame() {
     setMatch(null)
     setPhase('roster')
+    try { localStorage.removeItem(LS_ROSTER) } catch {}
+    setRoster([])
   }
 
-  if (!hydrated) return null   // avoid SSR mismatch
+  // ── Render ─────────────────────────────────────────────────────────────
+
+  if (!hydrated) return null
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
+
+      {/* ── Page header ── */}
       <div className="mb-8 text-center">
-        <div className="mb-3 inline-flex h-16 w-16 items-center justify-center rounded-2xl
-          bg-surface-raised border border-line-gold/50 shadow-gold text-4xl">
+        <div className="mb-3 inline-flex h-16 w-16 items-center justify-center
+          rounded-2xl bg-surface-raised border border-line shadow-gold text-4xl">
           🎲
         </div>
         <h1 className="font-display text-3xl font-bold text-ink tracking-tight">
           Quick Game
         </h1>
         <p className="mt-1.5 text-sm text-ink-muted">
-          {phase === 'roster'   && 'Add players — no account needed'}
-          {phase === 'setup'    && 'Pick two players and a match length'}
-          {phase === 'playing'  && 'Recording live — tap who won each game'}
+          {phase === 'roster'   && 'Add players and pick a race length'}
+          {phase === 'playing'  && 'Tap the winner after each game'}
           {phase === 'complete' && 'Match complete!'}
         </p>
       </div>
 
-      {/* Phase screens */}
-      {phase === 'roster'   && (
-        <RosterPhase
+      {/* ── Phases ── */}
+      {phase === 'roster' && (
+        <RosterSetup
           roster={roster}
-          onAdd={addPlayer}
-          onRemove={removePlayer}
-          onNext={() => setPhase('setup')}
-        />
-      )}
-      {phase === 'setup'    && (
-        <SetupPhase
-          roster={roster}
-          defaultTarget={defaultRaceTo}
+          onAdd={name => {
+            const t = name.trim()
+            if (!t || roster.some(p => p.name.toLowerCase() === t.toLowerCase())) return
+            setRoster(prev => [...prev, { id: uid(), name: t }])
+          }}
+          onRemove={id => setRoster(prev => prev.filter(p => p.id !== id))}
           onStart={startMatch}
-          onBack={() => setPhase('roster')}
-        />
-      )}
-      {phase === 'playing'  && match && (
-        <PlayingPhase
-          match={match}
-          onRecord={recordGame}
-        />
-      )}
-      {phase === 'complete' && match && (
-        <CompletePhase
-          match={match}
-          onRematch={rematch}
-          onNewPairing={newPairing}
-          onBackToRoster={backToRoster}
         />
       )}
 
-      {/* Footer link to sign in */}
-      <p className="mt-8 text-center text-sm text-ink-subtle">
-        Want to track stats & tournaments?{' '}
-        <Link href="/login" className="text-gold hover:text-gold-bright font-medium transition-colors">
-          Sign in
-        </Link>
-      </p>
+      {phase === 'playing' && match && (
+        <PlayingPhase match={match} onRecord={recordGame} />
+      )}
+
+      {phase === 'complete' && match && (
+        <CompletePhase match={match} onRematch={rematch} onNewGame={newGame} />
+      )}
+
     </div>
   )
 }
 
-// ─── Roster Phase ──────────────────────────────────────────────────────────────
+// ─── Roster + Setup phase ─────────────────────────────────────────────────────
+//
+// For direct-navigation: one unified screen — add players at top,
+// VS preview + race-to + Start appear automatically once ≥ 2 players are added.
+// For 3+ players the user taps two to select the matchup.
 
-function RosterPhase({
-  roster, onAdd, onRemove, onNext,
+function RosterSetup({
+  roster, onAdd, onRemove, onStart,
 }: {
-  roster:    Player[]
-  onAdd:     (name: string) => void
-  onRemove:  (id: string) => void
-  onNext:    () => void
+  roster:   QPlayer[]
+  onAdd:    (name: string) => void
+  onRemove: (id: string) => void
+  onStart:  (a: QPlayer, b: QPlayer, target: number) => void
 }) {
-  const [input, setInput] = useState('')
+  const [input,  setInput]  = useState('')
+  const [raceTo, setRaceTo] = useState(7)
+  const [sel,    setSel]    = useState<{ a: string | null; b: string | null }>({ a: null, b: null })
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Auto-select when exactly 2 players; clear when fewer; keep for 3+
+  useEffect(() => {
+    if (roster.length === 2) {
+      setSel({ a: roster[0].id, b: roster[1].id })
+    } else if (roster.length < 2) {
+      setSel({ a: null, b: null })
+    } else {
+      // 3+ players: clear any stale selection for removed players
+      const ids = new Set(roster.map(p => p.id))
+      setSel(prev => ({
+        a: prev.a && ids.has(prev.a) ? prev.a : null,
+        b: prev.b && ids.has(prev.b) ? prev.b : null,
+      }))
+    }
+  }, [roster])
+
+  function tap(id: string) {
+    setSel(prev => {
+      if (prev.a === id) return { a: prev.b, b: null }  // was A → deselect, promote B
+      if (prev.b === id) return { ...prev, b: null }     // was B → deselect
+      if (!prev.a)       return { ...prev, a: id }       // A empty → assign A
+      if (!prev.b)       return { ...prev, b: id }       // B empty → assign B
+      return { ...prev, b: id }                          // both full → replace B
+    })
+  }
 
   function handleAdd() {
     const name = input.trim()
@@ -248,269 +267,180 @@ function RosterPhase({
     inputRef.current?.focus()
   }
 
-  function handleKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') handleAdd()
-  }
+  const playerA = roster.find(p => p.id === sel.a)
+  const playerB = roster.find(p => p.id === sel.b)
+  const ready   = !!(playerA && playerB)
+  const needsPick = roster.length > 2
 
   return (
     <div className="space-y-4">
-      {/* Add player card */}
-      <div className="rounded-2xl border border-line bg-surface-raised p-5 space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-subtle flex items-center gap-2">
-          <UserPlus className="h-4 w-4" />
-          Add players
-        </h2>
+
+      {/* ── Add player ── */}
+      <div className="rounded-2xl border border-line bg-surface-raised p-5 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-ink-subtle flex items-center gap-2">
+          <UserPlus className="h-3.5 w-3.5" /> Players
+        </p>
 
         <div className="flex gap-2">
-          <div className="flex-1">
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder="Player name…"
-              maxLength={40}
-              autoFocus
-              className={cn(
-                'w-full rounded-lg border border-line bg-surface-elevated',
-                'px-3 py-2.5 text-sm text-ink placeholder:text-ink-subtle',
-                'focus:outline-none focus:ring-2 focus:ring-gold/60 focus:border-gold/60',
-                'transition-colors',
-              )}
-            />
-          </div>
-          <Button
-            onClick={handleAdd}
-            disabled={!input.trim()}
-            variant="secondary"
-            className="shrink-0 px-4"
-          >
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            placeholder="Player name…"
+            maxLength={40}
+            autoFocus
+            className={cn(
+              'flex-1 rounded-lg border border-line bg-surface-elevated',
+              'px-3 py-2.5 text-sm text-ink placeholder:text-ink-subtle',
+              'focus:outline-none focus:ring-2 focus:ring-gold/60 focus:border-gold/60 transition-colors',
+            )}
+          />
+          <Button onClick={handleAdd} disabled={!input.trim()} variant="secondary" className="shrink-0">
             Add
           </Button>
         </div>
 
-        {/* Player list */}
-        {roster.length === 0 ? (
-          <p className="py-4 text-center text-sm text-ink-subtle">
-            No players yet — add at least 2 to start
-          </p>
-        ) : (
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {roster.map(p => (
-              <li
-                key={p.id}
-                className="flex items-center gap-2 rounded-xl border border-line
-                  bg-surface-elevated px-3 py-2"
-              >
-                <Avatar name={p.name} size="sm" />
-                <span className="flex-1 truncate text-sm font-medium text-ink">
-                  {p.name}
-                </span>
-                <button
-                  onClick={() => onRemove(p.id)}
-                  className="ml-auto text-ink-subtle hover:text-loss transition-colors"
-                  aria-label={`Remove ${p.name}`}
+        {roster.length === 0 && (
+          <p className="py-2 text-center text-sm text-ink-subtle">Add at least 2 players to start</p>
+        )}
+
+        {roster.length > 0 && (
+          <ul className="space-y-1.5">
+            {roster.map(p => {
+              const isA = p.id === sel.a
+              const isB = p.id === sel.b
+              return (
+                <li
+                  key={p.id}
+                  onClick={needsPick ? () => tap(p.id) : undefined}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-all',
+                    needsPick && 'cursor-pointer',
+                    isA ? 'border-gold/50 bg-gold/8' :
+                    isB ? 'border-win/50 bg-win/8'   :
+                    'border-line bg-surface-elevated',
+                    needsPick && !isA && !isB && 'hover:border-gold/30',
+                  )}
                 >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            ))}
+                  <Avatar name={p.name} size="sm" />
+                  <span className="flex-1 truncate text-sm font-medium text-ink">{p.name}</span>
+
+                  {/* Selection badge (3+ players only) */}
+                  {needsPick && (
+                    <span className={cn(
+                      'shrink-0 w-5 text-right text-[10px] font-bold',
+                      isA ? 'text-gold' : isB ? 'text-win' : 'text-ink-subtle/40',
+                    )}>
+                      {isA ? 'A' : isB ? 'B' : '–'}
+                    </span>
+                  )}
+
+                  <button
+                    onClick={e => { e.stopPropagation(); onRemove(p.id) }}
+                    className="shrink-0 text-ink-subtle hover:text-loss transition-colors"
+                    aria-label={`Remove ${p.name}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              )
+            })}
           </ul>
+        )}
+
+        {needsPick && !ready && (
+          <p className="text-center text-xs text-ink-subtle">
+            Tap two players to select for this match
+          </p>
         )}
       </div>
 
-      <Button
-        onClick={onNext}
-        disabled={roster.length < 2}
-        size="lg"
-        className="w-full gap-2"
-      >
-        <Zap className="h-5 w-5" />
-        Set up match — {roster.length} player{roster.length !== 1 ? 's' : ''}
-      </Button>
-    </div>
-  )
-}
+      {/* ── VS preview + race-to + Start (shown once two players are selected) ── */}
+      {ready && (
+        <div className="rounded-2xl border border-gold/30 bg-surface-raised p-5 space-y-5">
 
-// ─── Setup Phase ───────────────────────────────────────────────────────────────
-
-function SetupPhase({
-  roster, defaultTarget, onStart, onBack,
-}: {
-  roster:        Player[]
-  defaultTarget: number
-  onStart:       (p1: Player, p2: Player, target: number) => void
-  onBack:        () => void
-}) {
-  // Auto-select P1/P2 when we have exactly the right players already
-  const [p1Id,   setP1Id]   = useState<string | null>(roster.length >= 2 ? roster[0].id : null)
-  const [p2Id,   setP2Id]   = useState<string | null>(roster.length >= 2 ? roster[1].id : null)
-  const [target, setTarget] = useState(defaultTarget)
-
-  const p1 = roster.find(p => p.id === p1Id)
-  const p2 = roster.find(p => p.id === p2Id)
-  const ready = !!(p1 && p2)
-
-  /** Tap a player card to cycle: unselected → P1 → P2 → unselected */
-  function handleTap(id: string) {
-    if (p1Id === id) {
-      // Was P1 → remove from P1, promote P2 if set
-      setP1Id(p2Id)
-      setP2Id(null)
-    } else if (p2Id === id) {
-      // Was P2 → deselect
-      setP2Id(null)
-    } else if (!p1Id) {
-      setP1Id(id)
-    } else if (!p2Id) {
-      setP2Id(id)
-    } else {
-      // Both slots taken → replace P2
-      setP2Id(id)
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Back */}
-      <button
-        onClick={onBack}
-        className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink transition-colors"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Players
-      </button>
-
-      {/* VS preview + race-to */}
-      <div className="rounded-2xl border border-line bg-surface-raised p-5">
-        <div className="flex items-center gap-4">
-          <PlayerSlot player={p1} label="Player 1" />
-          <div className="flex flex-col items-center shrink-0 gap-1">
-            <Users className="h-5 w-5 text-ink-subtle" />
-            <span className="text-xs text-ink-subtle">vs</span>
+          {/* VS preview */}
+          <div className="flex items-center gap-4">
+            <div className="flex-1 text-center min-w-0">
+              <Avatar name={playerA!.name} size="md" className="mx-auto" />
+              <p className="mt-1.5 text-sm font-semibold text-ink truncate px-1">{playerA!.name}</p>
+            </div>
+            <div className="shrink-0">
+              <span className="text-2xl font-black text-ink-subtle/50">vs</span>
+            </div>
+            <div className="flex-1 text-center min-w-0">
+              <Avatar name={playerB!.name} size="md" className="mx-auto" />
+              <p className="mt-1.5 text-sm font-semibold text-ink truncate px-1">{playerB!.name}</p>
+            </div>
           </div>
-          <PlayerSlot player={p2} label="Player 2" />
-        </div>
 
-        {/* Match length */}
-        <div className="mt-5">
-          <label className="block text-xs font-medium text-ink-muted uppercase tracking-wide mb-2">
-            Race to
-          </label>
-          <div className="grid grid-cols-5 gap-1.5">
-            {TARGET_OPTIONS.map(o => (
-              <button
-                key={o.v}
-                onClick={() => setTarget(o.v)}
-                className={cn(
-                  'rounded-lg border py-2 text-xs font-semibold transition-all',
-                  target === o.v
-                    ? 'border-gold bg-gold/10 text-gold'
-                    : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/40 hover:text-ink',
-                )}
-              >
-                {o.v}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1.5 text-xs text-ink-subtle text-center">
-            Race to {target} {target === 1 ? 'point' : 'points'}
-          </p>
-        </div>
-      </div>
-
-      {/* Player selection — only shown when more than 2 players to choose from */}
-      {roster.length > 2 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-subtle pl-1">
-            Tap a player to assign P1 / P2
-          </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {roster.map(p => {
-              const isP1 = p.id === p1Id
-              const isP2 = p.id === p2Id
-              return (
+          {/* Race to selector */}
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-muted text-center mb-2.5">
+              Race to
+            </p>
+            <div className="grid grid-cols-5 sm:grid-cols-8 gap-1.5">
+              {RACE_OPTIONS.map(n => (
                 <button
-                  key={p.id}
-                  onClick={() => handleTap(p.id)}
+                  key={n}
+                  onClick={() => setRaceTo(n)}
                   className={cn(
-                    'rounded-xl border p-3 transition-all text-center',
-                    isP1 ? 'border-gold bg-gold/10 ring-1 ring-gold/30' :
-                    isP2 ? 'border-win  bg-win/10  ring-1 ring-win/30'  :
-                    'border-line bg-surface-raised hover:border-gold/40',
+                    'rounded-lg border py-2 text-sm font-bold transition-all',
+                    raceTo === n
+                      ? 'border-gold/60 bg-gold/15 text-gold shadow-[0_0_12px_hsl(var(--gold)/0.2)]'
+                      : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/30 hover:text-ink',
                   )}
                 >
-                  <Avatar name={p.name} size="sm" className="mx-auto" />
-                  <p className="text-xs font-medium text-ink truncate mt-1.5">{p.name}</p>
-                  <span className={cn(
-                    'mt-1 inline-block text-[10px] font-bold px-2 py-0.5 rounded-full',
-                    isP1 ? 'bg-gold/20 text-gold' :
-                    isP2 ? 'bg-win/20 text-win'   :
-                    'bg-surface-elevated text-ink-subtle',
-                  )}>
-                    {isP1 ? 'P1' : isP2 ? 'P2' : 'Tap'}
-                  </span>
+                  {n}
                 </button>
-              )
-            })}
+              ))}
+            </div>
           </div>
+
+          <Button
+            onClick={() => onStart(playerA!, playerB!, raceTo)}
+            size="lg"
+            className="w-full gap-2"
+          >
+            <Zap className="h-5 w-5" />
+            Start — {playerA!.name} vs {playerB!.name} · Race to {raceTo}
+          </Button>
         </div>
       )}
 
-      {/* Ready hint for 2-player auto-select */}
-      {roster.length === 2 && ready && (
-        <p className="text-center text-xs text-win/80">
-          ✓ Both players ready — adjust race length above, then start!
-        </p>
-      )}
+      {/* ── Sign-in prompt ── */}
+      <p className="text-center text-xs text-ink-subtle mt-1">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-1 font-medium text-gold hover:text-gold/80 transition-colors"
+        >
+          <LogIn className="h-3 w-3" />
+          Sign in
+        </Link>
+        {' or '}
+        <Link href="/register" className="font-medium text-gold hover:text-gold/80 transition-colors">
+          create an account
+        </Link>
+        {' '}to track match history &amp; stats
+      </p>
 
-      <Button
-        onClick={() => p1 && p2 && onStart(p1, p2, target)}
-        disabled={!ready}
-        size="lg"
-        className="w-full gap-2"
-      >
-        <Target className="h-5 w-5" />
-        {ready
-          ? `Start match — ${p1!.name} vs ${p2!.name} · Race to ${target}`
-          : 'Select two players above'}
-      </Button>
     </div>
   )
 }
 
-function PlayerSlot({ player, label }: { player?: Player; label: string }) {
-  return (
-    <div className="flex-1 flex flex-col items-center gap-2 text-center">
-      {player ? (
-        <>
-          <Avatar name={player.name} size="md" />
-          <p className="text-sm font-medium text-ink truncate max-w-full px-1">
-            {player.name}
-          </p>
-        </>
-      ) : (
-        <>
-          <div className="h-9 w-9 rounded-full border-2 border-dashed border-line" />
-          <p className="text-xs text-ink-subtle">{label}</p>
-        </>
-      )}
-    </div>
-  )
-}
-
-// ─── Playing Phase ─────────────────────────────────────────────────────────────
+// ─── Playing phase ────────────────────────────────────────────────────────────
 
 function PlayingPhase({
   match, onRecord,
 }: {
-  match:    ActiveMatch
+  match:    LiveMatch
   onRecord: (winnerId: string, type: GameType) => void
 }) {
   const [winner,   setWinner]   = useState<string | null>(null)
   const [gameType, setGameType] = useState<GameType>('NORMAL')
 
-  const pts = MULTIPLIER[gameType]
+  const pts = MULT[gameType]
 
   function confirm() {
     if (!winner) return
@@ -521,44 +451,44 @@ function PlayingPhase({
 
   return (
     <div className="space-y-4">
-      {/* ScoreBoard */}
+
+      {/* Scoreboard */}
       <ScoreBoard match={match} />
 
-      {/* Record game */}
-      <div className="rounded-xl border border-line bg-surface-raised p-5 space-y-5">
+      {/* Record a game */}
+      <div className="rounded-xl border border-line bg-surface-raised p-5 space-y-4">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">
           Record a game
         </h3>
 
         {/* Who won? */}
-        <div className="space-y-2">
-          <p className="text-xs text-ink-muted">Who won this game?</p>
+        <div>
+          <p className="text-xs text-ink-muted mb-2">Who won this game?</p>
           <div className="grid grid-cols-2 gap-3">
-            {[match.p1, match.p2].map(p => (
+            {[match.a, match.b].map(p => (
               <button
                 key={p.id}
                 onClick={() => setWinner(p.id)}
                 className={cn(
-                  'rounded-xl border-2 px-3 py-4 text-sm font-semibold transition-all duration-150 active:scale-[0.97]',
+                  'rounded-xl border-2 px-3 py-4 text-sm font-semibold',
+                  'transition-all duration-150 active:scale-[0.97]',
                   winner === p.id
                     ? 'border-gold bg-gold/15 text-gold shadow-gold'
                     : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/40 hover:text-ink',
                 )}
               >
                 <span className="block truncate">{p.name}</span>
-                {winner === p.id && (
-                  <CheckCircle2 className="mx-auto mt-1 h-4 w-4 text-gold" />
-                )}
+                {winner === p.id && <CheckCircle2 className="mx-auto mt-1 h-4 w-4 text-gold" />}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Game type */}
-        <div className="space-y-2">
-          <p className="text-xs text-ink-muted">Game type</p>
+        {/* Win type */}
+        <div>
+          <p className="text-xs text-ink-muted mb-2">Win type</p>
           <div className="grid grid-cols-3 gap-2">
-            {GAME_TYPES.map(t => (
+            {GTYPES.map(t => (
               <button
                 key={t}
                 onClick={() => setGameType(t)}
@@ -569,8 +499,8 @@ function PlayingPhase({
                     : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/40',
                 )}
               >
-                <span className="block">{TYPE_LABEL[t]}</span>
-                <span className="block text-[10px] opacity-70">×{MULTIPLIER[t]}</span>
+                <span className="block">{LABEL[t]}</span>
+                <span className="block text-[10px] opacity-70">×{MULT[t]}</span>
               </button>
             ))}
           </div>
@@ -584,135 +514,160 @@ function PlayingPhase({
           </div>
         )}
 
-        <Button
-          onClick={confirm}
-          disabled={!winner}
-          className="w-full gap-2"
-        >
+        <Button onClick={confirm} disabled={!winner} className="w-full gap-2">
           <CheckCircle2 className="h-4 w-4" />
           Confirm game
         </Button>
       </div>
 
       {/* Game log */}
-      {match.games.length > 0 && (
-        <div className="rounded-xl border border-line bg-surface-raised p-4 space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">
-            Game log
-          </h3>
-          <ol className="space-y-1">
-            {match.games.map((g, i) => {
-              const scorer = g.winnerId === match.p1.id ? match.p1.name : match.p2.name
-              return (
-                <li key={i} className="flex items-center gap-2 text-xs text-ink-muted">
-                  <span className="w-4 text-right text-ink-subtle shrink-0">{i + 1}.</span>
-                  <span className="font-medium text-ink">{scorer}</span>
-                  <span>· {TYPE_LABEL[g.type]}</span>
-                  <span className="ml-auto font-semibold text-gold">+{g.points}</span>
-                </li>
-              )
-            })}
-          </ol>
-        </div>
-      )}
+      {match.games.length > 0 && <GameLog match={match} initialExpanded />}
+
     </div>
   )
 }
 
-// ─── Complete Phase ────────────────────────────────────────────────────────────
+// ─── Complete phase ───────────────────────────────────────────────────────────
 
 function CompletePhase({
-  match, onRematch, onNewPairing, onBackToRoster,
+  match, onRematch, onNewGame,
 }: {
-  match:          ActiveMatch
-  onRematch:      () => void
-  onNewPairing:   () => void
-  onBackToRoster: () => void
+  match:      LiveMatch
+  onRematch:  () => void
+  onNewGame:  () => void
 }) {
-  const winner = match.winnerId === match.p1.id ? match.p1 : match.p2
-  const loser  = match.winnerId === match.p1.id ? match.p2 : match.p1
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+
+  const winnerId   = match.winnerId!
+  const winner     = winnerId === match.a.id ? match.a  : match.b
+  const loser      = winnerId === match.a.id ? match.b  : match.a
+  const winnerScore = winnerId === match.a.id ? match.scoreA : match.scoreB
+  const loserScore  = winnerId === match.a.id ? match.scoreB : match.scoreA
+
+  // Auto-save stats when the complete screen mounts
+  useEffect(() => {
+    const loserId = winnerId === match.a.id ? match.b.id : match.a.id
+
+    // Skip if neither player is a registered account
+    if (!isUUID(winnerId) && !isUUID(loserId)) {
+      setSaveStatus('not-needed')
+      return
+    }
+
+    setSaveStatus('saving')
+    saveQuickGameResult(winnerId, loserId).then(res => {
+      if (res.success) {
+        setSaveStatus(res.data.savedCount > 0 ? 'saved' : 'not-needed')
+      } else if (res.error === 'not-signed-in') {
+        setSaveStatus('login-required')
+      } else {
+        setSaveStatus('not-needed')
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="space-y-4 animate-fade-in">
+
       {/* Winner card */}
-      <div className="rounded-2xl border border-win/40 bg-win/5 p-8 text-center space-y-4">
+      <div className="rounded-2xl border border-win/40 bg-win/5 p-8 text-center space-y-3">
         <Trophy className="mx-auto h-12 w-12 text-win" />
+
         <div>
           <p className="text-xs uppercase tracking-widest text-ink-subtle mb-1">Winner</p>
           <h2 className="text-3xl font-black text-win">{winner.name}</h2>
           <p className="mt-2 text-sm text-ink-muted">
-            {match.winnerId === match.p1.id ? match.p1Score : match.p2Score}
-            {' – '}
-            {match.winnerId === match.p1.id ? match.p2Score : match.p1Score}
-            {' '}
-            over {loser.name} (race to {match.target})
+            {winnerScore} – {loserScore} over {loser.name} · Race to {match.target}
           </p>
         </div>
+
+        {/* Save status badge */}
+        {saveStatus === 'saving' && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-line
+            bg-surface-elevated px-3 py-1 text-xs font-medium text-ink-subtle animate-pulse">
+            Saving stats…
+          </span>
+        )}
+        {saveStatus === 'saved' && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-win/30
+            bg-win/10 px-3 py-1 text-xs font-medium text-win">
+            <Save className="h-3 w-3" />
+            Stats saved to player profiles
+          </span>
+        )}
+        {saveStatus === 'login-required' && (
+          <Link
+            href="/login?returnTo=/quick-game"
+            className="inline-flex items-center gap-1.5 rounded-full border border-gold/30
+              bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold
+              hover:bg-gold/20 transition-colors"
+          >
+            <LogIn className="h-3 w-3" />
+            Sign in to save your stats
+          </Link>
+        )}
       </div>
 
       {/* Final scoreboard */}
       <ScoreBoard match={match} />
 
       {/* Game log */}
-      {match.games.length > 0 && (
-        <div className="rounded-xl border border-line bg-surface-raised p-4 space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">
-            Game log
-          </h3>
-          <ol className="space-y-1">
-            {match.games.map((g, i) => {
-              const scorer = g.winnerId === match.p1.id ? match.p1.name : match.p2.name
-              return (
-                <li key={i} className="flex items-center gap-2 text-xs text-ink-muted">
-                  <span className="w-4 text-right text-ink-subtle shrink-0">{i + 1}.</span>
-                  <span className="font-medium text-ink">{scorer}</span>
-                  <span>· {TYPE_LABEL[g.type]}</span>
-                  <span className="ml-auto font-semibold text-gold">+{g.points}</span>
-                </li>
-              )
-            })}
-          </ol>
-        </div>
-      )}
+      {match.games.length > 0 && <GameLog match={match} />}
 
-      {/* Action buttons */}
+      {/* Actions */}
       <div className="grid grid-cols-2 gap-3">
         <Button onClick={onRematch} variant="secondary" className="gap-2">
           <RotateCcw className="h-4 w-4" />
           Rematch
         </Button>
-        <Button onClick={onNewPairing} variant="secondary" className="gap-2">
+        <Button onClick={onNewGame} variant="secondary" className="gap-2">
           <RefreshCcw className="h-4 w-4" />
-          New pairing
+          New game
         </Button>
       </div>
 
-      <Button onClick={onBackToRoster} variant="ghost" className="w-full gap-2">
-        <Users className="h-4 w-4" />
-        Back to player roster
-      </Button>
+      {/* Always-visible sign-in / create account */}
+      {saveStatus !== 'saved' && (
+        <p className="text-center text-xs text-ink-subtle">
+          <Link
+            href="/login?returnTo=/quick-game"
+            className="inline-flex items-center gap-1 font-medium text-gold hover:text-gold/80 transition-colors"
+          >
+            <LogIn className="h-3 w-3" />
+            Sign in
+          </Link>
+          {' or '}
+          <Link href="/register" className="font-medium text-gold hover:text-gold/80 transition-colors">
+            create an account
+          </Link>
+          {' '}to track your stats &amp; join tournaments
+        </p>
+      )}
+
     </div>
   )
 }
 
-// ─── Inline ScoreBoard ─────────────────────────────────────────────────────────
+// ─── ScoreBoard ───────────────────────────────────────────────────────────────
 
-function ScoreBoard({ match }: { match: ActiveMatch }) {
-  const p1Won  = match.winnerId === match.p1.id
-  const p2Won  = match.winnerId === match.p2.id
+function ScoreBoard({ match }: { match: LiveMatch }) {
+  const aWon   = match.winnerId === match.a.id
+  const bWon   = match.winnerId === match.b.id
   const isOver = !!match.winnerId
 
   return (
     <div className="rounded-2xl border border-line bg-surface-raised p-6">
-      {/* Scores */}
+
+      {/* Big score numbers */}
       <div className="flex items-stretch gap-4">
         <PlayerScore
-          name={match.p1.name}
-          score={match.p1Score}
+          name={match.a.name}
+          score={match.scoreA}
           align="left"
-          won={p1Won}
-          lost={isOver && !p1Won}
-          leading={!isOver && match.p1Score > match.p2Score}
+          won={aWon}
+          lost={isOver && !aWon}
+          leading={!isOver && match.scoreA > match.scoreB}
         />
         <div className="flex flex-col items-center justify-center gap-1 shrink-0">
           <div className="h-10 w-px bg-line/60" />
@@ -720,16 +675,16 @@ function ScoreBoard({ match }: { match: ActiveMatch }) {
           <div className="h-10 w-px bg-line/60" />
         </div>
         <PlayerScore
-          name={match.p2.name}
-          score={match.p2Score}
+          name={match.b.name}
+          score={match.scoreB}
           align="right"
-          won={p2Won}
-          lost={isOver && !p2Won}
-          leading={!isOver && match.p2Score > match.p1Score}
+          won={bWon}
+          lost={isOver && !bWon}
+          leading={!isOver && match.scoreB > match.scoreA}
         />
       </div>
 
-      {/* Race to label */}
+      {/* Race-to label */}
       <div className="mt-4 flex items-center justify-center gap-2">
         <div className="h-px flex-1 bg-line/40" />
         <span className="text-xs font-medium text-ink-subtle">
@@ -741,8 +696,8 @@ function ScoreBoard({ match }: { match: ActiveMatch }) {
       {/* Progress bars */}
       <div className="mt-3 space-y-2">
         {[
-          { player: match.p1, score: match.p1Score, won: p1Won },
-          { player: match.p2, score: match.p2Score, won: p2Won },
+          { player: match.a, score: match.scoreA, won: aWon },
+          { player: match.b, score: match.scoreB, won: bWon },
         ].map(({ player, score, won }) => (
           <div key={player.id} className="flex items-center gap-3">
             <span className="w-16 shrink-0 truncate text-right text-xs text-ink-subtle">
@@ -761,10 +716,11 @@ function ScoreBoard({ match }: { match: ActiveMatch }) {
         <div className="mt-4 flex items-center justify-center rounded-xl
           border border-win/30 bg-win/10 px-4 py-2">
           <span className="text-sm font-semibold text-win">
-            {p1Won ? match.p1.name : match.p2.name} wins the match!
+            {aWon ? match.a.name : match.b.name} wins the match!
           </span>
         </div>
       )}
+
     </div>
   )
 }
@@ -772,8 +728,12 @@ function ScoreBoard({ match }: { match: ActiveMatch }) {
 function PlayerScore({
   name, score, align, won, lost, leading,
 }: {
-  name: string; score: number; align: 'left' | 'right'
-  won?: boolean; lost?: boolean; leading?: boolean
+  name:     string
+  score:    number
+  align:    'left' | 'right'
+  won?:     boolean
+  lost?:    boolean
+  leading?: boolean
 }) {
   return (
     <div className={cn('flex flex-1 flex-col gap-1', align === 'right' && 'items-end')}>
@@ -790,6 +750,44 @@ function PlayerScore({
         {score}
       </span>
       {won && <span className="text-xs font-semibold text-win">Winner</span>}
+    </div>
+  )
+}
+
+// ─── Game log ─────────────────────────────────────────────────────────────────
+
+function GameLog({ match, initialExpanded = false }: { match: LiveMatch; initialExpanded?: boolean }) {
+  const [expanded, setExpanded] = useState(initialExpanded)
+
+  return (
+    <div className="rounded-xl border border-line bg-surface-raised overflow-hidden">
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="flex w-full items-center justify-between px-4 py-3
+          text-xs font-semibold uppercase tracking-wider text-ink-subtle
+          hover:text-ink transition-colors"
+      >
+        <span>Game log · {match.games.length} game{match.games.length !== 1 ? 's' : ''}</span>
+        {expanded
+          ? <ChevronUp   className="h-3.5 w-3.5" />
+          : <ChevronDown className="h-3.5 w-3.5" />}
+      </button>
+
+      {expanded && (
+        <ol className="border-t border-line divide-y divide-line/50">
+          {match.games.map((g, i) => {
+            const scorer = g.winnerId === match.a.id ? match.a.name : match.b.name
+            return (
+              <li key={i} className="flex items-center gap-2 px-4 py-2.5 text-xs text-ink-muted">
+                <span className="w-4 shrink-0 text-right text-ink-subtle">{i + 1}.</span>
+                <span className="font-medium text-ink">{scorer}</span>
+                <span>· {LABEL[g.type]}</span>
+                <span className="ml-auto font-semibold text-gold">+{g.pts}</span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
     </div>
   )
 }

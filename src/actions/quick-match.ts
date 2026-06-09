@@ -47,3 +47,53 @@ export async function searchRegisteredPlayers(
     data: players.map(p => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })),
   }
 }
+
+/**
+ * Save quick-game win/loss stats to registered player profiles.
+ *
+ * - Only updates players whose IDs are valid UUIDs (registered accounts).
+ *   Guest IDs ('guest:…') and local temp IDs ('local:…') are silently skipped.
+ * - Returns { success: false, error: 'not-signed-in' } if the caller has
+ *   no active session, so the client can show a sign-in prompt instead of
+ *   crashing.
+ */
+export async function saveQuickGameResult(
+  winnerPlayerId: string,
+  loserPlayerId:  string,
+): Promise<ActionResult<{ savedCount: number }>> {
+  // Auth is optional on the quick-game page — return a typed error rather
+  // than throwing so the client can decide how to surface it.
+  try {
+    await requireSessionUser()
+  } catch {
+    return { success: false, error: 'not-signed-in' }
+  }
+
+  // A UUID from the player DB looks like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const isUUID = (id: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+
+  const tasks: Promise<unknown>[] = []
+
+  if (isUUID(winnerPlayerId)) {
+    tasks.push(
+      db.player.update({
+        where: { id: winnerPlayerId },
+        data:  { quickWins: { increment: 1 } },
+      }),
+    )
+  }
+
+  if (isUUID(loserPlayerId)) {
+    tasks.push(
+      db.player.update({
+        where: { id: loserPlayerId },
+        data:  { quickLosses: { increment: 1 } },
+      }),
+    )
+  }
+
+  if (tasks.length > 0) await Promise.all(tasks)
+
+  return { success: true, data: { savedCount: tasks.length } }
+}
