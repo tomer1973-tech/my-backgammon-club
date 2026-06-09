@@ -32,7 +32,7 @@ export default async function MatchesPage({ params }: Props) {
   const pendingMatches   = matches.filter(m => m.status === 'PENDING')
   const completedMatches = matches.filter(m => m.status === 'COMPLETED')
 
-  const canCreateMatch = tournament.isOwner || tournament.userRole === 'ORGANIZER'
+  const canManage = tournament.isOwner || tournament.userRole === 'ORGANIZER'
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
@@ -55,7 +55,7 @@ export default async function MatchesPage({ params }: Props) {
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={tournament.status} />
-            {canCreateMatch && (
+            {canManage && (
               <Button asChild size="sm" className="gap-1.5">
                 <Link href={`/tournaments/${params.id}/matches/new`}>
                   <Plus className="h-4 w-4" />
@@ -74,7 +74,7 @@ export default async function MatchesPage({ params }: Props) {
             <span className="h-2 w-2 rounded-full bg-win animate-pulse" />
             Live now
           </h2>
-          {activeMatches.map(m => <MatchCard key={m.id} match={m} />)}
+          {activeMatches.map(m => <MatchCard key={m.id} match={m} canManage={canManage} />)}
         </section>
       )}
 
@@ -82,7 +82,7 @@ export default async function MatchesPage({ params }: Props) {
       {pendingMatches.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">Upcoming</h2>
-          {pendingMatches.map(m => <MatchCard key={m.id} match={m} />)}
+          {pendingMatches.map(m => <MatchCard key={m.id} match={m} canManage={canManage} />)}
         </section>
       )}
 
@@ -106,7 +106,7 @@ export default async function MatchesPage({ params }: Props) {
               Start the first match between two players.
             </p>
           </div>
-          {canCreateMatch && (
+          {canManage && (
             <Button asChild size="sm" className="gap-1.5">
               <Link href={`/tournaments/${params.id}/matches/new`}>
                 <Plus className="h-4 w-4" />

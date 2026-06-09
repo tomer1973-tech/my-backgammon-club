@@ -342,20 +342,32 @@ function SetupPhase({
   onStart:       (p1: Player, p2: Player, target: number) => void
   onBack:        () => void
 }) {
-  const [p1Id,   setP1Id]   = useState<string | null>(null)
-  const [p2Id,   setP2Id]   = useState<string | null>(null)
+  // Auto-select P1/P2 when we have exactly the right players already
+  const [p1Id,   setP1Id]   = useState<string | null>(roster.length >= 2 ? roster[0].id : null)
+  const [p2Id,   setP2Id]   = useState<string | null>(roster.length >= 2 ? roster[1].id : null)
   const [target, setTarget] = useState(defaultTarget)
 
   const p1 = roster.find(p => p.id === p1Id)
   const p2 = roster.find(p => p.id === p2Id)
+  const ready = !!(p1 && p2)
 
-  function selectP1(id: string) {
-    setP1Id(id)
-    if (p2Id === id) setP2Id(null)
-  }
-  function selectP2(id: string) {
-    setP2Id(id)
-    if (p1Id === id) setP1Id(null)
+  /** Tap a player card to cycle: unselected → P1 → P2 → unselected */
+  function handleTap(id: string) {
+    if (p1Id === id) {
+      // Was P1 → remove from P1, promote P2 if set
+      setP1Id(p2Id)
+      setP2Id(null)
+    } else if (p2Id === id) {
+      // Was P2 → deselect
+      setP2Id(null)
+    } else if (!p1Id) {
+      setP1Id(id)
+    } else if (!p2Id) {
+      setP2Id(id)
+    } else {
+      // Both slots taken → replace P2
+      setP2Id(id)
+    }
   }
 
   return (
@@ -369,7 +381,7 @@ function SetupPhase({
         Players
       </button>
 
-      {/* VS preview */}
+      {/* VS preview + race-to */}
       <div className="rounded-2xl border border-line bg-surface-raised p-5">
         <div className="flex items-center gap-4">
           <PlayerSlot player={p1} label="Player 1" />
@@ -407,33 +419,61 @@ function SetupPhase({
         </div>
       </div>
 
-      {/* Player grid */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-ink-subtle pl-1">
-          Select two players
-        </p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {roster.map(p => (
-            <SetupPlayerCard
-              key={p.id}
-              player={p}
-              isP1={p.id === p1Id}
-              isP2={p.id === p2Id}
-              onSelectP1={() => selectP1(p.id)}
-              onSelectP2={() => selectP2(p.id)}
-            />
-          ))}
+      {/* Player selection — only shown when more than 2 players to choose from */}
+      {roster.length > 2 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-subtle pl-1">
+            Tap a player to assign P1 / P2
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {roster.map(p => {
+              const isP1 = p.id === p1Id
+              const isP2 = p.id === p2Id
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => handleTap(p.id)}
+                  className={cn(
+                    'rounded-xl border p-3 transition-all text-center',
+                    isP1 ? 'border-gold bg-gold/10 ring-1 ring-gold/30' :
+                    isP2 ? 'border-win  bg-win/10  ring-1 ring-win/30'  :
+                    'border-line bg-surface-raised hover:border-gold/40',
+                  )}
+                >
+                  <Avatar name={p.name} size="sm" className="mx-auto" />
+                  <p className="text-xs font-medium text-ink truncate mt-1.5">{p.name}</p>
+                  <span className={cn(
+                    'mt-1 inline-block text-[10px] font-bold px-2 py-0.5 rounded-full',
+                    isP1 ? 'bg-gold/20 text-gold' :
+                    isP2 ? 'bg-win/20 text-win'   :
+                    'bg-surface-elevated text-ink-subtle',
+                  )}>
+                    {isP1 ? 'P1' : isP2 ? 'P2' : 'Tap'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Ready hint for 2-player auto-select */}
+      {roster.length === 2 && ready && (
+        <p className="text-center text-xs text-win/80">
+          ✓ Both players ready — adjust race length above, then start!
+        </p>
+      )}
 
       <Button
         onClick={() => p1 && p2 && onStart(p1, p2, target)}
-        disabled={!p1 || !p2}
+        disabled={!ready}
         size="lg"
         className="w-full gap-2"
       >
         <Target className="h-5 w-5" />
-        Start match — Race to {target}
+        {ready
+          ? `Start match — ${p1!.name} vs ${p2!.name} · Race to ${target}`
+          : 'Select two players above'}
       </Button>
     </div>
   )
@@ -455,46 +495,6 @@ function PlayerSlot({ player, label }: { player?: Player; label: string }) {
           <p className="text-xs text-ink-subtle">{label}</p>
         </>
       )}
-    </div>
-  )
-}
-
-function SetupPlayerCard({
-  player, isP1, isP2, onSelectP1, onSelectP2,
-}: {
-  player:      Player
-  isP1:        boolean
-  isP2:        boolean
-  onSelectP1:  () => void
-  onSelectP2:  () => void
-}) {
-  return (
-    <div className={cn(
-      'rounded-xl border p-3 transition-all',
-      isP1 ? 'border-gold bg-gold/10' :
-      isP2 ? 'border-win  bg-win/10'  :
-      'border-line bg-surface-raised hover:border-gold/40',
-    )}>
-      <div className="flex flex-col items-center gap-2 text-center">
-        <Avatar name={player.name} size="sm" />
-        <p className="text-xs font-medium text-ink truncate w-full">{player.name}</p>
-        <div className="flex gap-1 w-full">
-          <button
-            onClick={onSelectP1}
-            className={cn(
-              'flex-1 rounded text-[10px] font-semibold py-1 transition-colors',
-              isP1 ? 'bg-gold text-surface-canvas' : 'bg-surface-elevated text-ink-subtle hover:bg-gold/20 hover:text-gold',
-            )}
-          >P1</button>
-          <button
-            onClick={onSelectP2}
-            className={cn(
-              'flex-1 rounded text-[10px] font-semibold py-1 transition-colors',
-              isP2 ? 'bg-win text-surface-canvas' : 'bg-surface-elevated text-ink-subtle hover:bg-win/20 hover:text-win',
-            )}
-          >P2</button>
-        </div>
-      </div>
     </div>
   )
 }
