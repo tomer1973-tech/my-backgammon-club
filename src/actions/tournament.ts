@@ -88,6 +88,7 @@ export async function getTournaments(): Promise<Tournament[]> {
     memberCount:  t._count.members,
     isMember:     t.members.length > 0,
     isOwner:      t.createdById === user.id,
+    isAdmin:      user.role === 'ADMIN',
     userRole:     t.members[0]?.memberRole as Tournament['userRole'] ?? null,
   }))
 }
@@ -133,6 +134,7 @@ export async function getTournamentWithMembers(id: string): Promise<TournamentWi
     memberCount:  t._count.members,
     isMember:     !!myMembership,
     isOwner:      t.createdById === user.id,
+    isAdmin:      user.role === 'ADMIN',
     userRole:     myMembership?.memberRole as Tournament['userRole'] ?? null,
     members: t.members.map(m => ({
       id:           m.id,

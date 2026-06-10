@@ -125,8 +125,8 @@ export function TournamentOverview({ tournament: t }: TournamentOverviewProps) {
         </div>
       </div>
 
-      {/* Status management (only for organizers/owner) */}
-      {(t.isOwner || t.userRole === 'ORGANIZER') && (
+      {/* Status management (only for organizers/owner/admin) */}
+      {(t.isOwner || t.userRole === 'ORGANIZER' || t.isAdmin) && (
         <TournamentStatusControls tournament={t} />
       )}
     </div>

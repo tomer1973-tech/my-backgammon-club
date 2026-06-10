@@ -143,6 +143,7 @@ export interface Tournament extends TournamentRow {
   memberCount:  number
   isMember:     boolean       // true if the session user is a member
   isOwner:      boolean       // true if the session user created it
+  isAdmin:      boolean       // true if the session user has the global ADMIN role
   userRole:     MemberRole | null  // null if not a member
 }
 

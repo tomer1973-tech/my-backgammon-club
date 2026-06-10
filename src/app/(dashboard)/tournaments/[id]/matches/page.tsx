@@ -32,7 +32,7 @@ export default async function MatchesPage({ params }: Props) {
   const pendingMatches   = matches.filter(m => m.status === 'PENDING')
   const completedMatches = matches.filter(m => m.status === 'COMPLETED')
 
-  const canManage = tournament.isOwner || tournament.userRole === 'ORGANIZER'
+  const canManage = tournament.isOwner || tournament.userRole === 'ORGANIZER' || tournament.isAdmin
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
