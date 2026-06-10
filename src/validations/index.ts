@@ -75,6 +75,10 @@ export const archiveTournamentSchema = z.object({
   tournamentId: uuidSchema,
 })
 
+export const endTournamentSchema = z.object({
+  tournamentId: uuidSchema,
+})
+
 export const joinTournamentSchema = z.object({
   code: z.string().length(6, 'Code must be exactly 6 characters').toUpperCase(),
 })
@@ -202,6 +206,7 @@ export type CreateTournamentInput       = z.infer<typeof createTournamentSchema>
 export type UpdateTournamentStatusInput = z.infer<typeof updateTournamentStatusSchema>
 export type DeleteTournamentInput       = z.infer<typeof deleteTournamentSchema>
 export type ArchiveTournamentInput      = z.infer<typeof archiveTournamentSchema>
+export type EndTournamentInput          = z.infer<typeof endTournamentSchema>
 export type JoinTournamentInput         = z.infer<typeof joinTournamentSchema>
 export type RecordGameInput             = z.infer<typeof recordGameSchema>
 export type UpdateMemberInput           = z.infer<typeof updateMemberStatsSchema>

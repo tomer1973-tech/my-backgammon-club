@@ -20,6 +20,7 @@ import {
   createTournamentSchema,
   deleteTournamentSchema,
   archiveTournamentSchema,
+  endTournamentSchema,
   updateTournamentStatusSchema,
   joinTournamentSchema,
 } from '@/validations'
@@ -350,4 +351,67 @@ export async function updateTournamentStatus(
   revalidatePath('/')
   revalidatePath(`/tournaments/${tournamentId}`)
   return { success: true, data: undefined }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// END TOURNAMENT
+// Marks an active tournament as COMPLETED and closes (voids) any matches that
+// are still PENDING or ACTIVE — they're removed without affecting standings,
+// the same way `abandonMatch` works for a single match.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function endTournament(
+  data: unknown,
+): Promise<ActionResult<{ closedMatches: number }>> {
+  const user = await requireSessionUser()
+
+  const parsed = endTournamentSchema.safeParse(data)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0].message }
+  }
+
+  const { tournamentId } = parsed.data
+
+  const tournament = await db.tournament.findUnique({
+    where: { id: tournamentId, deletedAt: null },
+    select: { createdById: true, status: true },
+  })
+
+  if (!tournament) return { success: false, error: 'Tournament not found.' }
+
+  const isOrganizer = await db.tournamentMember.findFirst({
+    where: { tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
+  })
+
+  if (!isOrganizer && tournament.createdById !== user.id && user.role !== 'ADMIN') {
+    return { success: false, error: 'You do not have permission to end this tournament.' }
+  }
+
+  if (tournament.status === 'COMPLETED' || tournament.status === 'ARCHIVED') {
+    return { success: false, error: 'This tournament has already ended.' }
+  }
+
+  // Close out any matches that never finished — delete them like abandonMatch,
+  // so standings (wins/losses/points) aren't affected by unplayed games.
+  const unfinished = await db.match.findMany({
+    where:  { tournamentId, status: { in: ['PENDING', 'ACTIVE'] } },
+    select: { id: true },
+  })
+
+  if (unfinished.length > 0) {
+    await db.match.deleteMany({
+      where: { id: { in: unfinished.map(m => m.id) } },
+    })
+  }
+
+  await db.tournament.update({
+    where: { id: tournamentId },
+    data:  { status: 'COMPLETED' },
+  })
+
+  revalidatePath('/')
+  revalidatePath(`/tournaments/${tournamentId}`)
+  revalidatePath(`/tournaments/${tournamentId}/matches`)
+  revalidatePath('/schedule')
+  return { success: true, data: { closedMatches: unfinished.length } }
 }
