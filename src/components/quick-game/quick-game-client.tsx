@@ -31,14 +31,15 @@ import { useState, useEffect, useRef }   from 'react'
 import Link                               from 'next/link'
 import {
   UserPlus, X, Trophy, RotateCcw, RefreshCcw,
-  Zap, CheckCircle2, ChevronDown, ChevronUp,
-  Users, LogIn, Save,
+  Zap, CheckCircle2, ChevronDown, ChevronUp, ChevronLeft,
+  Users, LogIn, Save, UserCircle2,
 } from 'lucide-react'
 import { Avatar }   from '@/components/ui/avatar'
 import { Button }   from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { cn }       from '@/lib/utils'
 import { saveQuickGameResult } from '@/actions/quick-match'
+import type { SessionUser } from '@/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ function uid() { return 'local:' + Math.random().toString(36).slice(2, 10) }
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-export function QuickGameClient() {
+export function QuickGameClient({ currentUser }: { currentUser: SessionUser | null }) {
   const [roster,   setRoster]   = useState<QPlayer[]>([])
   const [phase,    setPhase]    = useState<Phase>('roster')
   const [match,    setMatch]    = useState<LiveMatch | null>(null)
@@ -171,6 +172,44 @@ export function QuickGameClient() {
 
   return (
     <div className="animate-fade-in">
+
+      {/* ── Top bar: back link + sign-in status ── */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 -ml-2
+            text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-raised transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Dashboard
+        </Link>
+
+        {currentUser ? (
+          <Link
+            href="/settings"
+            className="inline-flex items-center gap-2 rounded-full border border-line
+              bg-surface-raised pl-1.5 pr-3 py-1 hover:border-gold/30 transition-colors"
+          >
+            <Avatar name={currentUser.name} src={currentUser.avatarUrl} size="sm" />
+            <span className="text-xs font-medium text-ink-muted">
+              Signed in as <span className="font-semibold text-ink">{currentUser.name.split(' ')[0]}</span>
+            </span>
+          </Link>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-line
+            bg-surface-raised px-3 py-1.5 text-xs">
+            <UserCircle2 className="h-3.5 w-3.5 text-ink-subtle" />
+            <span className="text-ink-subtle">Not signed in ·</span>
+            <Link href="/login?returnTo=/quick-game" className="font-semibold text-gold hover:text-gold/80 transition-colors">
+              Sign in
+            </Link>
+            <span className="text-ink-subtle">/</span>
+            <Link href="/register" className="font-semibold text-gold hover:text-gold/80 transition-colors">
+              Create account
+            </Link>
+          </div>
+        )}
+      </div>
 
       {/* ── Page header ── */}
       <div className="mb-8 text-center">
@@ -409,22 +448,6 @@ function RosterSetup({
         </div>
       )}
 
-      {/* ── Sign-in prompt ── */}
-      <p className="text-center text-xs text-ink-subtle mt-1">
-        <Link
-          href="/login"
-          className="inline-flex items-center gap-1 font-medium text-gold hover:text-gold/80 transition-colors"
-        >
-          <LogIn className="h-3 w-3" />
-          Sign in
-        </Link>
-        {' or '}
-        <Link href="/register" className="font-medium text-gold hover:text-gold/80 transition-colors">
-          create an account
-        </Link>
-        {' '}to track match history &amp; stats
-      </p>
-
     </div>
   )
 }
@@ -626,24 +649,6 @@ function CompletePhase({
           New game
         </Button>
       </div>
-
-      {/* Always-visible sign-in / create account */}
-      {saveStatus !== 'saved' && (
-        <p className="text-center text-xs text-ink-subtle">
-          <Link
-            href="/login?returnTo=/quick-game"
-            className="inline-flex items-center gap-1 font-medium text-gold hover:text-gold/80 transition-colors"
-          >
-            <LogIn className="h-3 w-3" />
-            Sign in
-          </Link>
-          {' or '}
-          <Link href="/register" className="font-medium text-gold hover:text-gold/80 transition-colors">
-            create an account
-          </Link>
-          {' '}to track your stats &amp; join tournaments
-        </p>
-      )}
 
     </div>
   )
