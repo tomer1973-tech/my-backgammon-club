@@ -10,6 +10,7 @@ import { Input }                           from '@/components/ui/input'
 import { GoogleOAuthButton }               from '@/components/auth/google-oauth-button'
 import { AppleOAuthButton }                from '@/components/auth/apple-oauth-button'
 import { PhoneAuthForm }                   from '@/components/auth/phone-auth-form'
+import { PHONE_AUTH_ENABLED }              from '@/lib/feature-flags'
 
 const INITIAL_STATE: RegisterResult = { success: true, data: undefined }
 
@@ -58,7 +59,7 @@ export function RegisterForm() {
   }
 
   // ── Phone mode ──────────────────────────────────────────────────────────────
-  if (showPhone) {
+  if (PHONE_AUTH_ENABLED && showPhone) {
     return (
       <PhoneAuthForm onBack={() => setShowPhone(false)} />
     )
@@ -71,17 +72,19 @@ export function RegisterForm() {
       <GoogleOAuthButton label="Sign up with Google" />
       <AppleOAuthButton  label="Sign up with Apple" />
 
-      {/* Phone button */}
-      <Button
-        type="button"
-        variant="secondary"
-        className="w-full gap-2"
-        size="lg"
-        onClick={() => setShowPhone(true)}
-      >
-        <Phone className="h-4 w-4" />
-        Sign up with Phone
-      </Button>
+      {/* Phone button — hidden until SMS provider is configured for production use */}
+      {PHONE_AUTH_ENABLED && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full gap-2"
+          size="lg"
+          onClick={() => setShowPhone(true)}
+        >
+          <Phone className="h-4 w-4" />
+          Sign up with Phone
+        </Button>
+      )}
 
       <div className="relative flex items-center gap-3 py-1">
         <div className="flex-1 border-t border-line" />

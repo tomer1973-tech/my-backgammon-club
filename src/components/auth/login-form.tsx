@@ -10,6 +10,7 @@ import { Input }                           from '@/components/ui/input'
 import { GoogleOAuthButton }               from '@/components/auth/google-oauth-button'
 import { AppleOAuthButton }                from '@/components/auth/apple-oauth-button'
 import { PhoneAuthForm }                   from '@/components/auth/phone-auth-form'
+import { PHONE_AUTH_ENABLED }              from '@/lib/feature-flags'
 import type { ActionResult }               from '@/types'
 
 const INITIAL_STATE: ActionResult = { success: true, data: undefined }
@@ -28,7 +29,7 @@ export function LoginForm() {
   const [showPhone, setShowPhone] = useState(false)
 
   // ── Phone mode ──────────────────────────────────────────────────────────────
-  if (showPhone) {
+  if (PHONE_AUTH_ENABLED && showPhone) {
     return (
       <PhoneAuthForm onBack={() => setShowPhone(false)} />
     )
@@ -41,17 +42,19 @@ export function LoginForm() {
       <GoogleOAuthButton label="Continue with Google" />
       <AppleOAuthButton  label="Continue with Apple" />
 
-      {/* Phone button */}
-      <Button
-        type="button"
-        variant="secondary"
-        className="w-full gap-2"
-        size="lg"
-        onClick={() => setShowPhone(true)}
-      >
-        <Phone className="h-4 w-4" />
-        Continue with Phone
-      </Button>
+      {/* Phone button — hidden until SMS provider is configured for production use */}
+      {PHONE_AUTH_ENABLED && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full gap-2"
+          size="lg"
+          onClick={() => setShowPhone(true)}
+        >
+          <Phone className="h-4 w-4" />
+          Continue with Phone
+        </Button>
+      )}
 
       <div className="relative flex items-center gap-3 py-1">
         <div className="flex-1 border-t border-line" />
