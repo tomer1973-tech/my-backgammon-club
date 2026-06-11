@@ -35,7 +35,10 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute =
     isAuthPage                      ||
     pathname.startsWith('/auth/')   || // /auth/callback, etc.
-    pathname.startsWith('/quick-game') // no-account quick game mode
+    pathname.startsWith('/quick-game') || // no-account quick game mode
+    pathname.startsWith('/play')       || // no-account local hot-seat play
+    pathname.startsWith('/practice')   || // no-account practice vs AI
+    pathname.startsWith('/lessons')       // no-account interactive tutorial
 
   // Redirect unauthenticated users to login (preserve intended destination)
   if (!isPublicRoute && !isAuthed) {

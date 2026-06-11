@@ -21,8 +21,9 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link                            from 'next/link'
 import { useRouter }                   from 'next/navigation'
-import { ChevronLeft, Clock, Trash2 }  from 'lucide-react'
+import { ChevronLeft, Clock, Trash2, Dices } from 'lucide-react'
 import { abandonMatch, cancelScheduledMatch } from '@/actions/match'
+import { Button }                      from '@/components/ui/button'
 import { ScoreBoard }                  from './score-board'
 import { DoublingCube }                from './doubling-cube'
 import { RecordGamePanel }             from './record-game-panel'
@@ -219,6 +220,16 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
         player1Id={match.player1Id}
         player2Id={match.player2Id}
       />
+
+      {/* Play Live — online board for active matches */}
+      {isActive && (
+        <Link href={`/tournaments/${match.tournamentId}/matches/${match.id}/live`}>
+          <Button size="lg" className="w-full gap-2">
+            <Dices className="h-4 w-4" />
+            Play Live
+          </Button>
+        </Link>
+      )}
 
       {/* Doubling cube — only show during active match */}
       {isActive && (

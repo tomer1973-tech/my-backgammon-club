@@ -3,19 +3,21 @@
 import Link            from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, type LucideIcon,
+  Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, Dices, type LucideIcon,
 } from 'lucide-react'
 import { cn }          from '@/lib/utils'
 import { NAV_ITEMS }   from './nav-items'
 
-const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal }
+const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, Dices }
 
 // Mobile nav needs role — we pass it via a wrapper that reads from layout
 interface MobileNavProps { userRole?: string }
 
 export function MobileNav({ userRole }: MobileNavProps) {
   const pathname = usePathname()
-  const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || userRole === 'ADMIN')
+  const visibleItems = NAV_ITEMS
+    .filter(item => !item.adminOnly || userRole === 'ADMIN')
+    .filter(item => !item.hideOnMobile)
 
   return (
     <nav

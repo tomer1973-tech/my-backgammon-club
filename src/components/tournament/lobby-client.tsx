@@ -73,7 +73,7 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
       {/* ── Greeting header ────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">
+          <h1 className="text-xl sm:text-2xl font-bold text-ink">
             Welcome{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''} 👋
           </h1>
           <p className="text-sm text-ink-muted mt-0.5">
@@ -100,7 +100,7 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
             bg-[radial-gradient(ellipse_80%_100%_at_50%_0%,hsl(var(--gold)/0.12),transparent)]"
         />
 
-        <div className="relative p-6">
+        <div className="relative p-4 sm:p-6">
           {/* Label */}
           <div className="flex items-center gap-2 mb-1">
             <Zap className="h-4 w-4 text-gold" />
@@ -111,10 +111,10 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
           </div>
 
           {/* Headline */}
-          <h2 className="text-2xl font-bold text-ink mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-ink mt-1">
             Start a game right now
           </h2>
-          <p className="text-sm text-ink-muted mt-1 mb-5">
+          <p className="text-sm text-ink-muted mt-1 mb-4 sm:mb-5">
             Add players from your club or as guests, choose a race-to, and start scoring instantly.
           </p>
 
@@ -124,7 +124,7 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
               type="button"
               onClick={() => setQuickMatchOpen(true)}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl
-                bg-gold text-black font-bold text-base py-3.5 px-6
+                bg-gold text-black font-bold text-sm sm:text-base py-3 sm:py-3.5 px-6
                 hover:bg-gold/90 active:scale-[0.98] transition-all
                 shadow-[0_4px_20px_hsl(var(--gold)/0.35)]"
             >
@@ -135,7 +135,7 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
               href="/quick-game"
               className="flex items-center justify-center gap-2 rounded-xl
                 border-2 border-gold/40 bg-gold/10 hover:bg-gold/20
-                text-gold font-semibold text-sm py-3.5 px-5
+                text-gold font-semibold text-sm py-3 sm:py-3.5 px-5
                 active:scale-[0.98] transition-all"
             >
               <Zap className="h-4 w-4" />
@@ -147,7 +147,7 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
       </div>
 
       {/* ── Action grid ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
         <ActionCard
           href="/tournaments/new"
           icon={<Plus className="h-5 w-5" />}
@@ -283,7 +283,7 @@ interface ActionCardProps {
 
 function ActionCard({ href, onClick, icon, label, desc, accent = 'default', className }: ActionCardProps) {
   const base = cn(
-    'flex flex-col gap-2.5 rounded-xl border p-4 transition-all duration-150',
+    'flex flex-col gap-2 sm:gap-2.5 rounded-xl border p-3 sm:p-4 transition-all duration-150',
     'active:scale-[0.97] cursor-pointer select-none text-left',
     accent === 'gold'
       ? 'border-gold/40 bg-gold/8 hover:bg-gold/12 hover:border-gold/60 hover:shadow-gold'
@@ -294,7 +294,7 @@ function ActionCard({ href, onClick, icon, label, desc, accent = 'default', clas
   const content = (
     <>
       <div className={cn(
-        'flex h-9 w-9 items-center justify-center rounded-lg border',
+        'flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border',
         accent === 'gold'
           ? 'border-gold/40 bg-gold/15 text-gold'
           : 'border-line bg-surface-elevated text-ink-muted',

@@ -3,7 +3,7 @@
 import Link              from 'next/link'
 import { usePathname }   from 'next/navigation'
 import {
-  Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, type LucideIcon,
+  Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, Dices, BookOpen, Bot, GraduationCap, type LucideIcon,
 } from 'lucide-react'
 import { cn }            from '@/lib/utils'
 import { NAV_ITEMS }     from './nav-items'
@@ -12,7 +12,7 @@ import { Badge }         from '@/components/ui/badge'
 import type { SessionUser } from '@/types'
 
 // Icon map — driven by the string names in nav-items.ts
-const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal }
+const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, Dices, BookOpen, Bot, GraduationCap }
 
 const ROLE_VARIANT = {
   ADMIN:               'admin',

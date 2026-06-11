@@ -28,10 +28,11 @@ export function AppShell({ user, children }: AppShellProps) {
         {/* Page content */}
         <main
           className="flex-1 overflow-y-auto
-            px-4 py-5 pb-24
-            lg:px-8 lg:py-8 lg:pb-8"
+            px-3 py-4 pb-20
+            sm:px-4 sm:py-5
+            lg:px-8 lg:py-6 lg:pb-8"
         >
-          <div className="mx-auto max-w-4xl w-full">
+          <div className="mx-auto max-w-3xl w-full lg:max-w-4xl">
             {children}
           </div>
         </main>

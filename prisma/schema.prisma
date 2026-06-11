@@ -65,6 +65,11 @@ enum MatchStatus {
   COMPLETED  // Match over, winner decided
 }
 
+enum LiveGameStatus {
+  PLAYING
+  FINISHED
+}
+
 enum OpeningType {
   RUNNING_GAME    // Both sides racing off the board
   BLITZ           // Aggressive prime-building / hitting
@@ -227,12 +232,44 @@ model Match {
   recordedBy Player            @relation("MatchRecorder",  fields: [recordedById],references: [id], onDelete: Restrict)
   games      MatchGame[]
   likes      MatchLike[]
+  liveGame   LiveGame?
 
   @@index([tournamentId, status])
   @@index([tournamentId, createdAt(sort: Desc)])
   @@index([player1Id])
   @@index([player2Id])
   @@map("matches")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIVE GAME
+// Live (in-browser) board state for an online backgammon game within a Match.
+// One row per Match — overwritten/reset for each successive game in the match.
+// Synced between players via Supabase Realtime broadcast on channel
+// `live-game-{id}`; this row is the source of truth on reconnect.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LiveGame {
+  id            String         @id @default(uuid())
+  matchId       String         @unique @map("match_id")
+  gameNumber    Int            @map("game_number")
+  board         Json                                      // Board (points/bar/borneOff)
+  turnStartBoard Json          @map("turn_start_board")   // Board at the start of the current turn (for Undo)
+  currentPlayer String         @map("current_player")     // 'white' | 'black'
+  dice          Json?                                      // Dice ([number, number]) | null
+  movesPlayed   Json           @default("[]") @map("moves_played") // Move[]
+  cubeValue     Int            @default(1) @map("cube_value")
+  cubeOwner     String?        @map("cube_owner")          // 'white' | 'black' | null
+  doubleOffer   String?        @map("double_offer")        // 'white' | 'black' | null
+  player1Color  String         @map("player1_color")       // 'white' | 'black'
+  status        LiveGameStatus @default(PLAYING)
+  winner        String?                                    // 'white' | 'black' | null
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt      @map("updated_at")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@map("live_games")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
