@@ -14,6 +14,7 @@ export interface BoardTheme {
   felt:       string   // board surface
   pointDark:  string   // darker triangles (even points)
   pointLight: string   // lighter triangles (odd points)
+  rail:       string   // outer frame + centre bar
 }
 
 export interface DiceTheme {
@@ -25,11 +26,11 @@ export interface DiceTheme {
 }
 
 export const BOARD_THEMES: BoardTheme[] = [
-  { id: 'classic',  label: 'Classic',  felt: 'hsl(25 24% 10%)',  pointDark: 'hsl(26 22% 14%)', pointLight: 'hsl(26 20% 18%)' },
-  { id: 'emerald',  label: 'Emerald',  felt: 'hsl(155 32% 8%)',  pointDark: 'hsl(155 28% 13%)', pointLight: 'hsl(150 24% 18%)' },
-  { id: 'midnight', label: 'Midnight', felt: 'hsl(220 36% 9%)',  pointDark: 'hsl(220 32% 15%)', pointLight: 'hsl(218 27% 21%)' },
-  { id: 'crimson',  label: 'Crimson',  felt: 'hsl(350 33% 9%)',  pointDark: 'hsl(352 34% 15%)', pointLight: 'hsl(350 28% 21%)' },
-  { id: 'slate',    label: 'Slate',    felt: 'hsl(220 8% 12%)',  pointDark: 'hsl(220 7% 18%)',  pointLight: 'hsl(220 6% 24%)' },
+  { id: 'classic',  label: 'Classic',  felt: 'hsl(26 26% 9%)',   rail: 'hsl(28 30% 6%)',  pointDark: 'hsl(26 24% 15%)',  pointLight: 'hsl(34 30% 34%)' },
+  { id: 'emerald',  label: 'Emerald',  felt: 'hsl(158 34% 7%)',  rail: 'hsl(160 38% 4%)', pointDark: 'hsl(156 30% 13%)', pointLight: 'hsl(150 28% 30%)' },
+  { id: 'midnight', label: 'Midnight', felt: 'hsl(221 38% 8%)',  rail: 'hsl(223 42% 5%)', pointDark: 'hsl(221 34% 15%)', pointLight: 'hsl(214 36% 34%)' },
+  { id: 'crimson',  label: 'Crimson',  felt: 'hsl(351 34% 8%)',  rail: 'hsl(352 40% 5%)', pointDark: 'hsl(352 36% 15%)', pointLight: 'hsl(352 34% 34%)' },
+  { id: 'slate',    label: 'Slate',    felt: 'hsl(220 9% 11%)',  rail: 'hsl(220 12% 7%)', pointDark: 'hsl(220 8% 17%)',  pointLight: 'hsl(220 8% 36%)' },
 ]
 
 export const DICE_THEMES: DiceTheme[] = [
@@ -51,6 +52,7 @@ export function getDiceTheme(id: string | null | undefined): DiceTheme {
 export function themeVars(board: BoardTheme, dice: DiceTheme): CSSProperties {
   return {
     '--bg-felt':       board.felt,
+    '--bg-rail':       board.rail,
     '--bg-point-dark': board.pointDark,
     '--bg-point-light':board.pointLight,
     '--die-bg':        dice.bg,

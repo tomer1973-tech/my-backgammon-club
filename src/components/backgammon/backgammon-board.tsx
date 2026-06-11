@@ -17,7 +17,7 @@
  * move; tapping a highlighted destination calls `onMove` with that move.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 import {
   isSequencePrefix,
@@ -164,7 +164,14 @@ export function BackgammonBoard({
       style={themeVars(boardTheme, diceTheme)}
     >
       {/* ── Board ── */}
-      <div className="flex-1 rounded-2xl border border-line bg-[var(--bg-felt)] p-2 sm:p-3">
+      <div
+        className="flex-1 rounded-2xl p-2 sm:p-3"
+        style={{
+          backgroundColor: 'var(--bg-felt)',
+          border: '7px solid var(--bg-rail)',
+          boxShadow: 'inset 0 2px 14px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.03)',
+        }}
+      >
         <BoardRow
           order={topOrder}
           rowPosition="top"
@@ -193,7 +200,10 @@ export function BackgammonBoard({
         <BearOffTray player={flip ? 'black' : 'white'} board={board}
           highlighted={toOptions.has('off')}
           onClick={() => handleClick('off')} />
-        <div className="flex flex-1 items-center justify-center rounded-xl border border-line bg-surface-raised p-2">
+        <div
+          className="flex flex-1 items-center justify-center rounded-xl p-2"
+          style={{ backgroundColor: 'var(--bg-felt)', border: '4px solid var(--bg-rail)' }}
+        >
           {dice ? (
             <div className="flex flex-wrap items-center justify-center gap-1.5">
               {diceState.map((d, i) => (
@@ -277,13 +287,19 @@ function PointCell({
     ? 'polygon(0% 0%, 100% 0%, 50% 100%)'
     : 'polygon(0% 100%, 100% 100%, 50% 0%)'
 
+  // Tapered gradient: saturated at the wide base, fading toward the pointed tip.
+  const base = dark ? 'var(--bg-point-dark)' : 'var(--bg-point-light)'
+  const gradient = rowPosition === 'top'
+    ? `linear-gradient(to bottom, ${base} 0%, ${base} 18%, color-mix(in srgb, ${base} 25%, transparent) 92%, transparent 100%)`
+    : `linear-gradient(to top, ${base} 0%, ${base} 18%, color-mix(in srgb, ${base} 25%, transparent) 92%, transparent 100%)`
+
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`Point ${index + 1}${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'}` : ', empty'}`}
       className={cn(
-        'relative flex h-28 sm:h-32 flex-col gap-0.5 px-0.5 outline-none',
+        'relative flex h-32 sm:h-36 flex-col gap-0.5 px-0.5 outline-none',
         rowPosition === 'top' ? 'justify-start pt-1' : 'flex-col-reverse justify-start pb-1',
         highlighted && 'cursor-pointer',
         !highlighted && 'cursor-default',
@@ -292,15 +308,13 @@ function PointCell({
       <div
         className={cn(
           'absolute inset-0',
-          highlighted && 'bg-gold/20',
-          selected && 'bg-gold/35',
+          highlighted && 'bg-gold/25',
+          selected && 'bg-gold/40',
         )}
         style={{
           clipPath,
-          // Themed base colour; let the gold classes win when highlighted/selected.
-          ...(highlighted || selected
-            ? {}
-            : { backgroundColor: dark ? 'var(--bg-point-dark)' : 'var(--bg-point-light)' }),
+          // Themed tapered fill; let the gold classes win when highlighted/selected.
+          ...(highlighted || selected ? {} : { backgroundImage: gradient }),
         }}
       />
       {Array.from({ length: Math.min(count, MAX_STACK) }).map((_, i) => (
@@ -340,12 +354,15 @@ function BarCell({
       onClick={onClick}
       aria-label={`Bar${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'} waiting to enter` : ''}`}
       className={cn(
-        'relative flex h-28 sm:h-32 flex-col items-center gap-0.5 rounded-md px-0.5',
+        'relative flex h-32 sm:h-36 flex-col items-center gap-0.5 rounded-md px-0.5',
         rowPosition === 'top' ? 'justify-start pt-1' : 'flex-col-reverse justify-start pb-1',
-        'bg-surface-canvas/60',
-        highlighted && 'bg-gold/20 cursor-pointer',
+        highlighted && 'cursor-pointer bg-gold/20',
         selected === 'bar' && 'bg-gold/35',
       )}
+      style={highlighted || selected === 'bar' ? undefined : {
+        backgroundColor: 'var(--bg-rail)',
+        boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.4), inset -1px 0 2px rgba(0,0,0,0.4)',
+      }}
     >
       {Array.from({ length: Math.min(count, MAX_STACK) }).map((_, i) => (
         <Checker key={i} player={player} overflowCount={i === MAX_STACK - 1 && count > MAX_STACK ? count : undefined} />
@@ -371,9 +388,12 @@ function BearOffTray({
       onClick={onClick}
       aria-label={`${player} borne off: ${count} of ${CHECKERS_PER_PLAYER}`}
       className={cn(
-        'flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface-raised p-2 sm:p-3',
-        highlighted && 'border-gold/60 bg-gold/10 cursor-pointer',
+        'flex flex-1 flex-col items-center justify-center gap-1 rounded-xl p-2 sm:p-3 transition-colors',
+        highlighted && 'cursor-pointer',
       )}
+      style={highlighted
+        ? { backgroundColor: 'hsl(40 62% 55% / 0.12)', border: '4px solid hsl(40 62% 55% / 0.6)' }
+        : { backgroundColor: 'var(--bg-felt)', border: '4px solid var(--bg-rail)' }}
     >
       <Checker player={player} small />
       <span className="text-xs font-semibold tabular-nums text-ink">
@@ -385,21 +405,32 @@ function BearOffTray({
 
 // ─── Checker ─────────────────────────────────────────────────────────────────
 
+const CHECKER_STYLE: Record<Player, CSSProperties> = {
+  white: {
+    backgroundImage: 'radial-gradient(circle at 38% 30%, hsl(42 45% 98%), hsl(40 30% 85%) 68%, hsl(38 26% 76%) 100%)',
+    borderColor: 'hsl(40 22% 66%)',
+    boxShadow: 'inset 0 1px 1.5px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(120,100,60,0.25), 0 2px 3px rgba(0,0,0,0.45)',
+  },
+  black: {
+    backgroundImage: 'radial-gradient(circle at 38% 30%, hsl(28 16% 27%), hsl(26 24% 11%) 66%, hsl(25 28% 7%) 100%)',
+    borderColor: 'hsl(40 55% 50% / 0.5)',
+    boxShadow: 'inset 0 1px 1.5px rgba(255,255,255,0.18), inset 0 -2px 3px rgba(0,0,0,0.5), 0 2px 3px rgba(0,0,0,0.55)',
+  },
+}
+
 function Checker({ player, overflowCount, small }: { player: Player; overflowCount?: number; small?: boolean }) {
   return (
     <div
       className={cn(
-        'relative shrink-0 rounded-full border-2 shadow-sm',
-        small ? 'h-5 w-5' : 'h-[22px] w-[22px] sm:h-6 sm:w-6',
-        player === 'white'
-          ? 'bg-[hsl(40,35%,94%)] border-[hsl(40,20%,75%)]'
-          : 'bg-[hsl(25,20%,14%)] border-gold/60',
+        'relative shrink-0 rounded-full border',
+        small ? 'h-5 w-5' : 'h-[22px] w-[22px] sm:h-7 sm:w-7',
       )}
+      style={CHECKER_STYLE[player]}
     >
       {overflowCount !== undefined && (
         <span className={cn(
           'absolute inset-0 flex items-center justify-center text-[10px] font-bold',
-          player === 'white' ? 'text-[hsl(25,20%,20%)]' : 'text-gold',
+          player === 'white' ? 'text-[hsl(25,25%,22%)]' : 'text-gold',
         )}>
           {overflowCount}
         </span>
@@ -423,10 +454,14 @@ function Die({ value, used }: { value: number; used: boolean }) {
   return (
     <div
       className={cn(
-        'grid h-8 w-8 grid-cols-3 grid-rows-3 gap-[2px] rounded-md border p-1',
-        used ? 'border-line bg-surface-elevated opacity-40' : 'shadow-sm',
+        'grid h-9 w-9 grid-cols-3 grid-rows-3 gap-[3px] rounded-lg border p-1.5',
+        used ? 'border-line bg-surface-elevated opacity-40' : '',
       )}
-      style={used ? undefined : { backgroundColor: 'var(--die-bg)', borderColor: 'var(--die-border)' }}
+      style={used ? undefined : {
+        backgroundColor: 'var(--die-bg)',
+        borderColor: 'var(--die-border)',
+        boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 5px rgba(0,0,0,0.45)',
+      }}
     >
       {Array.from({ length: 9 }).map((_, i) => {
         const row = Math.floor(i / 3)
