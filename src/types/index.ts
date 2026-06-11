@@ -379,6 +379,7 @@ export interface MatchRow {
   cubeOwnerId:  string | null
   status:       MatchStatus
   winnerId:     string | null
+  round:        number | null   // round number for auto-scheduled formats; null = ad-hoc match
   openingType:  OpeningType | null
   notes:        string | null
   startedAt:    Date | null

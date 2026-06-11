@@ -214,6 +214,7 @@ model Match {
   cubeOwnerId  String?     @map("cube_owner_id")            // null = center
   status       MatchStatus @default(PENDING)
   winnerId     String?     @map("winner_id")
+  round        Int?        @map("round")          // round number for auto-scheduled formats (round robin / swiss); null = ad-hoc match
   openingType  OpeningType? @map("opening_type")
   notes        String?
   scheduledAt  DateTime?   @map("scheduled_at")   // null = start immediately

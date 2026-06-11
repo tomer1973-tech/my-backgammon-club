@@ -79,6 +79,12 @@ export const endTournamentSchema = z.object({
   tournamentId: uuidSchema,
 })
 
+export const generateScheduleSchema = z.object({
+  tournamentId: uuidSchema,
+  // When true, clear existing not-yet-started (PENDING) matches first and regenerate.
+  replace:      z.boolean().optional().default(false),
+})
+
 export const joinTournamentSchema = z.object({
   code: z.string().length(6, 'Code must be exactly 6 characters').toUpperCase(),
 })
@@ -207,6 +213,7 @@ export type UpdateTournamentStatusInput = z.infer<typeof updateTournamentStatusS
 export type DeleteTournamentInput       = z.infer<typeof deleteTournamentSchema>
 export type ArchiveTournamentInput      = z.infer<typeof archiveTournamentSchema>
 export type EndTournamentInput          = z.infer<typeof endTournamentSchema>
+export type GenerateScheduleInput       = z.infer<typeof generateScheduleSchema>
 export type JoinTournamentInput         = z.infer<typeof joinTournamentSchema>
 export type RecordGameInput             = z.infer<typeof recordGameSchema>
 export type UpdateMemberInput           = z.infer<typeof updateMemberStatsSchema>

@@ -32,6 +32,19 @@ export default async function MatchesPage({ params }: Props) {
   const pendingMatches   = matches.filter(m => m.status === 'PENDING')
   const completedMatches = matches.filter(m => m.status === 'COMPLETED')
 
+  // Group upcoming matches by round (for auto-scheduled formats). Matches with
+  // no round (ad-hoc) fall into a single "Other" bucket shown last.
+  const hasRounds = pendingMatches.some(m => m.round != null)
+  const pendingByRound = hasRounds
+    ? Array.from(
+        pendingMatches.reduce((map, m) => {
+          const key = m.round ?? Infinity
+          ;(map.get(key) ?? map.set(key, []).get(key)!).push(m)
+          return map
+        }, new Map<number, typeof pendingMatches>()),
+      ).sort(([a], [b]) => a - b)
+    : null
+
   const canManage = tournament.isOwner || tournament.userRole === 'ORGANIZER' || tournament.isAdmin
 
   return (
@@ -80,10 +93,27 @@ export default async function MatchesPage({ params }: Props) {
 
       {/* Pending matches */}
       {pendingMatches.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">Upcoming</h2>
-          {pendingMatches.map(m => <MatchCard key={m.id} match={m} canManage={canManage} />)}
-        </section>
+        pendingByRound ? (
+          <section className="space-y-6">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">Upcoming</h2>
+            {pendingByRound.map(([round, group]) => (
+              <div key={round} className="space-y-3">
+                <h3 className="text-xs font-semibold text-gold">
+                  {round === Infinity ? 'Other' : `Round ${round}`}
+                  <span className="ml-2 font-normal text-ink-subtle">
+                    {group.length} match{group.length === 1 ? '' : 'es'}
+                  </span>
+                </h3>
+                {group.map(m => <MatchCard key={m.id} match={m} canManage={canManage} />)}
+              </div>
+            ))}
+          </section>
+        ) : (
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">Upcoming</h2>
+            {pendingMatches.map(m => <MatchCard key={m.id} match={m} canManage={canManage} />)}
+          </section>
+        )
       )}
 
       {/* Completed matches */}

@@ -34,7 +34,9 @@ import {
   declineDoubleSchema,
   completeMatchSchema,
   setScoreSchema,
+  generateScheduleSchema,
 } from '@/validations'
+import { generateRoundRobin } from '@/lib/tournament/round-robin'
 import {
   GAME_TYPE_MULTIPLIER,
 } from '@/types'
@@ -127,6 +129,7 @@ export async function getMatch(matchId: string): Promise<Match> {
     cubeOwnerId:  m.cubeOwnerId,
     status:       m.status as MatchStatus,
     winnerId:     m.winnerId,
+    round:        m.round,
     openingType:  m.openingType as OpeningType | null,
     notes:        m.notes,
     startedAt:    m.startedAt,
@@ -168,6 +171,7 @@ export async function getTournamentMatches(tournamentId: string): Promise<MatchS
     cubeOwnerId:  m.cubeOwnerId,
     status:       m.status as MatchStatus,
     winnerId:     m.winnerId,
+    round:        m.round,
     openingType:  m.openingType as OpeningType | null,
     notes:        m.notes,
     startedAt:    m.startedAt,
@@ -263,6 +267,104 @@ export async function createMatch(
   revalidatePath(`/tournaments/${tournamentId}/matches`)
   revalidatePath('/schedule')
   return { success: true, data: { id: match.id, scheduled: isScheduled } }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTO-SCHEDULE — ROUND ROBIN
+// Generates the full round-robin schedule for a tournament: every player meets
+// every other player once. Players are seeded by current standings (points,
+// then wins, then name) so top seeds are spread across the rounds.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function generateRoundRobinSchedule(
+  data: unknown,
+): Promise<ActionResult<{ created: number; rounds: number }>> {
+  const user = await requireSessionUser()
+
+  const parsed = generateScheduleSchema.safeParse(data)
+  if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
+
+  const { tournamentId, replace } = parsed.data
+
+  const tournament = await db.tournament.findUnique({
+    where:  { id: tournamentId, deletedAt: null },
+    select: { createdById: true, status: true, format: true, matchLength: true },
+  })
+  if (!tournament) return { success: false, error: 'Tournament not found.' }
+
+  // Permission: organizer, creator, or admin.
+  const isOrganizer = await db.tournamentMember.findFirst({
+    where: { tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
+  })
+  if (!isOrganizer && tournament.createdById !== user.id && user.role !== 'ADMIN') {
+    return { success: false, error: 'You do not have permission to schedule this tournament.' }
+  }
+
+  if (tournament.format !== 'ROUND_ROBIN') {
+    return { success: false, error: 'Auto-scheduling is currently available for Round Robin tournaments only.' }
+  }
+  if (tournament.status === 'COMPLETED' || tournament.status === 'ARCHIVED') {
+    return { success: false, error: 'This tournament has already ended.' }
+  }
+
+  // Existing matches guard.
+  const existing = await db.match.findMany({
+    where:  { tournamentId },
+    select: { id: true, status: true },
+  })
+  if (existing.length > 0 && !replace) {
+    return { success: false, error: 'This tournament already has matches. Use "Regenerate" to replace the upcoming ones.' }
+  }
+  // When replacing, only clear matches that haven't started — never touch
+  // active/completed ones (those affect standings).
+  if (replace) {
+    const removable = existing.filter(m => m.status === 'PENDING').map(m => m.id)
+    if (existing.some(m => m.status !== 'PENDING')) {
+      return { success: false, error: 'Some matches have already started or finished. Can only regenerate before any match begins.' }
+    }
+    if (removable.length > 0) {
+      await db.match.deleteMany({ where: { id: { in: removable } } })
+    }
+  }
+
+  // Seed members by performance: points desc, wins desc, then name for stability.
+  const members = await db.tournamentMember.findMany({
+    where:   { tournamentId },
+    select:  { id: true, points: true, wins: true, guestName: true, player: { select: { name: true } } },
+  })
+  if (members.length < 2) {
+    return { success: false, error: 'Add at least 2 players before generating a schedule.' }
+  }
+
+  const seeded = members
+    .sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points
+      if (b.wins   !== a.wins)   return b.wins   - a.wins
+      return (a.player?.name ?? a.guestName ?? '').localeCompare(b.player?.name ?? b.guestName ?? '')
+    })
+    .map(m => m.id)
+
+  const pairs       = generateRoundRobin(seeded)
+  const targetScore = tournament.matchLength ?? 1
+
+  await db.match.createMany({
+    data: pairs.map(p => ({
+      tournamentId,
+      player1Id:    p.player1Id,
+      player2Id:    p.player2Id,
+      round:        p.round,
+      targetScore,
+      status:       'PENDING' as const,
+      recordedById: user.id,
+    })),
+  })
+
+  const rounds = pairs.reduce((max, p) => Math.max(max, p.round), 0)
+
+  revalidatePath(`/tournaments/${tournamentId}`)
+  revalidatePath(`/tournaments/${tournamentId}/matches`)
+  revalidatePath('/schedule')
+  return { success: true, data: { created: pairs.length, rounds } }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
