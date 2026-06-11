@@ -26,7 +26,7 @@ export interface DiceTheme {
 }
 
 export const BOARD_THEMES: BoardTheme[] = [
-  { id: 'classic',  label: 'Classic',  felt: 'hsl(26 26% 9%)',   rail: 'hsl(28 30% 6%)',  pointDark: 'hsl(26 24% 15%)',  pointLight: 'hsl(34 30% 34%)' },
+  { id: 'classic',  label: 'Classic',  felt: 'hsl(26 26% 9%)',   rail: 'hsl(28 32% 6%)',  pointDark: 'hsl(28 28% 17%)',  pointLight: 'hsl(33 40% 42%)' },
   { id: 'emerald',  label: 'Emerald',  felt: 'hsl(158 34% 7%)',  rail: 'hsl(160 38% 4%)', pointDark: 'hsl(156 30% 13%)', pointLight: 'hsl(150 28% 30%)' },
   { id: 'midnight', label: 'Midnight', felt: 'hsl(221 38% 8%)',  rail: 'hsl(223 42% 5%)', pointDark: 'hsl(221 34% 15%)', pointLight: 'hsl(214 36% 34%)' },
   { id: 'crimson',  label: 'Crimson',  felt: 'hsl(351 34% 8%)',  rail: 'hsl(352 40% 5%)', pointDark: 'hsl(352 36% 15%)', pointLight: 'hsl(352 34% 34%)' },

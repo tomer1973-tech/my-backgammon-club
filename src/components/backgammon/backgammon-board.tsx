@@ -260,7 +260,8 @@ function BoardRow({
             count={Math.abs(count)}
             player={player}
             selected={selected === entry}
-            highlighted={fromOptions.has(entry) || toOptions.has(entry)}
+            isSource={fromOptions.has(entry)}
+            isTarget={toOptions.has(entry)}
             onClick={() => onClick(entry)}
           />
         )
@@ -272,14 +273,15 @@ function BoardRow({
 // ─── A single triangular point ─────────────────────────────────────────────
 
 function PointCell({
-  index, rowPosition, count, player, selected, highlighted, onClick,
+  index, rowPosition, count, player, selected, isSource, isTarget, onClick,
 }: {
   index: number
   rowPosition: 'top' | 'bottom'
   count: number
   player: Player | null
   selected: boolean
-  highlighted: boolean
+  isSource: boolean
+  isTarget: boolean
   onClick: () => void
 }) {
   const dark = index % 2 === 0
@@ -287,11 +289,16 @@ function PointCell({
     ? 'polygon(0% 0%, 100% 0%, 50% 100%)'
     : 'polygon(0% 100%, 100% 100%, 50% 0%)'
 
-  // Tapered gradient: saturated at the wide base, fading toward the pointed tip.
+  // Solid triangle, lit at the wide base and darkening toward the tip.
   const base = dark ? 'var(--bg-point-dark)' : 'var(--bg-point-light)'
+  const lit  = `color-mix(in srgb, ${base} 84%, white)`
+  const tip  = `color-mix(in srgb, ${base} 64%, black)`
   const gradient = rowPosition === 'top'
-    ? `linear-gradient(to bottom, ${base} 0%, ${base} 18%, color-mix(in srgb, ${base} 25%, transparent) 92%, transparent 100%)`
-    : `linear-gradient(to top, ${base} 0%, ${base} 18%, color-mix(in srgb, ${base} 25%, transparent) 92%, transparent 100%)`
+    ? `linear-gradient(to bottom, ${lit}, ${base} 40%, ${tip})`
+    : `linear-gradient(to top, ${lit}, ${base} 40%, ${tip})`
+
+  const interactive = isSource || isTarget || selected
+  const stack = Math.min(count, MAX_STACK)
 
   return (
     <button
@@ -299,35 +306,41 @@ function PointCell({
       onClick={onClick}
       aria-label={`Point ${index + 1}${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'}` : ', empty'}`}
       className={cn(
-        'relative flex h-32 sm:h-36 flex-col gap-0.5 px-0.5 outline-none',
-        rowPosition === 'top' ? 'justify-start pt-1' : 'flex-col-reverse justify-start pb-1',
-        highlighted && 'cursor-pointer',
-        !highlighted && 'cursor-default',
+        'relative flex h-32 sm:h-36 flex-col items-center gap-0.5 px-0.5 outline-none',
+        rowPosition === 'top' ? 'justify-start pt-1.5' : 'flex-col-reverse justify-start pb-1.5',
+        interactive ? 'cursor-pointer' : 'cursor-default',
       )}
     >
+      {/* Triangle: themed gradient normally; gold when interactive. */}
       <div
         className={cn(
           'absolute inset-0',
-          highlighted && 'bg-gold/25',
-          selected && 'bg-gold/40',
+          selected && 'bg-gold/45',
+          isTarget && !selected && 'bg-gold/30',
+          isSource && !selected && 'bg-gold/15',
         )}
-        style={{
-          clipPath,
-          // Themed tapered fill; let the gold classes win when highlighted/selected.
-          ...(highlighted || selected ? {} : { backgroundImage: gradient }),
-        }}
+        style={interactive ? { clipPath } : { clipPath, backgroundImage: gradient }}
       />
-      {Array.from({ length: Math.min(count, MAX_STACK) }).map((_, i) => (
+
+      {/* Checkers (centered on the point). The pickable top checker glows. */}
+      {Array.from({ length: stack }).map((_, i) => (
         <Checker
           key={i}
           player={player!}
           overflowCount={i === MAX_STACK - 1 && count > MAX_STACK ? count : undefined}
+          glow={isSource && i === stack - 1}
         />
       ))}
-      {selected && (
-        <span className="pointer-events-none absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 text-center text-[10px] font-bold uppercase tracking-wider text-gold">
-          •
-        </span>
+
+      {/* Drop-here indicator for a legal destination. */}
+      {isTarget && (
+        <span
+          className={cn(
+            'pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 h-6 w-6 rounded-full',
+            'border-2 border-gold bg-gold/25 animate-pulse',
+            rowPosition === 'top' ? 'top-2' : 'bottom-2',
+          )}
+        />
       )}
     </button>
   )
@@ -418,14 +431,17 @@ const CHECKER_STYLE: Record<Player, CSSProperties> = {
   },
 }
 
-function Checker({ player, overflowCount, small }: { player: Player; overflowCount?: number; small?: boolean }) {
+function Checker({ player, overflowCount, small, glow }: { player: Player; overflowCount?: number; small?: boolean; glow?: boolean }) {
+  const style = glow
+    ? { ...CHECKER_STYLE[player], boxShadow: `${CHECKER_STYLE[player].boxShadow}, 0 0 0 2px hsl(40 85% 60%), 0 0 9px hsl(40 85% 60% / 0.7)` }
+    : CHECKER_STYLE[player]
   return (
     <div
       className={cn(
         'relative shrink-0 rounded-full border',
         small ? 'h-5 w-5' : 'h-[22px] w-[22px] sm:h-7 sm:w-7',
       )}
-      style={CHECKER_STYLE[player]}
+      style={style}
     >
       {overflowCount !== undefined && (
         <span className={cn(
