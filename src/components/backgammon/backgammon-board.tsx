@@ -29,6 +29,7 @@ import {
   type Dice,
   type CubeState,
 } from '@/lib/backgammon'
+import { BOARD_THEMES, DICE_THEMES, themeVars, type BoardTheme, type DiceTheme } from '@/lib/backgammon/themes'
 
 interface BackgammonBoardProps {
   board: Board
@@ -47,6 +48,10 @@ interface BackgammonBoardProps {
   /** Disable all interaction (e.g. opponent's turn, game over). */
   disabled?: boolean
   className?: string
+  /** Board colour theme (felt + triangles). Defaults to Classic. */
+  boardTheme?: BoardTheme
+  /** Dice colour theme. Defaults to Ivory. */
+  diceTheme?: DiceTheme
 }
 
 const CHECKERS_PER_PLAYER = 15
@@ -69,6 +74,7 @@ type Highlight = number | 'bar' | 'off'
 export function BackgammonBoard({
   board, perspective, toMove, dice, legalSequences = [], movesPlayed = [],
   onMove, cube, disabled, className,
+  boardTheme = BOARD_THEMES[0], diceTheme = DICE_THEMES[0],
 }: BackgammonBoardProps) {
   const [selected, setSelected] = useState<Highlight | null>(null)
 
@@ -153,9 +159,12 @@ export function BackgammonBoard({
   })
 
   return (
-    <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-stretch', className)}>
+    <div
+      className={cn('flex flex-col gap-3 sm:flex-row sm:items-stretch', className)}
+      style={themeVars(boardTheme, diceTheme)}
+    >
       {/* ── Board ── */}
-      <div className="flex-1 rounded-2xl border border-line bg-surface-raised p-2 sm:p-3">
+      <div className="flex-1 rounded-2xl border border-line bg-[var(--bg-felt)] p-2 sm:p-3">
         <BoardRow
           order={topOrder}
           rowPosition="top"
@@ -283,11 +292,16 @@ function PointCell({
       <div
         className={cn(
           'absolute inset-0',
-          dark ? 'bg-surface-elevated' : 'bg-surface-muted',
           highlighted && 'bg-gold/20',
           selected && 'bg-gold/35',
         )}
-        style={{ clipPath }}
+        style={{
+          clipPath,
+          // Themed base colour; let the gold classes win when highlighted/selected.
+          ...(highlighted || selected
+            ? {}
+            : { backgroundColor: dark ? 'var(--bg-point-dark)' : 'var(--bg-point-light)' }),
+        }}
       />
       {Array.from({ length: Math.min(count, MAX_STACK) }).map((_, i) => (
         <Checker
@@ -410,10 +424,9 @@ function Die({ value, used }: { value: number; used: boolean }) {
     <div
       className={cn(
         'grid h-8 w-8 grid-cols-3 grid-rows-3 gap-[2px] rounded-md border p-1',
-        used
-          ? 'border-line bg-surface-elevated opacity-40'
-          : 'border-gold/50 bg-[hsl(40,35%,94%)] shadow-sm',
+        used ? 'border-line bg-surface-elevated opacity-40' : 'shadow-sm',
       )}
+      style={used ? undefined : { backgroundColor: 'var(--die-bg)', borderColor: 'var(--die-border)' }}
     >
       {Array.from({ length: 9 }).map((_, i) => {
         const row = Math.floor(i / 3)
@@ -422,7 +435,8 @@ function Die({ value, used }: { value: number; used: boolean }) {
         return (
           <span
             key={i}
-            className={cn('rounded-full', hasPip && (used ? 'bg-ink-subtle' : 'bg-[hsl(25,20%,14%)]'))}
+            className={cn('rounded-full', hasPip && used && 'bg-ink-subtle')}
+            style={hasPip && !used ? { backgroundColor: 'var(--die-pip)' } : undefined}
           />
         )
       })}

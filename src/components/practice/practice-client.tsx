@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot } from 'lucide-react'
+import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, Palette, Check, ArrowRight } from 'lucide-react'
 import { Avatar }  from '@/components/ui/avatar'
 import { Button }  from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
@@ -22,6 +22,12 @@ import {
   isGameOver, getGameType, rollDice, chooseAIMove, evaluateBoard,
   type Board, type Player, type Dice, type Move, type MoveSequence, type GameType, type CubeState, type Difficulty,
 } from '@/lib/backgammon'
+import {
+  BOARD_THEMES, DICE_THEMES, getBoardTheme, getDiceTheme,
+} from '@/lib/backgammon/themes'
+
+const BOARD_THEME_KEY = 'pb_board_theme'
+const DICE_THEME_KEY  = 'pb_dice_theme'
 
 type Phase = 'setup' | 'playing' | 'gameover'
 
@@ -87,6 +93,24 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   const [game, setGame] = useState<GameState | null>(null)
   const [result, setResult] = useState<{ winner: Player; type: GameType } | null>(null)
   const [aiThinking, setAiThinking] = useState(false)
+
+  // Board & dice appearance (persisted across sessions)
+  const [boardThemeId, setBoardThemeId] = useState('classic')
+  const [diceThemeId, setDiceThemeId]   = useState('ivory')
+  const [customizeOpen, setCustomizeOpen] = useState(false)
+
+  useEffect(() => {
+    const b = localStorage.getItem(BOARD_THEME_KEY)
+    const d = localStorage.getItem(DICE_THEME_KEY)
+    if (b) setBoardThemeId(b)
+    if (d) setDiceThemeId(d)
+  }, [])
+
+  function chooseBoardTheme(id: string) { setBoardThemeId(id); localStorage.setItem(BOARD_THEME_KEY, id) }
+  function chooseDiceTheme(id: string)  { setDiceThemeId(id);  localStorage.setItem(DICE_THEME_KEY, id) }
+
+  const boardTheme = getBoardTheme(boardThemeId)
+  const diceTheme  = getDiceTheme(diceThemeId)
 
   const aiPlayer = opponent(humanPlayer)
 
@@ -330,21 +354,26 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
       <PageHeader title="Practice vs AI" subtitle={`Playing as ${humanPlayer === 'white' ? 'White' : 'Black'} · ${difficulty}`} />
 
       <div className="space-y-4">
-        {/* Turn banner */}
-        <div className="rounded-xl border border-line bg-surface-raised px-4 py-3 text-center">
-          <p className="text-xs uppercase tracking-widest text-ink-subtle">On roll</p>
-          <p className="flex items-center justify-center gap-2 text-lg font-bold text-ink">
-            {game.currentPlayer === humanPlayer
-              ? (currentUser?.name.split(' ')[0] ?? 'You')
-              : <><Bot className="h-4 w-4 text-gold" /> AI</>}
-          </p>
-          {aiThinking && (
-            <p className="mt-1 text-xs font-medium text-gold animate-pulse">Thinking…</p>
-          )}
-          {noLegalMoves && !aiThinking && (
-            <p className="mt-1 text-xs font-medium text-loss">No legal moves — pass the turn</p>
-          )}
+        {/* Toolbar */}
+        <div className="flex items-center justify-end">
+          <button
+            onClick={() => setCustomizeOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line
+              bg-surface-raised px-3 py-1.5 text-xs font-medium text-ink-muted
+              hover:border-gold/40 hover:text-ink transition-colors"
+          >
+            <Palette className="h-3.5 w-3.5" />
+            Board &amp; dice
+          </button>
         </div>
+
+        {/* Turn indicator */}
+        <TurnBanner
+          humanName={currentUser?.name.split(' ')[0] ?? 'You'}
+          isHumanOnRoll={game.currentPlayer === humanPlayer}
+          aiThinking={aiThinking}
+          noLegalMoves={noLegalMoves && !aiThinking}
+        />
 
         <BackgammonBoard
           board={liveBoard}
@@ -356,26 +385,40 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
           onMove={handleMove}
           cube={game.cube}
           disabled={!isHumanTurn}
+          boardTheme={boardTheme}
+          diceTheme={diceTheme}
         />
 
         {/* Controls */}
         {game.currentPlayer === humanPlayer && (
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={undo} variant="secondary" disabled={game.movesPlayed.length === 0} className="gap-2">
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-raised p-2">
+            <Button
+              onClick={undo}
+              variant="ghost"
+              size="sm"
+              disabled={game.movesPlayed.length === 0}
+              className="gap-1.5"
+            >
               <Undo2 className="h-4 w-4" />
               Undo
             </Button>
 
             {(game.cube.owner === null || game.cube.owner === humanPlayer)
               && game.movesPlayed.length === 0 && !game.doubleOffer && (
-              <Button onClick={offerDouble} variant="secondary" className="gap-2">
-                Double ({game.cube.value} → {game.cube.value * 2})
+              <Button onClick={offerDouble} variant="ghost" size="sm" className="gap-1.5">
+                <span className="text-base leading-none">⚂</span>
+                Double → {game.cube.value * 2}
               </Button>
             )}
 
-            <Button onClick={endTurn} disabled={!turnDone && !noLegalMoves} className="ml-auto gap-2">
-              AI&apos;s turn
-              <ChevronLeft className="h-4 w-4 rotate-180" />
+            <Button
+              onClick={endTurn}
+              size="sm"
+              disabled={!turnDone && !noLegalMoves}
+              className="ml-auto gap-1.5"
+            >
+              {noLegalMoves ? 'Pass turn' : 'End turn'}
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         )}
@@ -392,6 +435,16 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
           <span />
         </DialogFooter>
       </Dialog>
+
+      {/* Board & dice customization */}
+      <CustomizeDialog
+        open={customizeOpen}
+        onClose={() => setCustomizeOpen(false)}
+        boardThemeId={boardThemeId}
+        diceThemeId={diceThemeId}
+        onBoard={chooseBoardTheme}
+        onDice={chooseDiceTheme}
+      />
     </div>
   )
 }
@@ -449,5 +502,152 @@ function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
       <h1 className="font-display text-3xl font-bold text-ink tracking-tight">{title}</h1>
       <p className="mt-1.5 text-sm text-ink-muted">{subtitle}</p>
     </div>
+  )
+}
+
+// ─── Two-sided turn indicator ────────────────────────────────────────────────
+
+function TurnBanner({
+  humanName, isHumanOnRoll, aiThinking, noLegalMoves,
+}: {
+  humanName: string
+  isHumanOnRoll: boolean
+  aiThinking: boolean
+  noLegalMoves: boolean
+}) {
+  const status = isHumanOnRoll
+    ? (noLegalMoves ? 'No legal moves — pass the turn' : 'Your move')
+    : (aiThinking ? 'AI is thinking…' : 'AI to play')
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface-raised p-2">
+      <div className="grid grid-cols-2 gap-2">
+        {/* You */}
+        <div className={cn(
+          'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-all',
+          isHumanOnRoll ? 'border-gold/60 bg-gold/10' : 'border-transparent opacity-50',
+        )}>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-elevated">
+            <UserCircle2 className={cn('h-5 w-5', isHumanOnRoll ? 'text-gold' : 'text-ink-subtle')} />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-ink">{humanName}</p>
+            <p className="text-[11px] text-ink-subtle">You</p>
+          </div>
+          {isHumanOnRoll && <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-gold animate-pulse" />}
+        </div>
+
+        {/* AI */}
+        <div className={cn(
+          'flex items-center justify-end gap-2.5 rounded-xl border px-3 py-2.5 text-right transition-all',
+          !isHumanOnRoll ? 'border-gold/60 bg-gold/10' : 'border-transparent opacity-50',
+        )}>
+          {!isHumanOnRoll && <span className="mr-auto h-2 w-2 shrink-0 rounded-full bg-gold animate-pulse" />}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-ink">AI</p>
+            <p className="text-[11px] text-ink-subtle">Computer</p>
+          </div>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-elevated">
+            <Bot className={cn('h-5 w-5', !isHumanOnRoll ? 'text-gold' : 'text-ink-subtle')} />
+          </span>
+        </div>
+      </div>
+
+      <p className={cn(
+        'mt-2 text-center text-xs font-semibold',
+        noLegalMoves ? 'text-loss' : isHumanOnRoll ? 'text-gold' : 'text-ink-muted',
+        aiThinking && 'animate-pulse',
+      )}>
+        {status}
+      </p>
+    </div>
+  )
+}
+
+// ─── Board & dice customization dialog ───────────────────────────────────────
+
+const DIE_PREVIEW_PIPS = [[0, 0], [0, 2], [1, 1], [2, 0], [2, 2]]
+
+function CustomizeDialog({
+  open, onClose, boardThemeId, diceThemeId, onBoard, onDice,
+}: {
+  open: boolean
+  onClose: () => void
+  boardThemeId: string
+  diceThemeId: string
+  onBoard: (id: string) => void
+  onDice: (id: string) => void
+}) {
+  return (
+    <Dialog open={open} onClose={onClose} title="Board & dice" size="md">
+      <div className="space-y-5">
+        {/* Board */}
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-subtle">Board colour</p>
+          <div className="grid grid-cols-5 gap-2">
+            {BOARD_THEMES.map(t => (
+              <button
+                key={t.id}
+                onClick={() => onBoard(t.id)}
+                className={cn(
+                  'relative rounded-xl border-2 p-1.5 transition-all',
+                  boardThemeId === t.id ? 'border-gold' : 'border-line hover:border-gold/40',
+                )}
+              >
+                <div className="relative h-10 overflow-hidden rounded-lg" style={{ backgroundColor: t.felt }}>
+                  <span className="absolute bottom-0 left-[18%] h-7 w-3" style={{ backgroundColor: t.pointDark, clipPath: 'polygon(0 100%,100% 100%,50% 0)' }} />
+                  <span className="absolute bottom-0 left-[44%] h-7 w-3" style={{ backgroundColor: t.pointLight, clipPath: 'polygon(0 100%,100% 100%,50% 0)' }} />
+                  <span className="absolute bottom-0 right-[18%] h-7 w-3" style={{ backgroundColor: t.pointDark, clipPath: 'polygon(0 100%,100% 100%,50% 0)' }} />
+                </div>
+                <span className="mt-1 block text-center text-[10px] font-medium text-ink-muted">{t.label}</span>
+                {boardThemeId === t.id && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-surface-base">
+                    <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dice */}
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-subtle">Dice colour</p>
+          <div className="grid grid-cols-5 gap-2">
+            {DICE_THEMES.map(d => (
+              <button
+                key={d.id}
+                onClick={() => onDice(d.id)}
+                className={cn(
+                  'relative flex flex-col items-center rounded-xl border-2 p-1.5 transition-all',
+                  diceThemeId === d.id ? 'border-gold' : 'border-line hover:border-gold/40',
+                )}
+              >
+                <div
+                  className="grid h-10 w-10 grid-cols-3 grid-rows-3 gap-[2px] rounded-md border p-1.5"
+                  style={{ backgroundColor: d.bg, borderColor: d.border }}
+                >
+                  {Array.from({ length: 9 }).map((_, i) => {
+                    const r = Math.floor(i / 3), c = i % 3
+                    const on = DIE_PREVIEW_PIPS.some(([pr, pc]) => pr === r && pc === c)
+                    return <span key={i} className="rounded-full" style={on ? { backgroundColor: d.pip } : undefined} />
+                  })}
+                </div>
+                <span className="mt-1 block text-center text-[10px] font-medium text-ink-muted">{d.label}</span>
+                {diceThemeId === d.id && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-surface-base">
+                    <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button onClick={onClose} size="sm">Done</Button>
+      </DialogFooter>
+    </Dialog>
   )
 }
