@@ -3,8 +3,9 @@ import { notFound }                   from 'next/navigation'
 import Link                           from 'next/link'
 import { ChevronLeft, Users, Swords, Trophy, BarChart2 } from 'lucide-react'
 import { getTournamentWithMembers }   from '@/actions/tournament'
-import { getTournamentMatches, getStandings } from '@/actions/match'
+import { getTournamentMatches, getStandings, getSuggestedMatches } from '@/actions/match'
 import { TournamentOverview }         from '@/components/tournament/tournament-overview'
+import { SuggestedMatches }           from '@/components/match/suggested-matches'
 import { PlayerRoster }               from '@/components/players/player-roster'
 import { MatchCard }                  from '@/components/match/match-card'
 import { StandingsTable }             from '@/components/match/standings-table'
@@ -23,12 +24,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function TournamentDetailPage({ params }: Props) {
-  let tournament, matches, standings
+  let tournament, matches, standings, suggestions
   try {
-    [tournament, matches, standings] = await Promise.all([
+    [tournament, matches, standings, suggestions] = await Promise.all([
       getTournamentWithMembers(params.id),
       getTournamentMatches(params.id),
       getStandings(params.id),
+      getSuggestedMatches(params.id),
     ])
   } catch { notFound() }
 
@@ -87,6 +89,15 @@ export default async function TournamentDetailPage({ params }: Props) {
           </div>
           {activeMatches.map(m => <MatchCard key={m.id} match={m} />)}
         </section>
+      )}
+
+      {/* Suggested matches (organizers, active tournament) */}
+      {canManage && tournament.status === 'ACTIVE' && (
+        <SuggestedMatches
+          tournamentId={tournament.id}
+          targetScore={tournament.matchLength ?? 1}
+          suggestions={suggestions}
+        />
       )}
 
       {/* Standings preview */}

@@ -938,6 +938,106 @@ export async function getUpcomingMatches(): Promise<UpcomingMatch[]> {
   }))
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SUGGESTED MATCHES
+// Recommends a set of balanced, fresh matchups among a tournament's players.
+// Heuristic (higher score = better suggestion):
+//   • Freshness  — strongly prefer pairs who have never played a completed match.
+//   • Balance    — prefer players close in points and win rate (competitive games).
+// Players currently in a live match, and pairs that already have a pending/active
+// match, are excluded. Picks are greedy and non-overlapping, so the result reads
+// like a suggested "next round" the organizer can create in one go.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SuggestedMatch {
+  player1Id:   string
+  player1Name: string
+  player2Id:   string
+  player2Name: string
+  reason:      string
+}
+
+export async function getSuggestedMatches(tournamentId: string): Promise<SuggestedMatch[]> {
+  await requireSessionUser()
+
+  const [memberRows, matchRows] = await Promise.all([
+    db.tournamentMember.findMany({
+      where:  { tournamentId },
+      select: { id: true, points: true, wins: true, losses: true, guestName: true, player: { select: { name: true } } },
+    }),
+    db.match.findMany({
+      where:  { tournamentId },
+      select: { player1Id: true, player2Id: true, status: true },
+    }),
+  ])
+
+  if (memberRows.length < 2) return []
+
+  const pairKey = (a: string, b: string) => [a, b].sort().join('|')
+
+  const playedPairs    = new Set<string>()   // completed head-to-heads
+  const scheduledPairs = new Set<string>()    // already have a pending/active match
+  const busy           = new Set<string>()    // currently in a live match
+  for (const m of matchRows) {
+    if (!m.player1Id || !m.player2Id) continue
+    const key = pairKey(m.player1Id, m.player2Id)
+    if (m.status === 'COMPLETED') playedPairs.add(key)
+    if (m.status === 'PENDING' || m.status === 'ACTIVE') scheduledPairs.add(key)
+    if (m.status === 'ACTIVE') { busy.add(m.player1Id); busy.add(m.player2Id) }
+  }
+
+  const available = memberRows
+    .filter(m => !busy.has(m.id))
+    .map(m => ({
+      id:      m.id,
+      name:    resolveName(m),
+      points:  m.points,
+      winRate: m.wins + m.losses > 0 ? m.wins / (m.wins + m.losses) : 0.5,
+    }))
+
+  if (available.length < 2) return []
+
+  // Score every eligible pair.
+  type Cand = { a: typeof available[number]; b: typeof available[number]; score: number; pointDiff: number; played: boolean }
+  const cands: Cand[] = []
+  for (let i = 0; i < available.length; i++) {
+    for (let j = i + 1; j < available.length; j++) {
+      const a = available[i], b = available[j]
+      const key = pairKey(a.id, b.id)
+      if (scheduledPairs.has(key)) continue   // don't double-book an existing match
+      const played    = playedPairs.has(key)
+      const pointDiff = Math.abs(a.points - b.points)
+      const wrDiff    = Math.abs(a.winRate - b.winRate)
+      const score     = (played ? 0 : 100) - pointDiff * 2 - wrDiff * 20
+      cands.push({ a, b, score, pointDiff, played })
+    }
+  }
+
+  cands.sort((x, y) => (y.score - x.score) || (x.pointDiff - y.pointDiff))
+
+  // Greedy non-overlapping selection.
+  const used = new Set<string>()
+  const cap  = Math.min(Math.floor(available.length / 2), 6)
+  const out: SuggestedMatch[] = []
+  for (const c of cands) {
+    if (out.length >= cap) break
+    if (used.has(c.a.id) || used.has(c.b.id)) continue
+    used.add(c.a.id); used.add(c.b.id)
+
+    const parts = [c.played ? 'Rematch' : 'First meeting']
+    if (c.pointDiff === 0)      parts.push('level on points')
+    else if (c.pointDiff <= 2)  parts.push('close in standings')
+
+    out.push({
+      player1Id: c.a.id, player1Name: c.a.name,
+      player2Id: c.b.id, player2Name: c.b.name,
+      reason:    parts.join(' · '),
+    })
+  }
+
+  return out
+}
+
 /** Start a scheduled (PENDING) match immediately. */
 export async function startScheduledMatch(matchId: string): Promise<ActionResult> {
   const user = await requireSessionUser()
