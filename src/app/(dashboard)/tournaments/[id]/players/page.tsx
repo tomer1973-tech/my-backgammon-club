@@ -63,6 +63,7 @@ export default async function PlayersPage({ params }: Props) {
         members={tournament.members}
         tournamentId={tournament.id}
         canManage={canManage ?? false}
+        maxPlayers={tournament.maxPlayers}
       />
 
       {/* Join code reminder for organizers */}

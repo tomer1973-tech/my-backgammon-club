@@ -18,9 +18,15 @@ interface AddPlayerDialogProps {
   open:         boolean
   onClose:      () => void
   tournamentId: string
+  /** How many players are already added (updates live after each add). */
+  addedCount?:  number
+  /** Target number of players, if the tournament has a cap. */
+  maxPlayers?:  number | null
 }
 
-export function AddPlayerDialog({ open, onClose, tournamentId }: AddPlayerDialogProps) {
+export function AddPlayerDialog({ open, onClose, tournamentId, addedCount = 0, maxPlayers }: AddPlayerDialogProps) {
+  const remaining = maxPlayers != null ? Math.max(maxPlayers - addedCount, 0) : null
+  const isFull    = remaining === 0
   const [tab, setTab] = useState<'search' | 'guest'>('search')
 
   // Search state
@@ -85,6 +91,21 @@ export function AddPlayerDialog({ open, onClose, tournamentId }: AddPlayerDialog
   return (
     <Dialog open={open} onClose={handleClose} title="Add player" size="md">
       <div className="flex flex-col gap-4">
+        {/* Player count progress */}
+        <div className="flex items-center justify-between rounded-lg border border-line bg-surface-elevated px-3.5 py-2.5">
+          <span className="text-sm text-ink-muted">
+            {maxPlayers != null ? 'Players added' : 'Players added so far'}
+          </span>
+          <span className="text-sm font-semibold text-ink">
+            {addedCount}{maxPlayers != null && <span className="text-ink-subtle"> / {maxPlayers}</span>}
+            {maxPlayers != null && (
+              <span className={`ml-2 text-xs font-medium ${isFull ? 'text-win' : 'text-gold'}`}>
+                {isFull ? 'All spots filled 🎉' : `${remaining} to go`}
+              </span>
+            )}
+          </span>
+        </div>
+
         <Tabs value={tab} onValueChange={v => { setTab(v as typeof tab); resetState() }}>
           <TabsList>
             <TabsTrigger value="search">Registered player</TabsTrigger>

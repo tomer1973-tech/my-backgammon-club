@@ -15,9 +15,10 @@ interface PlayerRosterProps {
   members:      Member[]
   tournamentId: string
   canManage?:   boolean
+  maxPlayers?:  number | null
 }
 
-export function PlayerRoster({ members, tournamentId, canManage = false }: PlayerRosterProps) {
+export function PlayerRoster({ members, tournamentId, canManage = false, maxPlayers }: PlayerRosterProps) {
   const [addOpen, setAddOpen] = useState(false)
 
   // Sort: organizers first, then by points desc
@@ -71,6 +72,8 @@ export function PlayerRoster({ members, tournamentId, canManage = false }: Playe
         open={addOpen}
         onClose={() => setAddOpen(false)}
         tournamentId={tournamentId}
+        addedCount={members.length}
+        maxPlayers={maxPlayers}
       />
     </div>
   )
