@@ -81,7 +81,7 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
     const isP1      = offeringPlayerId === match.player1Id
     setDoubleOffer({
       offererId:    offeringPlayerId,
-      acceptorId:   isP1 ? match.player2Id : match.player1Id,
+      acceptorId:   (isP1 ? match.player2Id : match.player1Id)!,
       offererName:  isP1 ? match.player1Name : match.player2Name,
       acceptorName: isP1 ? match.player2Name : match.player1Name,
     })
@@ -155,6 +155,25 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
     ? Math.floor((nowMs - startedAt.getTime()) / 60000)
     : 0
 
+  // Bracket slot that hasn't received both players yet — nothing to play.
+  if (!isOver && (!match.player1Id || !match.player2Id)) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface-raised py-16 text-center animate-fade-in">
+        <p className="text-base font-semibold text-ink">Waiting for both players</p>
+        <p className="max-w-sm text-sm text-ink-muted">
+          This bracket match will be ready once the feeding matches finish and their winners
+          advance here.
+        </p>
+        <Link
+          href={`/tournaments/${match.tournamentId}/matches`}
+          className="text-sm font-medium text-gold hover:underline"
+        >
+          ← Back to matches
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-5 animate-fade-in">
       {/* Back + match meta */}
@@ -217,8 +236,8 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
         player2Score={match.player2Score}
         targetScore={match.targetScore}
         winnerId={match.winnerId}
-        player1Id={match.player1Id}
-        player2Id={match.player2Id}
+        player1Id={match.player1Id!}
+        player2Id={match.player2Id!}
       />
 
       {/* Play Live — online board for active matches */}
@@ -240,8 +259,8 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
           <DoublingCube
             cubeValue={match.cubeValue}
             cubeOwnerId={match.cubeOwnerId}
-            player1Id={match.player1Id}
-            player2Id={match.player2Id}
+            player1Id={match.player1Id!}
+            player2Id={match.player2Id!}
             player1Name={match.player1Name}
             player2Name={match.player2Name}
             onOfferDouble={handleOfferDouble}
@@ -254,8 +273,8 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
       {isActive && (
         <RecordGamePanel
           matchId={match.id}
-          player1Id={match.player1Id}
-          player2Id={match.player2Id}
+          player1Id={match.player1Id!}
+          player2Id={match.player2Id!}
           player1Name={match.player1Name}
           player2Name={match.player2Name}
           cubeValue={match.cubeValue}
@@ -266,8 +285,8 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
       {/* Game log */}
       <GameLog
         games={match.games}
-        player1Id={match.player1Id}
-        player2Id={match.player2Id}
+        player1Id={match.player1Id!}
+        player2Id={match.player2Id!}
         player1Name={match.player1Name}
         player2Name={match.player2Name}
         matchComplete={isOver}

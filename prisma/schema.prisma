@@ -205,8 +205,8 @@ model TournamentMember {
 model Match {
   id           String      @id @default(uuid())
   tournamentId String      @map("tournament_id")
-  player1Id    String      @map("player1_id")   // TournamentMember.id
-  player2Id    String      @map("player2_id")   // TournamentMember.id
+  player1Id    String?     @map("player1_id")   // TournamentMember.id — null = not yet decided (bracket slot awaiting a winner)
+  player2Id    String?     @map("player2_id")   // TournamentMember.id — null = not yet decided
   targetScore  Int         @map("target_score")
   player1Score Int         @default(0) @map("player1_score")
   player2Score Int         @default(0) @map("player2_score")
@@ -214,7 +214,11 @@ model Match {
   cubeOwnerId  String?     @map("cube_owner_id")            // null = center
   status       MatchStatus @default(PENDING)
   winnerId     String?     @map("winner_id")
-  round        Int?        @map("round")          // round number for auto-scheduled formats (round robin / swiss); null = ad-hoc match
+  round        Int?        @map("round")          // round number for auto-scheduled formats (round robin / swiss / brackets); null = ad-hoc match
+  bracket       String?    @map("bracket")        // 'WINNERS' | 'LOSERS' | 'GRAND_FINAL' for elimination formats; null = non-bracket
+  bracketSlot   Int?       @map("bracket_slot")   // position of this match within its round (top-to-bottom)
+  nextMatchId   String?    @map("next_match_id")  // bracket: match the WINNER advances into
+  nextMatchSlot Int?       @map("next_match_slot")// which player slot (1 or 2) the winner fills in nextMatch
   openingType  OpeningType? @map("opening_type")
   notes        String?
   scheduledAt  DateTime?   @map("scheduled_at")   // null = start immediately
@@ -226,11 +230,13 @@ model Match {
   updatedAt    DateTime    @updatedAt      @map("updated_at")
 
   tournament Tournament        @relation(fields: [tournamentId],  references: [id], onDelete: Cascade)
-  player1    TournamentMember  @relation("MatchPlayer1",   fields: [player1Id],   references: [id], onDelete: Restrict)
-  player2    TournamentMember  @relation("MatchPlayer2",   fields: [player2Id],   references: [id], onDelete: Restrict)
+  player1    TournamentMember? @relation("MatchPlayer1",   fields: [player1Id],   references: [id], onDelete: SetNull)
+  player2    TournamentMember? @relation("MatchPlayer2",   fields: [player2Id],   references: [id], onDelete: SetNull)
   winner     TournamentMember? @relation("MatchWinner",    fields: [winnerId],    references: [id], onDelete: SetNull)
   cubeOwner  TournamentMember? @relation("MatchCubeOwner", fields: [cubeOwnerId], references: [id], onDelete: SetNull)
   recordedBy Player            @relation("MatchRecorder",  fields: [recordedById],references: [id], onDelete: Restrict)
+  nextMatch  Match?            @relation("BracketAdvance", fields: [nextMatchId], references: [id], onDelete: SetNull)
+  prevMatches Match[]          @relation("BracketAdvance")
   games      MatchGame[]
   likes      MatchLike[]
   liveGame   LiveGame?

@@ -36,7 +36,8 @@ import {
   setScoreSchema,
   generateScheduleSchema,
 } from '@/validations'
-import { generateRoundRobin } from '@/lib/tournament/round-robin'
+import { generateRoundRobin }        from '@/lib/tournament/round-robin'
+import { generateSingleElimination } from '@/lib/tournament/single-elimination'
 import {
   GAME_TYPE_MULTIPLIER,
 } from '@/types'
@@ -63,7 +64,8 @@ type PrismaMatchGame = {
   loser:  { id: string; guestName: string | null; player: { name: string } | null }
 }
 
-function resolveName(m: { guestName: string | null; player?: { name: string } | null }) {
+function resolveName(m: { guestName: string | null; player?: { name: string } | null } | null) {
+  if (!m) return 'TBD'   // bracket slot not yet decided
   return m.player?.name ?? m.guestName ?? 'Unknown'
 }
 
@@ -130,6 +132,7 @@ export async function getMatch(matchId: string): Promise<Match> {
     status:       m.status as MatchStatus,
     winnerId:     m.winnerId,
     round:        m.round,
+    bracket:      m.bracket,
     openingType:  m.openingType as OpeningType | null,
     notes:        m.notes,
     startedAt:    m.startedAt,
@@ -172,6 +175,7 @@ export async function getTournamentMatches(tournamentId: string): Promise<MatchS
     status:       m.status as MatchStatus,
     winnerId:     m.winnerId,
     round:        m.round,
+    bracket:      m.bracket,
     openingType:  m.openingType as OpeningType | null,
     notes:        m.notes,
     startedAt:    m.startedAt,
@@ -368,6 +372,142 @@ export async function generateRoundRobinSchedule(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AUTO-SCHEDULE — SINGLE ELIMINATION BRACKET
+// Builds a seeded knockout bracket: players are seeded by current standings,
+// the bracket is padded to a power of two (top seeds get byes), and matches are
+// linked so that winners advance automatically (see advanceBracketWinner).
+// Future matchups exist as rows with TBD (null) players until a winner arrives.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function generateEliminationBracket(
+  data: unknown,
+): Promise<ActionResult<{ created: number; rounds: number; byes: number }>> {
+  const user = await requireSessionUser()
+
+  const parsed = generateScheduleSchema.safeParse(data)
+  if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
+
+  const { tournamentId, replace } = parsed.data
+
+  const tournament = await db.tournament.findUnique({
+    where:  { id: tournamentId, deletedAt: null },
+    select: { createdById: true, status: true, format: true, matchLength: true },
+  })
+  if (!tournament) return { success: false, error: 'Tournament not found.' }
+
+  const isOrganizer = await db.tournamentMember.findFirst({
+    where: { tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
+  })
+  if (!isOrganizer && tournament.createdById !== user.id && user.role !== 'ADMIN') {
+    return { success: false, error: 'You do not have permission to schedule this tournament.' }
+  }
+
+  if (tournament.format !== 'SINGLE_ELIMINATION') {
+    return { success: false, error: 'Bracket generation is currently available for Single Elimination tournaments only.' }
+  }
+  if (tournament.status === 'COMPLETED' || tournament.status === 'ARCHIVED') {
+    return { success: false, error: 'This tournament has already ended.' }
+  }
+
+  // Existing-matches guard (same policy as round robin).
+  const existing = await db.match.findMany({
+    where:  { tournamentId },
+    select: { id: true, status: true },
+  })
+  if (existing.length > 0 && !replace) {
+    return { success: false, error: 'This tournament already has matches. Use "Regenerate" to rebuild the bracket.' }
+  }
+  if (replace) {
+    if (existing.some(m => m.status !== 'PENDING')) {
+      return { success: false, error: 'Some matches have already started or finished. Can only rebuild the bracket before any match begins.' }
+    }
+    if (existing.length > 0) {
+      // Clear winner links first to avoid FK restrictions, then delete.
+      await db.match.updateMany({ where: { tournamentId }, data: { nextMatchId: null } })
+      await db.match.deleteMany({ where: { tournamentId } })
+    }
+  }
+
+  // Seed members by performance: points desc, wins desc, then name.
+  const members = await db.tournamentMember.findMany({
+    where:  { tournamentId },
+    select: { id: true, points: true, wins: true, guestName: true, player: { select: { name: true } } },
+  })
+  if (members.length < 2) {
+    return { success: false, error: 'Add at least 2 players before generating a bracket.' }
+  }
+
+  const seeded = members
+    .sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points
+      if (b.wins   !== a.wins)   return b.wins   - a.wins
+      return (a.player?.name ?? a.guestName ?? '').localeCompare(b.player?.name ?? b.guestName ?? '')
+    })
+    .map(m => m.id)
+
+  const { matches: specs, rounds, byes } = generateSingleElimination(seeded)
+  const targetScore = tournament.matchLength ?? 1
+
+  // Create rows (without links yet), capturing spec.key → real id.
+  const keyToId = new Map<string, string>()
+  await db.$transaction(async tx => {
+    for (const spec of specs) {
+      const created = await tx.match.create({
+        data: {
+          tournamentId,
+          player1Id:    spec.player1Id,
+          player2Id:    spec.player2Id,
+          targetScore,
+          status:       'PENDING',
+          round:        spec.round,
+          bracket:      'WINNERS',
+          bracketSlot:  spec.slot,
+          recordedById: user.id,
+        },
+        select: { id: true },
+      })
+      keyToId.set(spec.key, created.id)
+    }
+    // Second pass: wire winner-advancement links.
+    for (const spec of specs) {
+      if (!spec.nextKey) continue
+      await tx.match.update({
+        where: { id: keyToId.get(spec.key)! },
+        data:  {
+          nextMatchId:   keyToId.get(spec.nextKey)!,
+          nextMatchSlot: spec.nextSlot,
+        },
+      })
+    }
+  })
+
+  revalidatePath(`/tournaments/${tournamentId}`)
+  revalidatePath(`/tournaments/${tournamentId}/matches`)
+  revalidatePath('/schedule')
+  return { success: true, data: { created: specs.length, rounds, byes } }
+}
+
+/**
+ * Advance the winner of a just-completed bracket match into its next match.
+ * No-op for non-bracket matches or the final (no nextMatch). Idempotent enough
+ * for our flow: it only writes the winner into the designated empty slot.
+ */
+async function advanceBracketWinner(matchId: string): Promise<void> {
+  const m = await db.match.findUnique({
+    where:  { id: matchId },
+    select: { status: true, winnerId: true, nextMatchId: true, nextMatchSlot: true, tournamentId: true },
+  })
+  if (!m || m.status !== 'COMPLETED' || !m.winnerId || !m.nextMatchId || !m.nextMatchSlot) return
+
+  await db.match.update({
+    where: { id: m.nextMatchId },
+    data:  m.nextMatchSlot === 1 ? { player1Id: m.winnerId } : { player2Id: m.winnerId },
+  })
+
+  revalidatePath(`/tournaments/${m.tournamentId}/matches`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // RECORD A GAME WITHIN THE MATCH
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -398,6 +538,9 @@ export async function recordGameInMatch(
   })
   if (!match)              return { success: false, error: 'Match not found.' }
   if (match.status !== 'ACTIVE') return { success: false, error: 'Match is not active.' }
+  if (!match.player1Id || !match.player2Id) {
+    return { success: false, error: 'This match is still waiting for both players.' }
+  }
 
   if (winnerId !== match.player1Id && winnerId !== match.player2Id) {
     return { success: false, error: 'Winner must be one of the two players.' }
@@ -480,7 +623,10 @@ export async function recordGameInMatch(
 
   revalidatePath(`/tournaments/${match.tournament.id}/matches/${matchId}`)
   revalidatePath(`/tournaments/${match.tournament.id}/standings`)
-  if (matchComplete) revalidatePath(`/tournaments/${match.tournament.id}/matches`)
+  if (matchComplete) {
+    revalidatePath(`/tournaments/${match.tournament.id}/matches`)
+    await advanceBracketWinner(matchId)   // bracket: push winner into next match (no-op otherwise)
+  }
 
   return { success: true, data: { matchComplete, winnerId: matchWinnerId } }
 }
@@ -550,6 +696,9 @@ export async function declineDouble(
   })
   if (!match)              return { success: false, error: 'Match not found.' }
   if (match.status !== 'ACTIVE') return { success: false, error: 'Match is not active.' }
+  if (!match.player1Id || !match.player2Id) {
+    return { success: false, error: 'This match is still waiting for both players.' }
+  }
 
   if (offererId !== match.player1Id && offererId !== match.player2Id) {
     return { success: false, error: 'Invalid player.' }
@@ -625,7 +774,10 @@ export async function declineDouble(
   }
 
   revalidatePath(`/tournaments/${match.tournamentId}/matches/${matchId}`)
-  if (matchComplete) revalidatePath(`/tournaments/${match.tournamentId}/matches`)
+  if (matchComplete) {
+    revalidatePath(`/tournaments/${match.tournamentId}/matches`)
+    await advanceBracketWinner(matchId)   // bracket: push winner into next match (no-op otherwise)
+  }
   revalidatePath(`/tournaments/${match.tournamentId}/standings`)
   return { success: true, data: { matchComplete, winnerId: matchWinnerId } }
 }
@@ -759,6 +911,9 @@ export async function getUpcomingMatches(): Promise<UpcomingMatch[]> {
     where: {
       tournamentId: { in: tournamentIds },
       status: 'PENDING',
+      // Skip bracket slots still awaiting a player — they aren't startable yet.
+      player1Id: { not: null },
+      player2Id: { not: null },
     },
     include: {
       tournament: { select: { name: true } },
@@ -775,8 +930,8 @@ export async function getUpcomingMatches(): Promise<UpcomingMatch[]> {
     id:             m.id,
     tournamentId:   m.tournamentId,
     tournamentName: m.tournament.name,
-    player1Name:    m.player1.player?.name ?? m.player1.guestName ?? 'Unknown',
-    player2Name:    m.player2.player?.name ?? m.player2.guestName ?? 'Unknown',
+    player1Name:    m.player1?.player?.name ?? m.player1?.guestName ?? 'Unknown',
+    player2Name:    m.player2?.player?.name ?? m.player2?.guestName ?? 'Unknown',
     targetScore:    m.targetScore,
     scheduledAt:    m.scheduledAt,
     createdAt:      m.createdAt,
@@ -793,6 +948,9 @@ export async function startScheduledMatch(matchId: string): Promise<ActionResult
   })
   if (!match) return { success: false, error: 'Match not found.' }
   if (match.status !== 'PENDING') return { success: false, error: 'Match is not pending.' }
+  if (!match.player1Id || !match.player2Id) {
+    return { success: false, error: 'This match is waiting for both players to be decided.' }
+  }
 
   // Must be a member of the tournament
   const membership = await db.tournamentMember.findFirst({

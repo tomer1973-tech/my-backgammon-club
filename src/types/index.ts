@@ -370,8 +370,8 @@ export interface MatchGame extends MatchGameRow {
 export interface MatchRow {
   id:           string
   tournamentId: string
-  player1Id:    string   // TournamentMember.id
-  player2Id:    string   // TournamentMember.id
+  player1Id:    string | null   // TournamentMember.id — null = bracket slot awaiting a winner
+  player2Id:    string | null   // TournamentMember.id — null = bracket slot awaiting a winner
   targetScore:  number
   player1Score: number
   player2Score: number
@@ -380,6 +380,7 @@ export interface MatchRow {
   status:       MatchStatus
   winnerId:     string | null
   round:        number | null   // round number for auto-scheduled formats; null = ad-hoc match
+  bracket:      string | null   // 'WINNERS' | 'LOSERS' | 'GRAND_FINAL' for elimination; null = non-bracket
   openingType:  OpeningType | null
   notes:        string | null
   startedAt:    Date | null

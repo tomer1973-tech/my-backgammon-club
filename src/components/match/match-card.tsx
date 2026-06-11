@@ -40,6 +40,14 @@ export function MatchCard({ match, canManage = false }: MatchCardProps) {
   const isCompleted = match.status === 'COMPLETED'
   const showActions = canManage && !isCompleted
 
+  // Bracket matches: a slot may still be TBD, and we don't allow cancelling
+  // individual bracket matches (it would break advancement). Use Regenerate
+  // or End tournament instead.
+  const isBracket  = match.bracket != null
+  const ready      = match.player1Id != null && match.player2Id != null
+  const startable  = isPending && ready
+  const allowDestructive = !isBracket
+
   // Swallow clicks so they don't bubble to the card <Link>
   function block(e: React.MouseEvent) {
     e.preventDefault()
@@ -170,12 +178,16 @@ export function MatchCard({ match, canManage = false }: MatchCardProps) {
       {showActions && (
         <div className="border-t border-line/40 bg-surface-base/60 px-4 py-2.5 flex items-center justify-between gap-2">
           <span className="text-xs text-ink-subtle">
-            {isActive ? 'Match in progress' : 'Scheduled match'}
+            {isActive
+              ? 'Match in progress'
+              : isPending && !ready
+                ? 'Waiting for both players'
+                : 'Scheduled match'}
           </span>
 
           <div className="flex items-center gap-2">
-            {/* Start now — only for PENDING */}
-            {isPending && (
+            {/* Start now — only for PENDING matches that have both players */}
+            {startable && (
               <button
                 onClick={handleStartNow}
                 disabled={busy}
@@ -188,8 +200,8 @@ export function MatchCard({ match, canManage = false }: MatchCardProps) {
               </button>
             )}
 
-            {/* Abandon / Cancel with inline confirm */}
-            {confirming ? (
+            {/* Abandon / Cancel with inline confirm — hidden for bracket matches */}
+            {!allowDestructive ? null : confirming ? (
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-medium text-loss">
                   {isActive ? 'Abandon?' : 'Cancel?'}

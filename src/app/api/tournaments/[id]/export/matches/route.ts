@@ -33,8 +33,8 @@ export async function GET(
   const rows = matches.map(m => ({
     id:           m.id,
     date:         m.createdAt,
-    player1Name:  m.player1.player?.name ?? m.player1.guestName ?? 'Unknown',
-    player2Name:  m.player2.player?.name ?? m.player2.guestName ?? 'Unknown',
+    player1Name:  m.player1?.player?.name ?? m.player1?.guestName ?? 'TBD',
+    player2Name:  m.player2?.player?.name ?? m.player2?.guestName ?? 'TBD',
     player1Score: m.player1Score,
     player2Score: m.player2Score,
     targetScore:  m.targetScore,

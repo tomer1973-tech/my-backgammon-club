@@ -95,8 +95,8 @@ async function loadMatch(matchId: string) {
 
 /** The color the given user plays in this game, or null if they're not a participant. */
 function colorForUser(match: MatchForLive, player1Color: Player, userId: string): Player | null {
-  if (match.player1.playerId === userId) return player1Color
-  if (match.player2.playerId === userId) return opponent(player1Color)
+  if (match.player1?.playerId === userId) return player1Color
+  if (match.player2?.playerId === userId) return opponent(player1Color)
   return null
 }
 

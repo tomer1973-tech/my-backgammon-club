@@ -24,7 +24,7 @@ export async function GET(
       include: { player: { select: { name: true } } },
     }),
     db.match.findMany({
-      where: { tournamentId },
+      where: { tournamentId, player1Id: { not: null }, player2Id: { not: null } },
       include: {
         player1: { select: { player: { select: { name: true } }, guestName: true } },
         player2: { select: { player: { select: { name: true } }, guestName: true } },
@@ -37,10 +37,10 @@ export async function GET(
 
   const matches: AnalyticsMatch[] = matchRows.map(m => ({
     id:           m.id,
-    player1Id:    m.player1Id,
-    player2Id:    m.player2Id,
-    player1Name:  m.player1.player?.name ?? m.player1.guestName ?? 'Unknown',
-    player2Name:  m.player2.player?.name ?? m.player2.guestName ?? 'Unknown',
+    player1Id:    m.player1Id!,
+    player2Id:    m.player2Id!,
+    player1Name:  m.player1?.player?.name ?? m.player1?.guestName ?? 'Unknown',
+    player2Name:  m.player2?.player?.name ?? m.player2?.guestName ?? 'Unknown',
     player1Score: m.player1Score,
     player2Score: m.player2Score,
     targetScore:  m.targetScore,

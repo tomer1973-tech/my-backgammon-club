@@ -132,9 +132,10 @@ export async function getPlayerProfile(
     : []
 
   const recentMatches: RecentMatch[] = recentMatchRows.map(m => {
-    const p1isMe = memberIds.includes(m.player1.id)
-    const myMember  = p1isMe ? m.player1 : m.player2
-    const oppMember = p1isMe ? m.player2 : m.player1
+    // Completed matches always have both players set (asserted via !).
+    const p1isMe = memberIds.includes(m.player1!.id)
+    const myMember  = (p1isMe ? m.player1 : m.player2)!
+    const oppMember = (p1isMe ? m.player2 : m.player1)!
     const myScore   = p1isMe ? m.player1Score : m.player2Score
     const oppScore  = p1isMe ? m.player2Score : m.player1Score
     const opponentName   = oppMember.player?.name ?? oppMember.guestName ?? 'Unknown'

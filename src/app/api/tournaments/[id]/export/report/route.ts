@@ -27,7 +27,7 @@ export async function GET(
     db.tournament.findUnique({ where: { id: tournamentId } }),
     getStandings(tournamentId),
     db.match.findMany({
-      where: { tournamentId },
+      where: { tournamentId, player1Id: { not: null }, player2Id: { not: null } },
       include: {
         player1: { select: { player: { select: { name: true } }, guestName: true } },
         player2: { select: { player: { select: { name: true } }, guestName: true } },
@@ -44,10 +44,10 @@ export async function GET(
 
   const analyticsMatches: AnalyticsMatch[] = matchRows.map(m => ({
     id:           m.id,
-    player1Id:    m.player1Id,
-    player2Id:    m.player2Id,
-    player1Name:  m.player1.player?.name ?? m.player1.guestName ?? 'Unknown',
-    player2Name:  m.player2.player?.name ?? m.player2.guestName ?? 'Unknown',
+    player1Id:    m.player1Id!,
+    player2Id:    m.player2Id!,
+    player1Name:  m.player1?.player?.name ?? m.player1?.guestName ?? 'Unknown',
+    player2Name:  m.player2?.player?.name ?? m.player2?.guestName ?? 'Unknown',
     player1Score: m.player1Score,
     player2Score: m.player2Score,
     targetScore:  m.targetScore,
@@ -74,8 +74,8 @@ export async function GET(
     .filter(m => m.status === 'COMPLETED')
     .map(m => ({
       date:    m.createdAt.toLocaleDateString('en-US'),
-      player1: m.player1.player?.name ?? m.player1.guestName ?? '?',
-      player2: m.player2.player?.name ?? m.player2.guestName ?? '?',
+      player1: m.player1?.player?.name ?? m.player1?.guestName ?? '?',
+      player2: m.player2?.player?.name ?? m.player2?.guestName ?? '?',
       score:   `${m.player1Score}-${m.player2Score}`,
       winner:  m.winner ? (m.winner.player?.name ?? m.winner.guestName ?? '?') : '—',
       opening: m.openingType?.replace(/_/g, ' ') ?? '—',

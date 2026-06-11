@@ -10,7 +10,7 @@ import { Flag, Shuffle }          from 'lucide-react'
 import { Button }                 from '@/components/ui/button'
 import { Dialog, DialogFooter }   from '@/components/ui/dialog'
 import { updateTournamentStatus, endTournament } from '@/actions/tournament'
-import { generateRoundRobinSchedule }            from '@/actions/match'
+import { generateRoundRobinSchedule, generateEliminationBracket } from '@/actions/match'
 import type { TournamentWithMembers, TournamentStatus } from '@/types'
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -46,21 +46,35 @@ export function TournamentStatusControls({ tournament }: TournamentStatusControl
 
   const transitions     = TRANSITIONS[tournament.status] ?? []
   const isRoundRobin    = tournament.format === 'ROUND_ROBIN'
+  const isSingleElim    = tournament.format === 'SINGLE_ELIMINATION'
+  const canAutoSchedule = isRoundRobin || isSingleElim
   const schedulable     = tournament.status === 'ACTIVE' || tournament.status === 'DRAFT'
+
+  // Labels differ between the round-robin schedule and the elimination bracket.
+  const genVerb  = isSingleElim ? 'bracket'  : 'schedule'
+  const genTitle = isSingleElim ? 'Generate bracket' : 'Generate round-robin schedule'
 
   async function handleGenerate(replace: boolean) {
     setGenerating(true)
     setGenError(null)
     setGenResult(null)
-    const result = await generateRoundRobinSchedule({ tournamentId: tournament.id, replace })
+    const result = isSingleElim
+      ? await generateEliminationBracket({ tournamentId: tournament.id, replace })
+      : await generateRoundRobinSchedule({ tournamentId: tournament.id, replace })
     setGenerating(false)
     if (result.success) {
       setGenOpen(false)
       setCanReplace(false)
-      setGenResult(`Schedule created: ${result.data.created} matches across ${result.data.rounds} rounds.`)
+      const data    = result.data as { created: number; rounds: number; byes?: number }
+      const byesTxt = data.byes && data.byes > 0 ? `, ${data.byes} byes` : ''
+      setGenResult(
+        isSingleElim
+          ? `Bracket created: ${data.created} matches across ${data.rounds} rounds${byesTxt}.`
+          : `Schedule created: ${data.created} matches across ${data.rounds} rounds.`,
+      )
     } else {
       setGenError(result.error)
-      // If matches already exist, offer to replace the upcoming ones.
+      // If matches already exist, offer to replace / rebuild.
       setCanReplace(/already has matches/i.test(result.error))
     }
   }
@@ -98,7 +112,7 @@ export function TournamentStatusControls({ tournament }: TournamentStatusControl
         Manage tournament
       </h3>
       <div className="flex flex-wrap gap-3">
-        {isRoundRobin && schedulable && (
+        {canAutoSchedule && schedulable && (
           <Button
             variant="default"
             size="sm"
@@ -106,7 +120,7 @@ export function TournamentStatusControls({ tournament }: TournamentStatusControl
             onClick={() => { setGenError(null); setGenResult(null); setCanReplace(false); setGenOpen(true) }}
           >
             <Shuffle className="h-3.5 w-3.5" />
-            Generate schedule
+            Generate {genVerb}
           </Button>
         )}
         {tournament.status === 'ACTIVE' && (
@@ -134,7 +148,7 @@ export function TournamentStatusControls({ tournament }: TournamentStatusControl
         ))}
       </div>
       {/* Coming-soon note for formats without auto-scheduling yet */}
-      {!isRoundRobin && schedulable && (
+      {!canAutoSchedule && schedulable && (
         <p className="mt-3 text-xs text-ink-subtle">
           Auto-scheduling for {FORMAT_LABEL[tournament.format] ?? tournament.format} brackets is coming soon.
           For now you can add matches manually.
@@ -154,15 +168,28 @@ export function TournamentStatusControls({ tournament }: TournamentStatusControl
       <Dialog
         open={genOpen}
         onClose={() => !generating && setGenOpen(false)}
-        title="Generate round-robin schedule"
+        title={genTitle}
         size="sm"
       >
         <p className="text-sm text-ink-muted leading-relaxed">
-          This creates the full round-robin schedule for{' '}
-          <span className="font-semibold text-ink">{tournament.name}</span> — every player meets
-          every other player once. Players are seeded by their current standings, and matches are
-          grouped into rounds. Matches appear as <span className="font-semibold text-ink">Upcoming</span>{' '}
-          and can be started whenever you&apos;re ready.
+          {isSingleElim ? (
+            <>
+              This builds the knockout bracket for{' '}
+              <span className="font-semibold text-ink">{tournament.name}</span>. Players are seeded
+              by their current standings (top seeds get byes if the count isn&apos;t a power of two),
+              and <span className="font-semibold text-ink">winners advance automatically</span> as
+              matches finish. Upcoming matchups show as <span className="font-semibold text-ink">TBD</span>{' '}
+              until a winner arrives.
+            </>
+          ) : (
+            <>
+              This creates the full round-robin schedule for{' '}
+              <span className="font-semibold text-ink">{tournament.name}</span> — every player meets
+              every other player once. Players are seeded by their current standings, and matches are
+              grouped into rounds. Matches appear as <span className="font-semibold text-ink">Upcoming</span>{' '}
+              and can be started whenever you&apos;re ready.
+            </>
+          )}
         </p>
         {genError && (
           <p className="mt-3 rounded-lg border border-loss/40 bg-loss/10 px-3 py-2 text-sm text-loss">

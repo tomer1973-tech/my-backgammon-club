@@ -32,6 +32,19 @@ export default async function MatchesPage({ params }: Props) {
   const pendingMatches   = matches.filter(m => m.status === 'PENDING')
   const completedMatches = matches.filter(m => m.status === 'COMPLETED')
 
+  // Bracket-aware round labels: in an elimination bracket the last round is the
+  // Final, the one before it the Semifinals, etc. Falls back to "Round N".
+  const isBracket = matches.some(m => m.bracket != null)
+  const maxRound  = matches.reduce((mx, m) => Math.max(mx, m.round ?? 0), 0)
+  function roundLabel(round: number): string {
+    if (round === Infinity) return 'Other'
+    if (!isBracket) return `Round ${round}`
+    if (round === maxRound)     return 'Final'
+    if (round === maxRound - 1) return 'Semifinals'
+    if (round === maxRound - 2) return 'Quarterfinals'
+    return `Round ${round}`
+  }
+
   // Group upcoming matches by round (for auto-scheduled formats). Matches with
   // no round (ad-hoc) fall into a single "Other" bucket shown last.
   const hasRounds = pendingMatches.some(m => m.round != null)
@@ -99,7 +112,7 @@ export default async function MatchesPage({ params }: Props) {
             {pendingByRound.map(([round, group]) => (
               <div key={round} className="space-y-3">
                 <h3 className="text-xs font-semibold text-gold">
-                  {round === Infinity ? 'Other' : `Round ${round}`}
+                  {roundLabel(round)}
                   <span className="ml-2 font-normal text-ink-subtle">
                     {group.length} match{group.length === 1 ? '' : 'es'}
                   </span>
