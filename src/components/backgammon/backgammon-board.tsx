@@ -168,8 +168,12 @@ export function BackgammonBoard({
         className="flex-1 rounded-2xl p-2 sm:p-3"
         style={{
           backgroundColor: 'var(--bg-felt)',
-          border: '7px solid var(--bg-rail)',
-          boxShadow: 'inset 0 2px 14px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.03)',
+          border: '8px solid var(--bg-rail)',
+          boxShadow: [
+            'inset 0 0 0 1.5px hsl(40 60% 52% / 0.22)',   // gold hairline frame
+            'inset 0 3px 20px rgba(0,0,0,0.6)',           // felt depth
+            '0 10px 30px rgba(0,0,0,0.45)',               // lift off the page
+          ].join(', '),
         }}
       >
         <BoardRow
@@ -202,7 +206,11 @@ export function BackgammonBoard({
           onClick={() => handleClick('off')} />
         <div
           className="flex flex-1 items-center justify-center rounded-xl p-2"
-          style={{ backgroundColor: 'var(--bg-felt)', border: '4px solid var(--bg-rail)' }}
+          style={{
+            backgroundColor: 'var(--bg-felt)',
+            border: '5px solid var(--bg-rail)',
+            boxShadow: 'inset 0 0 0 1px hsl(40 60% 52% / 0.18), inset 0 2px 8px rgba(0,0,0,0.5)',
+          }}
         >
           {dice ? (
             <div className="flex flex-wrap items-center justify-center gap-1.5">
@@ -405,8 +413,8 @@ function BearOffTray({
         highlighted && 'cursor-pointer',
       )}
       style={highlighted
-        ? { backgroundColor: 'hsl(40 62% 55% / 0.12)', border: '4px solid hsl(40 62% 55% / 0.6)' }
-        : { backgroundColor: 'var(--bg-felt)', border: '4px solid var(--bg-rail)' }}
+        ? { backgroundColor: 'hsl(40 62% 55% / 0.12)', border: '5px solid hsl(40 62% 55% / 0.6)' }
+        : { backgroundColor: 'var(--bg-felt)', border: '5px solid var(--bg-rail)', boxShadow: 'inset 0 0 0 1px hsl(40 60% 52% / 0.18), inset 0 2px 8px rgba(0,0,0,0.5)' }}
     >
       <Checker player={player} small />
       <span className="text-xs font-semibold tabular-nums text-ink">
@@ -420,20 +428,26 @@ function BearOffTray({
 
 const CHECKER_STYLE: Record<Player, CSSProperties> = {
   white: {
-    backgroundImage: 'radial-gradient(circle at 38% 30%, hsl(42 45% 98%), hsl(40 30% 85%) 68%, hsl(38 26% 76%) 100%)',
-    borderColor: 'hsl(40 22% 66%)',
-    boxShadow: 'inset 0 1px 1.5px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(120,100,60,0.25), 0 2px 3px rgba(0,0,0,0.45)',
+    backgroundImage: 'radial-gradient(circle at 36% 28%, hsl(44 50% 99%), hsl(40 32% 86%) 60%, hsl(36 24% 72%) 100%)',
+    borderColor: 'hsl(38 24% 60%)',
+    boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.85), inset 0 -3px 4px rgba(110,88,52,0.3), 0 3px 5px rgba(0,0,0,0.5)',
   },
   black: {
-    backgroundImage: 'radial-gradient(circle at 38% 30%, hsl(28 16% 27%), hsl(26 24% 11%) 66%, hsl(25 28% 7%) 100%)',
-    borderColor: 'hsl(40 55% 50% / 0.5)',
-    boxShadow: 'inset 0 1px 1.5px rgba(255,255,255,0.18), inset 0 -2px 3px rgba(0,0,0,0.5), 0 2px 3px rgba(0,0,0,0.55)',
+    backgroundImage: 'radial-gradient(circle at 36% 28%, hsl(30 18% 30%), hsl(26 26% 12%) 58%, hsl(24 30% 6%) 100%)',
+    borderColor: 'hsl(40 55% 48% / 0.55)',
+    boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.22), inset 0 -3px 4px rgba(0,0,0,0.6), 0 3px 5px rgba(0,0,0,0.6)',
   },
+}
+
+// Concentric ring detail (the engraved circle on a real checker).
+const CHECKER_RING: Record<Player, string> = {
+  white: 'hsl(38 26% 58% / 0.55)',
+  black: 'hsl(42 60% 55% / 0.45)',
 }
 
 function Checker({ player, overflowCount, small, glow }: { player: Player; overflowCount?: number; small?: boolean; glow?: boolean }) {
   const style = glow
-    ? { ...CHECKER_STYLE[player], boxShadow: `${CHECKER_STYLE[player].boxShadow}, 0 0 0 2px hsl(40 85% 60%), 0 0 9px hsl(40 85% 60% / 0.7)` }
+    ? { ...CHECKER_STYLE[player], boxShadow: `${CHECKER_STYLE[player].boxShadow}, 0 0 0 2px hsl(40 85% 60%), 0 0 10px hsl(40 85% 60% / 0.75)` }
     : CHECKER_STYLE[player]
   return (
     <div
@@ -443,9 +457,14 @@ function Checker({ player, overflowCount, small, glow }: { player: Player; overf
       )}
       style={style}
     >
+      {/* engraved concentric ring */}
+      <span
+        className="pointer-events-none absolute inset-[20%] rounded-full"
+        style={{ boxShadow: `0 0 0 1px ${CHECKER_RING[player]}, inset 0 0 0 1px ${CHECKER_RING[player]}` }}
+      />
       {overflowCount !== undefined && (
         <span className={cn(
-          'absolute inset-0 flex items-center justify-center text-[10px] font-bold',
+          'absolute inset-0 z-10 flex items-center justify-center text-[10px] font-bold',
           player === 'white' ? 'text-[hsl(25,25%,22%)]' : 'text-gold',
         )}>
           {overflowCount}
@@ -470,13 +489,15 @@ function Die({ value, used }: { value: number; used: boolean }) {
   return (
     <div
       className={cn(
-        'grid h-9 w-9 grid-cols-3 grid-rows-3 gap-[3px] rounded-lg border p-1.5',
+        'grid h-10 w-10 grid-cols-3 grid-rows-3 gap-[2px] rounded-[26%] border p-[5px]',
         used ? 'border-line bg-surface-elevated opacity-40' : '',
       )}
       style={used ? undefined : {
+        // die face + soft top gloss baked into the background
         backgroundColor: 'var(--die-bg)',
+        backgroundImage: 'linear-gradient(155deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 48%)',
         borderColor: 'var(--die-border)',
-        boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 5px rgba(0,0,0,0.45)',
+        boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.55), inset 0 -2px 3px rgba(0,0,0,0.18), 0 3px 7px rgba(0,0,0,0.5)',
       }}
     >
       {Array.from({ length: 9 }).map((_, i) => {
@@ -486,8 +507,11 @@ function Die({ value, used }: { value: number; used: boolean }) {
         return (
           <span
             key={i}
-            className={cn('rounded-full', hasPip && used && 'bg-ink-subtle')}
-            style={hasPip && !used ? { backgroundColor: 'var(--die-pip)' } : undefined}
+            className={cn('place-self-center h-[5px] w-[5px] rounded-full', hasPip && used && 'bg-ink-subtle')}
+            style={hasPip && !used ? {
+              backgroundColor: 'var(--die-pip)',
+              boxShadow: 'inset 0 0.5px 1px rgba(0,0,0,0.5), 0 0.5px 0 rgba(255,255,255,0.2)',
+            } : undefined}
           />
         )
       })}

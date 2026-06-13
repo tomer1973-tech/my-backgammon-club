@@ -187,6 +187,37 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game?.doubleOffer])
 
+  // ── Auto-pass the human's turn when there are no legal moves ──────────────
+  useEffect(() => {
+    if (phase !== 'playing' || !game) return
+    if (game.currentPlayer !== humanPlayer || aiThinking || game.doubleOffer) return
+    const noMoves = game.dice !== null
+      && game.legalSequences.length === 1
+      && game.legalSequences[0].moves.length === 0
+    if (!noMoves) return
+
+    const timer = setTimeout(() => {
+      setGame(g => {
+        if (!g) return g
+        const board = g.boardHistory[g.boardHistory.length - 1]
+        const next  = opponent(g.currentPlayer)
+        const dice  = rollDice()
+        return {
+          boardHistory:   [board],
+          currentPlayer:  next,
+          dice,
+          legalSequences: getLegalSequences(board, next, dice),
+          movesPlayed:    [],
+          cube:           g.cube,
+          doubleOffer:    null,
+        }
+      })
+    }, 1400)   // brief pause so the player sees the roll and "no moves" message
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, game?.currentPlayer, game?.dice, game?.legalSequences, aiThinking])
+
   if (phase === 'setup') {
     return (
       <div className="animate-fade-in">
@@ -516,7 +547,7 @@ function TurnBanner({
   noLegalMoves: boolean
 }) {
   const status = isHumanOnRoll
-    ? (noLegalMoves ? 'No legal moves — pass the turn' : 'Your move')
+    ? (noLegalMoves ? 'No legal moves — passing…' : 'Your move')
     : (aiThinking ? 'AI is thinking…' : 'AI to play')
 
   return (
