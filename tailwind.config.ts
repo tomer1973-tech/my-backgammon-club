@@ -94,11 +94,17 @@ const config: Config = {
           from: { backgroundPosition: '200% 0' },
           to:   { backgroundPosition: '-200% 0' },
         },
+        'dice-in': {
+          '0%':   { opacity: '0', transform: 'scale(0.5) rotate(-25deg)' },
+          '60%':  { opacity: '1', transform: 'scale(1.12) rotate(6deg)' },
+          '100%': { opacity: '1', transform: 'scale(1) rotate(0deg)' },
+        },
       },
       animation: {
         'fade-in':  'fade-in 0.2s ease-out',
         'slide-up': 'slide-up 0.25s ease-out',
         shimmer:    'shimmer 2s linear infinite',
+        'dice-in':  'dice-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
     },
   },

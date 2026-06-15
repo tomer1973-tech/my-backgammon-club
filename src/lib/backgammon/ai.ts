@@ -8,11 +8,11 @@
  * perfectly optimal.
  */
 
-import type { Board, Player, Dice, MoveSequence } from './types'
+import type { Board, Player, Dice, Move, MoveSequence } from './types'
 import {
   HOME_RANGE, opponent, checkerCountAt, isBlotAt, pipCount,
 } from './board'
-import { getLegalSequences } from './moves'
+import { getLegalSequences, isSequencePrefix } from './moves'
 
 export type Difficulty = 'easy' | 'medium' | 'hard'
 
@@ -144,4 +144,33 @@ export function chooseAIMove(board: Board, player: Player, dice: Dice, difficult
   }
 
   return best
+}
+
+/**
+ * Hint helper — the single best *next* move for `player` from the position at
+ * the start of the turn, given the dice and the moves already played this turn.
+ *
+ * It finds the highest-scoring full legal sequence that continues `movesPlayed`
+ * as a prefix, then returns the next move in that line (deterministic, no noise).
+ * Returns `null` when no further move is possible.
+ */
+export function bestNextMove(
+  turnStartBoard: Board,
+  player: Player,
+  dice: Dice,
+  movesPlayed: Move[],
+): Move | null {
+  const sequences = getLegalSequences(turnStartBoard, player, dice)
+  const matching = sequences.filter(
+    s => s.moves.length > movesPlayed.length && isSequencePrefix(movesPlayed, s.moves),
+  )
+  if (matching.length === 0) return null
+
+  let best = matching[0]
+  let bestScore = evaluateBoard(best.board, player)
+  for (const seq of matching) {
+    const score = evaluateBoard(seq.board, player)
+    if (score > bestScore) { bestScore = score; best = seq }
+  }
+  return best.moves[movesPlayed.length]
 }

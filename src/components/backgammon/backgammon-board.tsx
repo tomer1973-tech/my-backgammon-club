@@ -52,6 +52,8 @@ interface BackgammonBoardProps {
   boardTheme?: BoardTheme
   /** Dice colour theme. Defaults to Ivory. */
   diceTheme?: DiceTheme
+  /** Highlight a recommended move (the "best move" hint). */
+  suggestion?: Move | null
 }
 
 const CHECKERS_PER_PLAYER = 15
@@ -74,7 +76,7 @@ type Highlight = number | 'bar' | 'off'
 export function BackgammonBoard({
   board, perspective, toMove, dice, legalSequences = [], movesPlayed = [],
   onMove, cube, disabled, className,
-  boardTheme = BOARD_THEMES[0], diceTheme = DICE_THEMES[0],
+  boardTheme = BOARD_THEMES[0], diceTheme = DICE_THEMES[0], suggestion,
 }: BackgammonBoardProps) {
   const [selected, setSelected] = useState<Highlight | null>(null)
 
@@ -199,6 +201,9 @@ export function BackgammonBoard({
   const topOrder    = flip ? TOP_BLACK    : TOP_WHITE
   const bottomOrder = flip ? BOTTOM_BLACK : BOTTOM_WHITE
 
+  const suggestFromPoint = suggestion && typeof suggestion.from === 'number' ? suggestion.from : null
+  const suggestToPoint   = suggestion && typeof suggestion.to   === 'number' ? suggestion.to   : null
+
   const usedDice = movesPlayed.map(m => m.die)
   const diceFaces = dice ? diceToPlay(dice) : []
   // Mark one occurrence of each used die value as consumed.
@@ -254,6 +259,8 @@ export function BackgammonBoard({
           toOptions={toOptions}
           onClick={handleClick}
           hidePoint={anim?.hidePoint ?? null}
+          suggestFromPoint={suggestFromPoint}
+          suggestToPoint={suggestToPoint}
         />
         <div className="my-1 flex items-center justify-center gap-2">
           {cube && <CubeBadge cube={cube} />}
@@ -267,6 +274,8 @@ export function BackgammonBoard({
           toOptions={toOptions}
           onClick={handleClick}
           hidePoint={anim?.hidePoint ?? null}
+          suggestFromPoint={suggestFromPoint}
+          suggestToPoint={suggestToPoint}
         />
       </div>
 
@@ -284,9 +293,11 @@ export function BackgammonBoard({
           }}
         >
           {dice ? (
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
+            // Keyed on the roll so the roll-in animation plays once per new roll,
+            // not on every checker move within the turn.
+            <div key={dice.join('-')} className="flex flex-wrap items-center justify-center gap-1.5">
               {diceState.map((d, i) => (
-                <Die key={i} value={d.value} used={d.used} />
+                <Die key={i} value={d.value} used={d.used} delay={i * 70} />
               ))}
             </div>
           ) : (
@@ -305,6 +316,7 @@ export function BackgammonBoard({
 
 function BoardRow({
   order, rowPosition, board, selected, fromOptions, toOptions, onClick, hidePoint,
+  suggestFromPoint, suggestToPoint,
 }: {
   order: (number | 'bar')[]
   rowPosition: 'top' | 'bottom'
@@ -314,6 +326,8 @@ function BoardRow({
   toOptions: Map<Highlight, Move>
   onClick: (target: Highlight) => void
   hidePoint: number | null
+  suggestFromPoint: number | null
+  suggestToPoint: number | null
 }) {
   return (
     <div className="grid grid-cols-[repeat(6,1fr)_0.6fr_repeat(6,1fr)] gap-1">
@@ -344,6 +358,8 @@ function BoardRow({
             isTarget={toOptions.has(entry)}
             onClick={() => onClick(entry)}
             hideTop={hidePoint === entry}
+            suggestFrom={suggestFromPoint === entry}
+            suggestTo={suggestToPoint === entry}
           />
         )
       })}
@@ -355,6 +371,7 @@ function BoardRow({
 
 function PointCell({
   index, rowPosition, count, player, selected, isSource, isTarget, onClick, hideTop,
+  suggestFrom, suggestTo,
 }: {
   index: number
   rowPosition: 'top' | 'bottom'
@@ -365,6 +382,8 @@ function PointCell({
   isTarget: boolean
   onClick: () => void
   hideTop?: boolean
+  suggestFrom?: boolean
+  suggestTo?: boolean
 }) {
   const dark = index % 2 === 0
   const clipPath = rowPosition === 'top'
@@ -380,6 +399,7 @@ function PointCell({
     : `linear-gradient(to top, ${lit}, ${base} 40%, ${tip})`
 
   const interactive = isSource || isTarget || selected
+  const goldFill = interactive || suggestFrom
   const stack = Math.max(0, Math.min(count, MAX_STACK) - (hideTop ? 1 : 0))
 
   return (
@@ -394,29 +414,30 @@ function PointCell({
         interactive ? 'cursor-pointer' : 'cursor-default',
       )}
     >
-      {/* Triangle: themed gradient normally; gold when interactive. */}
+      {/* Triangle: themed gradient normally; gold when interactive / suggested. */}
       <div
         className={cn(
           'absolute inset-0',
           selected && 'bg-gold/45',
           isTarget && !selected && 'bg-gold/30',
-          isSource && !selected && 'bg-gold/15',
+          suggestFrom && !selected && 'bg-gold/40 animate-pulse',
+          isSource && !suggestFrom && !selected && 'bg-gold/15',
         )}
-        style={interactive ? { clipPath } : { clipPath, backgroundImage: gradient }}
+        style={goldFill ? { clipPath } : { clipPath, backgroundImage: gradient }}
       />
 
-      {/* Checkers (centered on the point). The pickable top checker glows. */}
+      {/* Checkers (centered on the point). The pickable / suggested top checker glows. */}
       {Array.from({ length: stack }).map((_, i) => (
         <Checker
           key={i}
           player={player!}
           overflowCount={i === MAX_STACK - 1 && count > MAX_STACK ? count : undefined}
-          glow={isSource && i === stack - 1}
+          glow={(isSource || suggestFrom) && i === stack - 1}
         />
       ))}
 
       {/* Drop-here indicator for a legal destination. */}
-      {isTarget && (
+      {isTarget && !suggestTo && (
         <span
           className={cn(
             'pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 h-6 w-6 rounded-full',
@@ -424,6 +445,19 @@ function PointCell({
             rowPosition === 'top' ? 'top-2' : 'bottom-2',
           )}
         />
+      )}
+
+      {/* Best-move destination marker (solid gold + expanding ring). */}
+      {suggestTo && (
+        <span className={cn(
+          'pointer-events-none absolute left-1/2 z-20 -translate-x-1/2',
+          rowPosition === 'top' ? 'top-2' : 'bottom-2',
+        )}>
+          <span className="relative flex h-5 w-5">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-gold opacity-70 animate-ping" />
+            <span className="relative inline-flex h-5 w-5 rounded-full border-2 border-surface-base bg-gold" />
+          </span>
+        </span>
       )}
     </button>
   )
@@ -563,14 +597,16 @@ const PIP_LAYOUTS: Record<number, [number, number][]> = {
   6: [[0, 0], [0, 2], [1, 0], [1, 2], [2, 0], [2, 2]],
 }
 
-function Die({ value, used }: { value: number; used: boolean }) {
+function Die({ value, used, delay = 0 }: { value: number; used: boolean; delay?: number }) {
   return (
     <div
       className={cn(
-        'grid h-10 w-10 grid-cols-3 grid-rows-3 gap-[2px] rounded-[26%] border p-[5px]',
+        'grid h-10 w-10 grid-cols-3 grid-rows-3 gap-[2px] rounded-[26%] border p-[5px] animate-dice-in',
         used ? 'border-line bg-surface-elevated opacity-40' : '',
       )}
-      style={used ? undefined : {
+      style={used ? { animationDelay: `${delay}ms`, animationFillMode: 'backwards' } : {
+        animationDelay: `${delay}ms`,
+        animationFillMode: 'backwards',
         // die face + soft top gloss baked into the background
         backgroundColor: 'var(--die-bg)',
         backgroundImage: 'linear-gradient(155deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 48%)',

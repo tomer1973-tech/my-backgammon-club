@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, ArrowRight } from 'lucide-react'
+import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, ArrowRight, Lightbulb } from 'lucide-react'
 import { Avatar }  from '@/components/ui/avatar'
 import { Button }  from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/types'
 import {
   createInitialBoard, opponent, applyMove, getLegalSequences,
-  isGameOver, getGameType, rollDice, chooseAIMove, evaluateBoard,
+  isGameOver, getGameType, rollDice, chooseAIMove, evaluateBoard, bestNextMove,
   type Board, type Player, type Dice, type Move, type MoveSequence, type GameType, type CubeState, type Difficulty,
 } from '@/lib/backgammon'
 
@@ -91,6 +91,9 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
 
   // Board & dice appearance (persisted across sessions, shared across play modes)
   const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
+
+  // "Best move" hint
+  const [hint, setHint] = useState<Move | null>(null)
 
   const aiPlayer = opponent(humanPlayer)
 
@@ -197,6 +200,15 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game?.currentPlayer, game?.dice, game?.legalSequences, aiThinking])
+
+  // Clear a shown hint whenever the position changes (move played, undo, new turn).
+  useEffect(() => { setHint(null) }, [game?.currentPlayer, game?.movesPlayed.length])
+
+  function showHint() {
+    if (!game || !game.dice) return
+    const best = bestNextMove(game.boardHistory[0], game.currentPlayer, game.dice, game.movesPlayed)
+    setHint(best)
+  }
 
   if (phase === 'setup') {
     return (
@@ -395,7 +407,15 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
           disabled={!isHumanTurn}
           boardTheme={boardTheme}
           diceTheme={diceTheme}
+          suggestion={hint}
         />
+
+        {hint && (
+          <p className="flex items-center justify-center gap-1.5 text-center text-xs font-medium text-gold">
+            <Lightbulb className="h-3.5 w-3.5" />
+            Best move: pick up the glowing checker and play it to the gold dot.
+          </p>
+        )}
 
         {/* Controls */}
         {game.currentPlayer === humanPlayer && (
@@ -409,6 +429,17 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
             >
               <Undo2 className="h-4 w-4" />
               Undo
+            </Button>
+
+            <Button
+              onClick={showHint}
+              variant="ghost"
+              size="sm"
+              disabled={!isHumanTurn || turnDone || noLegalMoves}
+              className="gap-1.5 text-gold"
+            >
+              <Lightbulb className="h-4 w-4" />
+              Hint
             </Button>
 
             {(game.cube.owner === null || game.cube.owner === humanPlayer)
