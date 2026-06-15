@@ -17,7 +17,7 @@
  * move; tapping a highlighted destination calls `onMove` with that move.
  */
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 import {
   isSequencePrefix,
@@ -141,6 +141,60 @@ export function BackgammonBoard({
     }
   }
 
+  // ── Checker glide animation ───────────────────────────────────────────────
+  // When exactly one move is added, slide a ghost checker from the source cell
+  // to where the moved checker now rests. The real checker at the destination
+  // point is hidden for the duration so we don't briefly show two.
+  const wrapRef       = useRef<HTMLDivElement>(null)
+  const prevMovesRef  = useRef(movesPlayed.length)
+  const animTimer     = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [anim, setAnim] = useState<
+    | { fromX: number; fromY: number; toX: number; toY: number; player: Player; hidePoint: number | null; go: boolean }
+    | null
+  >(null)
+
+  useLayoutEffect(() => {
+    const prev = prevMovesRef.current
+    prevMovesRef.current = movesPlayed.length
+    if (movesPlayed.length !== prev + 1) return   // only animate single new moves
+    const mv = movesPlayed[movesPlayed.length - 1]
+    const wrap = wrapRef.current
+    if (!wrap) return
+
+    // Who moved? The destination point now holds the mover's checker.
+    let mover: Player | null = null
+    if (typeof mv.to === 'number') mover = board.points[mv.to] > 0 ? 'white' : board.points[mv.to] < 0 ? 'black' : null
+    else if (typeof mv.from === 'number') mover = board.points[mv.from] > 0 ? 'white' : board.points[mv.from] < 0 ? 'black' : null
+    if (!mover) return
+
+    const fromKey = mv.from === 'bar' ? `bar-${mover}` : String(mv.from)
+    const toKey   = mv.to   === 'off' ? `off-${mover}` : String(mv.to)
+
+    const wr = wrap!.getBoundingClientRect()
+    const fromEl = wrap!.querySelector(`[data-cell="${fromKey}"]`) as HTMLElement | null
+    const toCell = wrap!.querySelector(`[data-cell="${toKey}"]`) as HTMLElement | null
+    if (!fromEl || !toCell) return
+
+    // Destination: land exactly on the moved checker (the last one at that point).
+    const toChecker = mv.to === 'off'
+      ? toCell
+      : (toCell.querySelectorAll('[data-checker]')[toCell.querySelectorAll('[data-checker]').length - 1] as HTMLElement | null) ?? toCell
+    const fr = fromEl.getBoundingClientRect()
+    const tr = toChecker.getBoundingClientRect()
+    const fromX = fr.left + fr.width / 2 - wr.left
+    const fromY = fr.top + fr.height / 2 - wr.top
+    const toX   = tr.left + tr.width / 2 - wr.left
+    const toY   = tr.top + tr.height / 2 - wr.top
+
+    if (animTimer.current) clearTimeout(animTimer.current)
+    setAnim({ fromX, fromY, toX, toY, player: mover, hidePoint: typeof mv.to === 'number' ? mv.to : null, go: false })
+    requestAnimationFrame(() => setAnim(a => (a ? { ...a, go: true } : a)))
+    animTimer.current = setTimeout(() => setAnim(null), 280)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movesPlayed.length])
+
+  useEffect(() => () => { if (animTimer.current) clearTimeout(animTimer.current) }, [])
+
   const flip = perspective === 'black'
   const topOrder    = flip ? TOP_BLACK    : TOP_WHITE
   const bottomOrder = flip ? BOTTOM_BLACK : BOTTOM_WHITE
@@ -160,9 +214,24 @@ export function BackgammonBoard({
 
   return (
     <div
-      className={cn('flex flex-col gap-3 sm:flex-row sm:items-stretch', className)}
+      ref={wrapRef}
+      className={cn('relative flex flex-col gap-3 sm:flex-row sm:items-stretch', className)}
       style={themeVars(boardTheme, diceTheme)}
     >
+      {/* Sliding ghost checker */}
+      {anim && (
+        <div
+          className="pointer-events-none absolute z-30 h-[22px] w-[22px] rounded-full border sm:h-7 sm:w-7"
+          style={{
+            left: anim.toX,
+            top:  anim.toY,
+            ...CHECKER_STYLE[anim.player],
+            transform: `translate(-50%, -50%) translate(${anim.go ? 0 : anim.fromX - anim.toX}px, ${anim.go ? 0 : anim.fromY - anim.toY}px)`,
+            transition: anim.go ? 'transform 260ms cubic-bezier(0.34, 0.8, 0.4, 1)' : 'none',
+          }}
+        />
+      )}
+
       {/* ── Board ── */}
       <div
         className="flex-1 rounded-2xl p-2 sm:p-3"
@@ -184,6 +253,7 @@ export function BackgammonBoard({
           fromOptions={fromOptions}
           toOptions={toOptions}
           onClick={handleClick}
+          hidePoint={anim?.hidePoint ?? null}
         />
         <div className="my-1 flex items-center justify-center gap-2">
           {cube && <CubeBadge cube={cube} />}
@@ -196,6 +266,7 @@ export function BackgammonBoard({
           fromOptions={fromOptions}
           toOptions={toOptions}
           onClick={handleClick}
+          hidePoint={anim?.hidePoint ?? null}
         />
       </div>
 
@@ -233,7 +304,7 @@ export function BackgammonBoard({
 // ─── Board row (6 points | bar | 6 points) ─────────────────────────────────
 
 function BoardRow({
-  order, rowPosition, board, selected, fromOptions, toOptions, onClick,
+  order, rowPosition, board, selected, fromOptions, toOptions, onClick, hidePoint,
 }: {
   order: (number | 'bar')[]
   rowPosition: 'top' | 'bottom'
@@ -242,6 +313,7 @@ function BoardRow({
   fromOptions: Set<Highlight>
   toOptions: Map<Highlight, Move>
   onClick: (target: Highlight) => void
+  hidePoint: number | null
 }) {
   return (
     <div className="grid grid-cols-[repeat(6,1fr)_0.6fr_repeat(6,1fr)] gap-1">
@@ -271,6 +343,7 @@ function BoardRow({
             isSource={fromOptions.has(entry)}
             isTarget={toOptions.has(entry)}
             onClick={() => onClick(entry)}
+            hideTop={hidePoint === entry}
           />
         )
       })}
@@ -281,7 +354,7 @@ function BoardRow({
 // ─── A single triangular point ─────────────────────────────────────────────
 
 function PointCell({
-  index, rowPosition, count, player, selected, isSource, isTarget, onClick,
+  index, rowPosition, count, player, selected, isSource, isTarget, onClick, hideTop,
 }: {
   index: number
   rowPosition: 'top' | 'bottom'
@@ -291,6 +364,7 @@ function PointCell({
   isSource: boolean
   isTarget: boolean
   onClick: () => void
+  hideTop?: boolean
 }) {
   const dark = index % 2 === 0
   const clipPath = rowPosition === 'top'
@@ -306,11 +380,12 @@ function PointCell({
     : `linear-gradient(to top, ${lit}, ${base} 40%, ${tip})`
 
   const interactive = isSource || isTarget || selected
-  const stack = Math.min(count, MAX_STACK)
+  const stack = Math.max(0, Math.min(count, MAX_STACK) - (hideTop ? 1 : 0))
 
   return (
     <button
       type="button"
+      data-cell={index}
       onClick={onClick}
       aria-label={`Point ${index + 1}${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'}` : ', empty'}`}
       className={cn(
@@ -372,6 +447,7 @@ function BarCell({
   return (
     <button
       type="button"
+      data-cell={`bar-${player}`}
       onClick={onClick}
       aria-label={`Bar${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'} waiting to enter` : ''}`}
       className={cn(
@@ -406,6 +482,7 @@ function BearOffTray({
   return (
     <button
       type="button"
+      data-cell={`off-${player}`}
       onClick={onClick}
       aria-label={`${player} borne off: ${count} of ${CHECKERS_PER_PLAYER}`}
       className={cn(
@@ -451,6 +528,7 @@ function Checker({ player, overflowCount, small, glow }: { player: Player; overf
     : CHECKER_STYLE[player]
   return (
     <div
+      data-checker=""
       className={cn(
         'relative shrink-0 rounded-full border',
         small ? 'h-5 w-5' : 'h-[22px] w-[22px] sm:h-7 sm:w-7',
