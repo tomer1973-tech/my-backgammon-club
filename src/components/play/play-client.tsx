@@ -7,13 +7,14 @@
  * each turn so the player on roll always sees their home board bottom-right.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy } from 'lucide-react'
 import { Avatar }  from '@/components/ui/avatar'
 import { Button }  from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { BackgammonBoard } from '@/components/backgammon'
+import { useBoardThemes, BoardCustomizeButton } from '@/components/backgammon/board-customizer'
 import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/types'
 import {
@@ -65,11 +66,43 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
   const [game,  setGame]  = useState<GameState | null>(null)
   const [result, setResult] = useState<{ winner: Player; type: GameType } | null>(null)
 
+  const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
+
   function startGame() {
     setGame(freshGame())
     setResult(null)
     setPhase('playing')
   }
+
+  // ── Auto-pass when the player on roll has no legal moves ──────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || !game || game.doubleOffer) return
+    const noMoves = game.dice !== null
+      && game.legalSequences.length === 1
+      && game.legalSequences[0].moves.length === 0
+    if (!noMoves) return
+
+    const timer = setTimeout(() => {
+      setGame(g => {
+        if (!g) return g
+        const board = g.boardHistory[g.boardHistory.length - 1]
+        const next  = opponent(g.currentPlayer)
+        const dice  = rollDice()
+        return {
+          boardHistory:   [board],
+          currentPlayer:  next,
+          dice,
+          legalSequences: getLegalSequences(board, next, dice),
+          movesPlayed:    [],
+          cube:           g.cube,
+          doubleOffer:    null,
+        }
+      })
+    }, 1500)
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, game?.currentPlayer, game?.dice, game?.legalSequences])
 
   if (phase === 'setup') {
     return (
@@ -218,17 +251,22 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
       <PageHeader title="Local Play" subtitle="Two players, one device — pass and play" />
 
       <div className="space-y-4">
+        {/* Toolbar */}
+        <div className="flex items-center justify-end">
+          <BoardCustomizeButton
+            boardThemeId={boardThemeId}
+            diceThemeId={diceThemeId}
+            onBoard={chooseBoardTheme}
+            onDice={chooseDiceTheme}
+          />
+        </div>
+
         {/* Turn banner */}
-        <div className={cn(
-          'rounded-xl border px-4 py-3 text-center',
-          game.currentPlayer === 'white'
-            ? 'border-line bg-surface-raised'
-            : 'border-gold/30 bg-surface-raised',
-        )}>
+        <div className="rounded-xl border border-gold/40 bg-surface-raised px-4 py-3 text-center">
           <p className="text-xs uppercase tracking-widest text-ink-subtle">On roll</p>
           <p className="text-lg font-bold text-ink">{names[game.currentPlayer]}</p>
           {noLegalMoves && (
-            <p className="mt-1 text-xs font-medium text-loss">No legal moves — pass the turn</p>
+            <p className="mt-1 text-xs font-medium text-loss">No legal moves — passing…</p>
           )}
         </div>
 
@@ -241,6 +279,8 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
           movesPlayed={game.movesPlayed}
           onMove={handleMove}
           cube={game.cube}
+          boardTheme={boardTheme}
+          diceTheme={diceTheme}
         />
 
         {/* Controls */}

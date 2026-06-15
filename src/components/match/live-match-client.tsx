@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { BackgammonBoard } from '@/components/backgammon'
+import { useBoardThemes, BoardCustomizeButton } from '@/components/backgammon/board-customizer'
 import { cn } from '@/lib/utils'
 import {
   applyLiveMove, endLiveTurn, undoLiveMove, offerLiveDouble, respondLiveDouble,
@@ -55,6 +56,8 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [pending, startTransition] = useTransition()
+
+  const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
 
   const channelRef = useRef<RealtimeChannel | null>(null)
 
@@ -172,7 +175,15 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
 
   return (
     <div className="flex flex-col gap-4 animate-fade-in">
-      <BackLink match={match} connected={connected} />
+      <div className="flex items-center justify-between gap-2">
+        <BackLink match={match} connected={connected} />
+        <BoardCustomizeButton
+          boardThemeId={boardThemeId}
+          diceThemeId={diceThemeId}
+          onBoard={chooseBoardTheme}
+          onDice={chooseDiceTheme}
+        />
+      </div>
 
       {/* Players + turn banner */}
       <div className="rounded-xl border border-line bg-surface-raised px-4 py-3">
@@ -205,6 +216,8 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
         onMove={handleMove}
         cube={{ value: game.cubeValue, owner: game.cubeOwner }}
         disabled={!isMyTurn || pending}
+        boardTheme={boardTheme}
+        diceTheme={diceTheme}
       />
 
       {error && (
