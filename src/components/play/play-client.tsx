@@ -280,12 +280,36 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
         </div>
 
         {/* Turn banner */}
-        <div className="rounded-xl border border-gold/40 bg-surface-raised px-4 py-3 text-center">
-          <p className="text-xs uppercase tracking-widest text-ink-subtle">On roll</p>
-          <p className="text-lg font-bold text-ink">{names[game.currentPlayer]}</p>
-          {noLegalMoves && (
-            <p className="mt-1 text-xs font-medium text-loss">No legal moves — passing…</p>
-          )}
+        <div className="rounded-xl border border-gold/40 bg-surface-raised px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-ink-subtle">On roll</p>
+              <p className="text-lg font-bold text-ink">{names[game.currentPlayer]}</p>
+              {noLegalMoves && (
+                <p className="mt-0.5 text-xs font-medium text-loss">No legal moves — passing…</p>
+              )}
+            </div>
+            <div className="flex gap-4 text-right">
+              <div>
+                <p className="text-xs text-ink-subtle">{names.white}</p>
+                <p className="text-lg font-bold text-ink tabular-nums">
+                  {(() => {
+                    let c = 0; for (let i = 0; i < 24; i++) { const n = liveBoard.points[i]; if (n > 0) c += (i+1)*n; } c += liveBoard.bar.white * 25; return c
+                  })()}
+                </p>
+                <p className="text-[9px] text-ink-subtle">pips</p>
+              </div>
+              <div>
+                <p className="text-xs text-ink-subtle">{names.black}</p>
+                <p className="text-lg font-bold text-ink tabular-nums">
+                  {(() => {
+                    let c = 0; for (let i = 0; i < 24; i++) { const n = liveBoard.points[i]; if (n < 0) c += (24-i)*(-n); } c += liveBoard.bar.black * 25; return c
+                  })()}
+                </p>
+                <p className="text-[9px] text-ink-subtle">pips</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <BackgammonBoard

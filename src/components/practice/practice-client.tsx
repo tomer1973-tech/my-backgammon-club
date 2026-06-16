@@ -3,14 +3,13 @@
 /**
  * PracticeClient — play backgammon against a heuristic AI opponent.
  *
- * Mirrors the local hot-seat flow (`PlayClient`) but the board never flips —
- * it's always shown from the human's perspective — and the AI's turn plays
- * itself out automatically after a short "thinking" delay.
+ * Playing phase uses a sidebar layout: compact game info on the left,
+ * board + controls on the right — keeping the full-height board prominent.
  */
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, ArrowRight, Lightbulb } from 'lucide-react'
+import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, ArrowRight, Lightbulb, MessageCircle, Share2 } from 'lucide-react'
 import { Avatar }  from '@/components/ui/avatar'
 import { Button }  from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
@@ -84,6 +83,18 @@ function nextMovesEmpty(legalSequences: MoveSequence[], movesPlayed: Move[]): bo
   return true
 }
 
+/** Pip count remaining for a player (lower = closer to winning). */
+function pipCount(board: Board, player: Player): number {
+  let count = 0
+  for (let i = 0; i < 24; i++) {
+    const n = board.points[i]
+    if (player === 'white' && n > 0) count += (i + 1) * n
+    if (player === 'black' && n < 0) count += (24 - i) * (-n)
+  }
+  count += board.bar[player] * 25
+  return count
+}
+
 export function PracticeClient({ currentUser }: { currentUser: SessionUser | null }) {
   const [phase, setPhase] = useState<Phase>('setup')
   const [humanPlayer, setHumanPlayer] = useState<Player>('white')
@@ -92,10 +103,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   const [result, setResult] = useState<{ winner: Player; type: GameType } | null>(null)
   const [aiThinking, setAiThinking] = useState(false)
 
-  // Board & dice appearance (persisted across sessions, shared across play modes)
   const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
-
-  // "Best move" hint
   const [hint, setHint] = useState<Hint | null>(null)
 
   const aiPlayer = opponent(humanPlayer)
@@ -109,7 +117,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
 
   const liveBoard = game ? game.boardHistory[game.boardHistory.length - 1] : null
 
-  // ── AI turn: think, then play its whole sequence and pass back ──────────
+  // ── AI turn ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || !game || !liveBoard) return
     if (game.currentPlayer !== aiPlayer || game.doubleOffer) return
@@ -146,7 +154,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game?.currentPlayer, game?.dice, game?.doubleOffer])
 
-  // ── AI responds to a human double offer ──────────────────────────────────
+  // ── AI responds to double offer ──────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || !game || !liveBoard) return
     if (game.doubleOffer !== humanPlayer) return
@@ -173,7 +181,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game?.doubleOffer])
 
-  // ── Auto-pass the human's turn when there are no legal moves ──────────────
+  // ── Auto-pass when no legal moves ────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || !game) return
     if (game.currentPlayer !== humanPlayer || aiThinking || game.doubleOffer) return
@@ -198,13 +206,12 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
           doubleOffer:    null,
         }
       })
-    }, 1400)   // brief pause so the player sees the roll and "no moves" message
+    }, 1400)
 
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game?.currentPlayer, game?.dice, game?.legalSequences, aiThinking])
 
-  // Clear a shown hint whenever the position changes (move played, undo, new turn).
   useEffect(() => { setHint(null) }, [game?.currentPlayer, game?.movesPlayed.length])
 
   function showHint() {
@@ -219,11 +226,24 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     })
   }
 
+  const humanName = currentUser?.name.split(' ')[0] ?? 'You'
+
+  // ── Setup screen ─────────────────────────────────────────────────────────
+
   if (phase === 'setup') {
     return (
       <div className="animate-fade-in">
-        <TopBar currentUser={currentUser} />
-        <PageHeader title="Practice vs AI" subtitle="Sharpen your game against a computer opponent" />
+        <CompactTopBar currentUser={currentUser} />
+
+        {/* Hero */}
+        <div className="mb-8 text-center">
+          <div className="mb-3 inline-flex h-16 w-16 items-center justify-center
+            rounded-2xl bg-surface-raised border border-line shadow-gold text-4xl">
+            🤖
+          </div>
+          <h1 className="font-display text-3xl font-bold text-ink tracking-tight">Practice vs AI</h1>
+          <p className="mt-1.5 text-sm text-ink-muted">Sharpen your game against a computer opponent</p>
+        </div>
 
         <div className="space-y-4">
           <div className="rounded-2xl border border-line bg-surface-raised p-5 space-y-3">
@@ -337,26 +357,39 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     setGame({ ...game, doubleOffer: humanPlayer })
   }
 
+  // ── Gameover screen ───────────────────────────────────────────────────────
+
   if (phase === 'gameover' && result && game) {
     const youWon = result.winner === humanPlayer
     const points = GAME_TYPE_POINTS[result.type] * game.cube.value
+
+    function shareWin() {
+      const text = `🎲 I just beat the AI in backgammon! ${GAME_TYPE_LABEL[result!.type]}${game!.cube.value > 1 ? ` (cube at ${game!.cube.value})` : ''} — ${points} point${points === 1 ? '' : 's'}. Play at My Backgammon Club!`
+      const url = `https://wa.me/?text=${encodeURIComponent(text)}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+
+    function shareTwitter() {
+      const text = `🎲 Just beat the AI in backgammon! ${GAME_TYPE_LABEL[result!.type]} — ${points} pts. #backgammon`
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
+    }
+
     return (
       <div className="animate-fade-in">
-        <TopBar currentUser={currentUser} />
-        <PageHeader title="Practice vs AI" subtitle="Game over" />
+        <CompactTopBar currentUser={currentUser} />
 
-        <div className="space-y-4">
+        <div className="space-y-4 mt-6">
           <div className={cn(
             'rounded-2xl border p-8 text-center space-y-3',
             youWon ? 'border-win/40 bg-win/5' : 'border-loss/40 bg-loss/5',
           )}>
-            <Trophy className={cn('mx-auto h-12 w-12', youWon ? 'text-win' : 'text-loss')} />
+            <div className="text-5xl mb-2">{youWon ? '🏆' : '🤖'}</div>
             <div>
               <p className="text-xs uppercase tracking-widest text-ink-subtle mb-1">
                 {youWon ? 'You win!' : 'AI wins'}
               </p>
               <h2 className={cn('text-3xl font-black', youWon ? 'text-win' : 'text-loss')}>
-                {youWon ? (currentUser?.name.split(' ')[0] ?? 'You') : 'AI'}
+                {youWon ? humanName : 'AI'}
               </h2>
               <p className="mt-2 text-sm text-ink-muted">
                 {GAME_TYPE_LABEL[result.type]}
@@ -365,6 +398,28 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
               </p>
             </div>
           </div>
+
+          {youWon && (
+            <div className="rounded-xl border border-line bg-surface-raised p-4 space-y-2">
+              <p className="text-xs font-semibold text-ink-subtle uppercase tracking-wide">Share your win</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={shareWin}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-green-700/40 bg-green-900/20 px-3 py-2 text-sm font-medium text-green-400 transition-colors hover:bg-green-900/35"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                </button>
+                <button
+                  onClick={shareTwitter}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-sky-700/40 bg-sky-900/20 px-3 py-2 text-sm font-medium text-sky-400 transition-colors hover:bg-sky-900/35"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Twitter / X
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Button onClick={() => startGame(humanPlayer)} variant="secondary" className="gap-2">
@@ -380,30 +435,103 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     )
   }
 
-  return (
-    <div className="animate-fade-in">
-      <TopBar currentUser={currentUser} />
-      <PageHeader title="Practice vs AI" subtitle={`Playing as ${humanPlayer === 'white' ? 'White' : 'Black'} · ${difficulty}`} />
+  // ── Playing screen — sidebar layout ──────────────────────────────────────
 
-      <div className="space-y-4">
-        {/* Toolbar */}
-        <div className="flex items-center justify-end">
-          <BoardCustomizeButton
-            boardThemeId={boardThemeId}
-            diceThemeId={diceThemeId}
-            onBoard={chooseBoardTheme}
-            onDice={chooseDiceTheme}
-          />
+  const humanPips = pipCount(liveBoard, humanPlayer)
+  const aiPips    = pipCount(liveBoard, aiPlayer)
+  const turnStatus = isHumanTurn
+    ? (noLegalMoves ? 'No moves — passing…' : 'Your move')
+    : (aiThinking ? 'AI is thinking…' : 'AI to play')
+
+  return (
+    <div className="animate-fade-in flex gap-5 items-start">
+
+      {/* ── Left sidebar ── */}
+      <aside className="w-52 shrink-0 flex flex-col gap-3 sticky top-6">
+
+        {/* Compact brand + nav */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-raised border border-line text-ink-muted hover:text-ink hover:border-gold/30 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Link>
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <span className="text-xl">🤖</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-ink leading-none">Practice vs AI</p>
+              <p className="text-[10px] text-ink-muted mt-0.5 capitalize">{difficulty} difficulty</p>
+            </div>
+          </div>
+          {currentUser && (
+            <Link href="/settings" className="shrink-0">
+              <Avatar name={currentUser.name} src={currentUser.avatarUrl ?? undefined} size="sm" />
+            </Link>
+          )}
         </div>
 
-        {/* Turn indicator */}
-        <TurnBanner
-          humanName={currentUser?.name.split(' ')[0] ?? 'You'}
-          isHumanOnRoll={game.currentPlayer === humanPlayer}
-          aiThinking={aiThinking}
-          noLegalMoves={noLegalMoves && !aiThinking}
+        {/* AI card */}
+        <PlayerSideCard
+          name="AI"
+          sub="Computer"
+          isActive={!isHumanTurn}
+          pips={aiPips}
+          icon="bot"
         />
 
+        {/* Doubling cube */}
+        <div className="flex items-center gap-2 px-1">
+          <div className="h-px flex-1 bg-line" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-gold/50 bg-surface-elevated text-xs font-bold text-gold shadow-sm">
+            {game.cube.value}
+          </div>
+          <div className="text-[10px] text-ink-subtle">cube</div>
+          <div className="h-px flex-1 bg-line" />
+        </div>
+
+        {/* Human card */}
+        <PlayerSideCard
+          name={humanName}
+          sub="You"
+          isActive={isHumanTurn}
+          pips={humanPips}
+          icon="user"
+        />
+
+        {/* Turn status pill */}
+        <div className={cn(
+          'rounded-xl border px-3 py-2 text-center text-xs font-semibold transition-all',
+          isHumanTurn && !noLegalMoves ? 'border-gold/50 bg-gold/10 text-gold' : '',
+          noLegalMoves ? 'border-loss/30 bg-loss/5 text-loss' : '',
+          !isHumanTurn ? 'border-line bg-surface-raised text-ink-muted' : '',
+          aiThinking ? 'animate-pulse' : '',
+        )}>
+          {turnStatus}
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Board customizer */}
+        <BoardCustomizeButton
+          boardThemeId={boardThemeId}
+          diceThemeId={diceThemeId}
+          onBoard={chooseBoardTheme}
+          onDice={chooseDiceTheme}
+        />
+
+        {/* Resign / reset */}
+        <button
+          onClick={() => setPhase('setup')}
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs text-ink-subtle hover:text-loss hover:border-loss/30 transition-colors"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Resign &amp; restart
+        </button>
+      </aside>
+
+      {/* ── Board + controls ── */}
+      <div className="flex-1 min-w-0 flex flex-col gap-4">
         <BackgammonBoard
           board={liveBoard}
           perspective={humanPlayer}
@@ -420,7 +548,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
         />
 
         {hint && (
-          <div className="flex flex-col items-center gap-0.5 text-center">
+          <div className="flex flex-col items-center gap-0.5 text-center px-2">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-gold">
               <Lightbulb className="h-4 w-4" />
               Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
@@ -431,7 +559,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
           </div>
         )}
 
-        {/* Controls */}
+        {/* Action controls */}
         {game.currentPlayer === humanPlayer && (
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-raised p-2">
             <Button
@@ -488,16 +616,52 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
           <span />
         </DialogFooter>
       </Dialog>
-
     </div>
   )
 }
 
-// ─── Shared chrome ──────────────────────────────────────────────────────────
+// ─── Player side card ────────────────────────────────────────────────────────
 
-function TopBar({ currentUser }: { currentUser: SessionUser | null }) {
+function PlayerSideCard({
+  name, sub, isActive, pips, icon,
+}: {
+  name:     string
+  sub:      string
+  isActive: boolean
+  pips:     number
+  icon:     'bot' | 'user'
+}) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
+    <div className={cn(
+      'rounded-xl border px-3 py-2.5 flex items-center gap-2.5 transition-all',
+      isActive ? 'border-gold/55 bg-gold/8 shadow-gold' : 'border-line bg-surface-raised opacity-60',
+    )}>
+      <div className={cn(
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+        isActive ? 'bg-gold/15' : 'bg-surface-elevated',
+      )}>
+        {icon === 'bot'
+          ? <Bot className={cn('h-4 w-4', isActive ? 'text-gold' : 'text-ink-subtle')} />
+          : <UserCircle2 className={cn('h-4 w-4', isActive ? 'text-gold' : 'text-ink-subtle')} />
+        }
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-ink truncate">{name}</p>
+        <p className="text-[10px] text-ink-muted">{sub}</p>
+      </div>
+      <div className="text-right shrink-0">
+        <p className={cn('text-lg font-bold tabular-nums leading-none', isActive ? 'text-gold' : 'text-ink-muted')}>{pips}</p>
+        <p className="text-[9px] text-ink-subtle">pips</p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Compact top bar (setup + gameover only) ─────────────────────────────────
+
+function CompactTopBar({ currentUser }: { currentUser: SessionUser | null }) {
+  return (
+    <div className="mb-6 flex items-center justify-between gap-3">
       <Link
         href="/"
         className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 -ml-2
@@ -513,7 +677,7 @@ function TopBar({ currentUser }: { currentUser: SessionUser | null }) {
           className="inline-flex items-center gap-2 rounded-full border border-line
             bg-surface-raised pl-1.5 pr-3 py-1 hover:border-gold/30 transition-colors"
         >
-          <Avatar name={currentUser.name} src={currentUser.avatarUrl} size="sm" />
+          <Avatar name={currentUser.name} src={currentUser.avatarUrl ?? undefined} size="sm" />
           <span className="text-xs font-medium text-ink-muted">
             Signed in as <span className="font-semibold text-ink">{currentUser.name.split(' ')[0]}</span>
           </span>
@@ -535,76 +699,3 @@ function TopBar({ currentUser }: { currentUser: SessionUser | null }) {
     </div>
   )
 }
-
-function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="mb-6 text-center">
-      <div className="mb-3 inline-flex h-16 w-16 items-center justify-center
-        rounded-2xl bg-surface-raised border border-line shadow-gold text-4xl">
-        🤖
-      </div>
-      <h1 className="font-display text-3xl font-bold text-ink tracking-tight">{title}</h1>
-      <p className="mt-1.5 text-sm text-ink-muted">{subtitle}</p>
-    </div>
-  )
-}
-
-// ─── Two-sided turn indicator ────────────────────────────────────────────────
-
-function TurnBanner({
-  humanName, isHumanOnRoll, aiThinking, noLegalMoves,
-}: {
-  humanName: string
-  isHumanOnRoll: boolean
-  aiThinking: boolean
-  noLegalMoves: boolean
-}) {
-  const status = isHumanOnRoll
-    ? (noLegalMoves ? 'No legal moves — passing…' : 'Your move')
-    : (aiThinking ? 'AI is thinking…' : 'AI to play')
-
-  return (
-    <div className="rounded-2xl border border-line bg-surface-raised p-2">
-      <div className="grid grid-cols-2 gap-2">
-        {/* You */}
-        <div className={cn(
-          'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-all',
-          isHumanOnRoll ? 'border-gold/60 bg-gold/10' : 'border-transparent opacity-50',
-        )}>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-elevated">
-            <UserCircle2 className={cn('h-5 w-5', isHumanOnRoll ? 'text-gold' : 'text-ink-subtle')} />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-ink">{humanName}</p>
-            <p className="text-[11px] text-ink-subtle">You</p>
-          </div>
-          {isHumanOnRoll && <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-gold animate-pulse" />}
-        </div>
-
-        {/* AI */}
-        <div className={cn(
-          'flex items-center justify-end gap-2.5 rounded-xl border px-3 py-2.5 text-right transition-all',
-          !isHumanOnRoll ? 'border-gold/60 bg-gold/10' : 'border-transparent opacity-50',
-        )}>
-          {!isHumanOnRoll && <span className="mr-auto h-2 w-2 shrink-0 rounded-full bg-gold animate-pulse" />}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-ink">AI</p>
-            <p className="text-[11px] text-ink-subtle">Computer</p>
-          </div>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-elevated">
-            <Bot className={cn('h-5 w-5', !isHumanOnRoll ? 'text-gold' : 'text-ink-subtle')} />
-          </span>
-        </div>
-      </div>
-
-      <p className={cn(
-        'mt-2 text-center text-xs font-semibold',
-        noLegalMoves ? 'text-loss' : isHumanOnRoll ? 'text-gold' : 'text-ink-muted',
-        aiThinking && 'animate-pulse',
-      )}>
-        {status}
-      </p>
-    </div>
-  )
-}
-

@@ -191,7 +191,7 @@ export function BackgammonBoard({
     if (animTimer.current) clearTimeout(animTimer.current)
     setAnim({ fromX, fromY, toX, toY, player: mover, hidePoint: typeof mv.to === 'number' ? mv.to : null, go: false })
     requestAnimationFrame(() => setAnim(a => (a ? { ...a, go: true } : a)))
-    animTimer.current = setTimeout(() => setAnim(null), 280)
+    animTimer.current = setTimeout(() => setAnim(null), 400)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movesPlayed.length])
 
@@ -232,7 +232,7 @@ export function BackgammonBoard({
             top:  anim.toY,
             ...CHECKER_STYLE[anim.player],
             transform: `translate(-50%, -50%) translate(${anim.go ? 0 : anim.fromX - anim.toX}px, ${anim.go ? 0 : anim.fromY - anim.toY}px)`,
-            transition: anim.go ? 'transform 260ms cubic-bezier(0.34, 0.8, 0.4, 1)' : 'none',
+            transition: anim.go ? 'transform 380ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
           }}
         />
       )}

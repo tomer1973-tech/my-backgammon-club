@@ -15,7 +15,7 @@ export default function PracticeLayout({
         className="pointer-events-none absolute inset-x-0 top-0 h-[420px]
           bg-[radial-gradient(ellipse_80%_40%_at_50%_0%,hsl(var(--gold)/0.07),transparent)]"
       />
-      <div className="relative z-10 w-full max-w-4xl">
+      <div className="relative z-10 w-full max-w-5xl">
         {children}
       </div>
     </div>
