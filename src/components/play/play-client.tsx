@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy } from 'lucide-react'
+import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Lightbulb } from 'lucide-react'
 import { Avatar }  from '@/components/ui/avatar'
 import { Button }  from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
@@ -20,8 +20,11 @@ import type { SessionUser } from '@/types'
 import {
   createInitialBoard, opponent, applyMove, getLegalSequences,
   isGameOver, getGameType, rollDice,
+  bestSequence, notateSequence, explainPlay,
   type Board, type Player, type Dice, type Move, type MoveSequence, type GameType, type CubeState,
 } from '@/lib/backgammon'
+
+interface Hint { move: Move | null; notation: string; why: string }
 
 type Phase = 'setup' | 'playing' | 'gameover'
 
@@ -65,12 +68,14 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
   const [names, setNames] = useState<Record<Player, string>>({ white: 'Player 1', black: 'Player 2' })
   const [game,  setGame]  = useState<GameState | null>(null)
   const [result, setResult] = useState<{ winner: Player; type: GameType } | null>(null)
+  const [hint, setHint] = useState<Hint | null>(null)
 
   const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
 
   function startGame() {
     setGame(freshGame())
     setResult(null)
+    setHint(null)
     setPhase('playing')
   }
 
@@ -171,11 +176,24 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
     })
   }
 
+  function showHint() {
+    if (!game || !game.dice) return
+    const seq = bestSequence(game.boardHistory[0], game.currentPlayer, game.dice, game.movesPlayed)
+    if (!seq || seq.moves.length === 0) { setHint(null); return }
+    const move = seq.moves.length > game.movesPlayed.length ? seq.moves[game.movesPlayed.length] : null
+    setHint({
+      move,
+      notation: notateSequence(game.currentPlayer, seq.moves),
+      why:      explainPlay(game.boardHistory[0], seq.board, game.currentPlayer, seq.moves),
+    })
+  }
+
   function endTurn() {
     if (!game) return
     const board = liveBoard
     const next  = opponent(game.currentPlayer)
     const dice  = rollDice()
+    setHint(null)
     setGame({
       boardHistory:   [board],
       currentPlayer:  next,
@@ -281,13 +299,31 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
           cube={game.cube}
           boardTheme={boardTheme}
           diceTheme={diceTheme}
+          suggestion={hint?.move ?? null}
         />
+
+        {hint && (
+          <div className="flex flex-col items-center gap-0.5 text-center">
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-gold">
+              <Lightbulb className="h-4 w-4" />
+              Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
+            </p>
+            <p className="text-xs text-ink-muted">
+              {hint.why} Play the glowing checker to the gold dot.
+            </p>
+          </div>
+        )}
 
         {/* Controls */}
         <div className="flex flex-wrap gap-2">
           <Button onClick={undo} variant="secondary" disabled={game.movesPlayed.length === 0} className="gap-2">
             <Undo2 className="h-4 w-4" />
             Undo
+          </Button>
+
+          <Button onClick={showHint} variant="secondary" disabled={!game.dice || noLegalMoves} className="gap-2">
+            <Lightbulb className="h-4 w-4" />
+            Hint
           </Button>
 
           {(game.cube.owner === null || game.cube.owner === game.currentPlayer)

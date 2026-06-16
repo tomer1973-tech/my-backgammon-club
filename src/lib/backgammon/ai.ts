@@ -154,16 +154,15 @@ export function chooseAIMove(board: Board, player: Player, dice: Dice, difficult
  * as a prefix, then returns the next move in that line (deterministic, no noise).
  * Returns `null` when no further move is possible.
  */
-export function bestNextMove(
+/** The best complete legal sequence that continues `movesPlayed` as a prefix. */
+export function bestSequence(
   turnStartBoard: Board,
   player: Player,
   dice: Dice,
-  movesPlayed: Move[],
-): Move | null {
+  movesPlayed: Move[] = [],
+): MoveSequence | null {
   const sequences = getLegalSequences(turnStartBoard, player, dice)
-  const matching = sequences.filter(
-    s => s.moves.length > movesPlayed.length && isSequencePrefix(movesPlayed, s.moves),
-  )
+  const matching = sequences.filter(s => isSequencePrefix(movesPlayed, s.moves))
   if (matching.length === 0) return null
 
   let best = matching[0]
@@ -172,5 +171,64 @@ export function bestNextMove(
     const score = evaluateBoard(seq.board, player)
     if (score > bestScore) { bestScore = score; best = seq }
   }
+  return best
+}
+
+export function bestNextMove(
+  turnStartBoard: Board,
+  player: Player,
+  dice: Dice,
+  movesPlayed: Move[],
+): Move | null {
+  const best = bestSequence(turnStartBoard, player, dice, movesPlayed)
+  if (!best || best.moves.length <= movesPlayed.length) return null
   return best.moves[movesPlayed.length]
+}
+
+/** Point label in standard notation from the mover's perspective (1-24, bar, off). */
+export function pointLabel(player: Player, pos: number | 'bar' | 'off'): string {
+  if (pos === 'bar' || pos === 'off') return pos
+  return String(player === 'white' ? pos + 1 : 24 - pos)
+}
+
+/** A move sequence in standard notation, e.g. "8/5 6/5" or "bar/20 13/11*". */
+export function notateSequence(player: Player, moves: Move[]): string {
+  return moves
+    .map(m => `${pointLabel(player, m.from)}/${pointLabel(player, m.to)}${m.hit ? '*' : ''}`)
+    .join(' ')
+}
+
+/** A short, plain-language reason the play is strong. */
+export function explainPlay(
+  startBoard: Board,
+  finalBoard: Board,
+  player: Player,
+  moves: Move[],
+): string {
+  if (moves.length === 0) return ''
+  const sign = player === 'white' ? 1 : -1
+  const moverCount = (b: Board, p: number) => Math.max(0, b.points[p] * sign)
+
+  // Points newly made this turn (went from a blot/empty to 2+).
+  const made: number[] = []
+  for (let p = 0; p < 24; p++) {
+    if (moverCount(startBoard, p) < 2 && moverCount(finalBoard, p) >= 2) made.push(p)
+  }
+  const anyHit  = moves.some(m => m.hit)
+  const anyOff  = moves.some(m => m.to === 'off')
+  // Back checkers: the mover's checkers that start in the opponent's home quadrant.
+  const backRange = player === 'white' ? [18, 23] : [0, 5]
+  const escaped = moves.some(m => typeof m.from === 'number' && m.from >= backRange[0] && m.from <= backRange[1])
+
+  const clauses: string[] = []
+  if (made.length) clauses.push(`makes the ${pointLabel(player, made[0])}-point`)
+  if (anyHit)      clauses.push('hits a blot')
+  if (!made.length && !anyHit) {
+    if (anyOff)       clauses.push('bears off a checker')
+    else if (escaped) clauses.push('escapes a back checker')
+    else              clauses.push('improves your position safely')
+  }
+
+  const text = clauses.join(' and ')
+  return text.charAt(0).toUpperCase() + text.slice(1) + '.'
 }

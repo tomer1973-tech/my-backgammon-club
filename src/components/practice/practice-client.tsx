@@ -20,9 +20,12 @@ import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/types'
 import {
   createInitialBoard, opponent, applyMove, getLegalSequences,
-  isGameOver, getGameType, rollDice, chooseAIMove, evaluateBoard, bestNextMove,
+  isGameOver, getGameType, rollDice, chooseAIMove, evaluateBoard,
+  bestSequence, notateSequence, explainPlay,
   type Board, type Player, type Dice, type Move, type MoveSequence, type GameType, type CubeState, type Difficulty,
 } from '@/lib/backgammon'
+
+interface Hint { move: Move | null; notation: string; why: string }
 
 type Phase = 'setup' | 'playing' | 'gameover'
 
@@ -93,7 +96,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
 
   // "Best move" hint
-  const [hint, setHint] = useState<Move | null>(null)
+  const [hint, setHint] = useState<Hint | null>(null)
 
   const aiPlayer = opponent(humanPlayer)
 
@@ -206,8 +209,14 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
 
   function showHint() {
     if (!game || !game.dice) return
-    const best = bestNextMove(game.boardHistory[0], game.currentPlayer, game.dice, game.movesPlayed)
-    setHint(best)
+    const seq = bestSequence(game.boardHistory[0], game.currentPlayer, game.dice, game.movesPlayed)
+    if (!seq || seq.moves.length === 0) { setHint(null); return }
+    const move = seq.moves.length > game.movesPlayed.length ? seq.moves[game.movesPlayed.length] : null
+    setHint({
+      move,
+      notation: notateSequence(game.currentPlayer, seq.moves),
+      why:      explainPlay(game.boardHistory[0], seq.board, game.currentPlayer, seq.moves),
+    })
   }
 
   if (phase === 'setup') {
@@ -407,14 +416,19 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
           disabled={!isHumanTurn}
           boardTheme={boardTheme}
           diceTheme={diceTheme}
-          suggestion={hint}
+          suggestion={hint?.move ?? null}
         />
 
         {hint && (
-          <p className="flex items-center justify-center gap-1.5 text-center text-xs font-medium text-gold">
-            <Lightbulb className="h-3.5 w-3.5" />
-            Best move: pick up the glowing checker and play it to the gold dot.
-          </p>
+          <div className="flex flex-col items-center gap-0.5 text-center">
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-gold">
+              <Lightbulb className="h-4 w-4" />
+              Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
+            </p>
+            <p className="text-xs text-ink-muted">
+              {hint.why} Play the glowing checker to the gold dot.
+            </p>
+          </div>
         )}
 
         {/* Controls */}
