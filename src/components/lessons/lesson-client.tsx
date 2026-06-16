@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { BackgammonBoard } from '@/components/backgammon'
 import { applyMove, isSequencePrefix, type Move, type MoveSequence } from '@/lib/backgammon'
+import { MovesCounter } from '@/components/backgammon'
 import type { Lesson } from '@/lib/lessons-content'
 
 /** True once `movesPlayed` is a maximal sequence (no further moves possible). */
@@ -113,6 +114,9 @@ export function LessonClient({ lesson, nextLesson }: LessonClientProps) {
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs text-ink-subtle">
           <span>Step {stepIndex + 1} of {lesson.steps.length}</span>
+          {isMoveStep && !completed && sequences[0] && (
+            <MovesCounter total={sequences[0].length} used={movesPlayed.length} />
+          )}
         </div>
         <Progress value={stepIndex + 1} max={lesson.steps.length} />
       </div>

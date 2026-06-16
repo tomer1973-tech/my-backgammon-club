@@ -13,14 +13,14 @@ import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, ArrowRi
 import { Avatar }  from '@/components/ui/avatar'
 import { Button }  from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
-import { BackgammonBoard } from '@/components/backgammon'
+import { BackgammonBoard, MovesCounter } from '@/components/backgammon'
 import { useBoardThemes, BoardCustomizeButton } from '@/components/backgammon/board-customizer'
 import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/types'
 import {
   createInitialBoard, opponent, applyMove, getLegalSequences,
   isGameOver, getGameType, rollDice, chooseAIMove, evaluateBoard,
-  bestSequence, notateSequence, explainPlay,
+  bestSequence, notateSequence, explainPlay, diceToPlay,
   type Board, type Player, type Dice, type Move, type MoveSequence, type GameType, type CubeState, type Difficulty,
 } from '@/lib/backgammon'
 
@@ -562,6 +562,9 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
         {/* Action controls */}
         {game.currentPlayer === humanPlayer && (
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-raised p-2">
+            {game.dice && isHumanTurn && (
+              <MovesCounter total={diceToPlay(game.dice).length} used={game.movesPlayed.length} />
+            )}
             <Button
               onClick={undo}
               variant="ghost"

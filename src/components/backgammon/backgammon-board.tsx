@@ -409,7 +409,7 @@ function PointCell({
       onClick={onClick}
       aria-label={`Point ${index + 1}${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'}` : ', empty'}`}
       className={cn(
-        'relative flex h-32 sm:h-36 flex-col items-center gap-0.5 px-0.5 outline-none',
+        'relative flex h-36 sm:h-44 flex-col items-center gap-0.5 px-0.5 outline-none',
         rowPosition === 'top' ? 'justify-start pt-1.5' : 'flex-col-reverse justify-start pb-1.5',
         interactive ? 'cursor-pointer' : 'cursor-default',
       )}
@@ -485,7 +485,7 @@ function BarCell({
       onClick={onClick}
       aria-label={`Bar${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'} waiting to enter` : ''}`}
       className={cn(
-        'relative flex h-32 sm:h-36 flex-col items-center gap-0.5 rounded-md px-0.5',
+        'relative flex h-36 sm:h-44 flex-col items-center gap-0.5 rounded-md px-0.5',
         rowPosition === 'top' ? 'justify-start pt-1' : 'flex-col-reverse justify-start pb-1',
         highlighted && 'cursor-pointer bg-gold/20',
         selected === 'bar' && 'bg-gold/35',
@@ -629,6 +629,35 @@ function Die({ value, used, delay = 0 }: { value: number; used: boolean; delay?:
           />
         )
       })}
+    </div>
+  )
+}
+
+// ─── Moves counter (exported for use in game clients) ────────────────────────
+
+/**
+ * Shows how many die-moves are left this turn.
+ * Pass `total` = diceToPlay(dice).length, `used` = movesPlayed.length.
+ */
+export function MovesCounter({ total, used }: { total: number; used: number }) {
+  if (total === 0) return null
+  const remaining = total - used
+  return (
+    <div className="flex items-center gap-1.5">
+      {Array.from({ length: total }).map((_, i) => (
+        <span
+          key={i}
+          className={cn(
+            'inline-flex h-4 w-4 rounded-full border',
+            i < used
+              ? 'border-line bg-surface-elevated opacity-35'
+              : 'border-gold bg-gold/20',
+          )}
+        />
+      ))}
+      <span className="text-[11px] text-ink-muted">
+        {remaining === 0 ? 'done' : `${remaining} left`}
+      </span>
     </div>
   )
 }

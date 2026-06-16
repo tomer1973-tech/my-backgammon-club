@@ -13,13 +13,13 @@ import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Lightbulb } 
 import { Avatar }  from '@/components/ui/avatar'
 import { Button }  from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
-import { BackgammonBoard } from '@/components/backgammon'
+import { BackgammonBoard, MovesCounter } from '@/components/backgammon'
 import { useBoardThemes, BoardCustomizeButton } from '@/components/backgammon/board-customizer'
 import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/types'
 import {
   createInitialBoard, opponent, applyMove, getLegalSequences,
-  isGameOver, getGameType, rollDice,
+  isGameOver, getGameType, rollDice, diceToPlay,
   bestSequence, notateSequence, explainPlay,
   type Board, type Player, type Dice, type Move, type MoveSequence, type GameType, type CubeState,
 } from '@/lib/backgammon'
@@ -285,9 +285,10 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
             <div>
               <p className="text-xs uppercase tracking-widest text-ink-subtle">On roll</p>
               <p className="text-lg font-bold text-ink">{names[game.currentPlayer]}</p>
-              {noLegalMoves && (
-                <p className="mt-0.5 text-xs font-medium text-loss">No legal moves — passing…</p>
-              )}
+              {noLegalMoves
+                ? <p className="mt-0.5 text-xs font-medium text-loss">No legal moves — passing…</p>
+                : game.dice && <MovesCounter total={diceToPlay(game.dice).length} used={game.movesPlayed.length} />
+              }
             </div>
             <div className="flex gap-4 text-right">
               <div>
