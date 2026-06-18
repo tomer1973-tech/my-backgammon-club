@@ -29,11 +29,19 @@ export interface MyStatsData {
   totalLosses:      number
   totalPoints:      number
   winRate:          number   // 0–100
+  quickWins:        number
+  quickLosses:      number
   tournamentHistory: TournamentEntry[]
 }
 
 export async function getMyStats(): Promise<MyStatsData> {
   const user = await requireSessionUser()
+
+  // Fetch player quick game stats
+  const playerRow = await db.player.findUnique({
+    where: { id: user.id },
+    select: { quickWins: true, quickLosses: true },
+  })
 
   // Fetch all memberships (excluding soft-deleted tournaments)
   const memberships = await db.tournamentMember.findMany({
@@ -101,6 +109,8 @@ export async function getMyStats(): Promise<MyStatsData> {
     totalLosses,
     totalPoints,
     winRate,
+    quickWins:   playerRow?.quickWins   ?? 0,
+    quickLosses: playerRow?.quickLosses ?? 0,
     tournamentHistory,
   }
 }

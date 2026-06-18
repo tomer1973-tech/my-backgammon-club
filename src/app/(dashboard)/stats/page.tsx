@@ -167,7 +167,7 @@ export default async function StatsPage() {
     getMyStats(),
   ])
 
-  const { totalTournaments, totalMatches, totalWins, totalLosses, totalPoints, winRate, tournamentHistory } = stats
+  const { totalTournaments, totalMatches, totalWins, totalLosses, totalPoints, winRate, quickWins, quickLosses, tournamentHistory } = stats
 
   // Streak: count consecutive tournaments (by joinedAt) with at least one win
   let streak = 0
@@ -242,6 +242,24 @@ export default async function StatsPage() {
           icon={Trophy}
         />
       </div>
+
+      {/* Quick games row */}
+      {(quickWins + quickLosses) > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+          <StatCard
+            label="Quick game wins"
+            value={quickWins}
+            sub={`${quickLosses} losses`}
+            icon={Zap}
+          />
+          <StatCard
+            label="Quick game rate"
+            value={quickWins + quickLosses > 0 ? `${Math.round((quickWins / (quickWins + quickLosses)) * 100)}%` : '—'}
+            sub={`${quickWins + quickLosses} casual games`}
+            icon={Target}
+          />
+        </div>
+      )}
 
       {/* Activity chart */}
       <ActivityChart history={tournamentHistory} />
