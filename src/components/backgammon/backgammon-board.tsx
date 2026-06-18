@@ -245,8 +245,8 @@ export function BackgammonBoard({
           border: '8px solid var(--bg-rail)',
           boxShadow: [
             'inset 0 0 0 1.5px hsl(40 60% 52% / 0.22)',   // gold hairline frame
-            'inset 0 3px 20px rgba(0,0,0,0.6)',           // felt depth
-            '0 10px 30px rgba(0,0,0,0.45)',               // lift off the page
+            'inset 0 3px 24px rgba(0,0,0,0.22)',          // subtle felt depth (gentler on light themes)
+            '0 12px 36px rgba(0,0,0,0.5)',               // lift off the page
           ].join(', '),
         }}
       >
