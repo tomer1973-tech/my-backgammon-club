@@ -3,7 +3,9 @@
  * Shows: name, status, format, location, date, code, description, quick stats.
  */
 
-import { MapPin, Calendar, Hash, Users, Trophy, Clock } from 'lucide-react'
+'use client'
+
+import { MapPin, Calendar, Hash, Users, Trophy, Clock, MessageCircle, Share2 } from 'lucide-react'
 import { Badge }         from '@/components/ui/badge'
 import { FormatBadge }   from './format-badge'
 import { StatusBadge }   from './status-badge'
@@ -92,11 +94,24 @@ export function TournamentOverview({ tournament: t }: TournamentOverviewProps) {
               <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-elevated">
                 <Hash className="h-3.5 w-3.5 text-ink-subtle" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-xs text-ink-subtle">Join code</p>
-                <p className="font-mono text-base font-bold tracking-widest text-gold">
-                  {t.code}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-mono text-base font-bold tracking-widest text-gold">
+                    {t.code}
+                  </p>
+                  <button
+                    onClick={() => {
+                      const text = `Join my backgammon tournament "${t.name}"! Use code: ${t.code} at My Backgammon Club`
+                      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
+                    }}
+                    title="Share invite on WhatsApp"
+                    className="inline-flex items-center gap-1 rounded-lg border border-green-700/40 bg-green-900/20 px-2 py-1 text-[10px] font-medium text-green-400 hover:bg-green-900/35 transition-colors"
+                  >
+                    <MessageCircle className="h-3 w-3" />
+                    Invite
+                  </button>
+                </div>
               </div>
             </div>
           </div>

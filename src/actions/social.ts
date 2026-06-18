@@ -427,10 +427,10 @@ export async function createGroupTournament(params: {
 }): Promise<{ id: string }> {
   const user = await requireSessionUser()
 
-  // Verify user is owner of this group
+  // Verify user is owner of this group; load all member playerIds
   const group = await db.friendGroup.findFirst({
-    where: { id: params.groupId, createdById: user.id },
-    select: { id: true },
+    where:   { id: params.groupId, createdById: user.id },
+    include: { members: { select: { playerId: true } } },
   })
   if (!group) throw new Error('Only the group owner can create tournaments')
 
@@ -448,6 +448,15 @@ export async function createGroupTournament(params: {
       isPrivate:   true,
       groupId:     params.groupId,
       createdById: user.id,
+      // Auto-enroll creator as organizer + all group members as players
+      members: {
+        create: [
+          { playerId: user.id, memberRole: 'ORGANIZER' },
+          ...group.members
+            .filter((m: { playerId: string }) => m.playerId !== user.id)
+            .map((m: { playerId: string }) => ({ playerId: m.playerId, memberRole: 'PARTICIPANT' as const })),
+        ],
+      },
     },
   })
 
