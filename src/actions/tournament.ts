@@ -57,7 +57,14 @@ export async function getTournaments(): Promise<Tournament[]> {
   const user = await requireSessionUser()
 
   const rows = await db.tournament.findMany({
-    where:   { deletedAt: null },
+    where: {
+      deletedAt: null,
+      OR: [
+        { isPrivate: false },
+        { createdById: user.id },
+        { members: { some: { playerId: user.id } } },
+      ],
+    },
     orderBy: { createdAt: 'desc' },
     include: {
       _count: { select: { members: true } },
@@ -81,6 +88,8 @@ export async function getTournaments(): Promise<Tournament[]> {
     maxPlayers:   t.maxPlayers,
     startDate:    t.startDate,
     createdById:  t.createdById,
+    groupId:      t.groupId,
+    isPrivate:    t.isPrivate,
     createdAt:    t.createdAt,
     updatedAt:    t.updatedAt,
     deletedAt:    t.deletedAt,
@@ -127,6 +136,8 @@ export async function getTournamentWithMembers(id: string): Promise<TournamentWi
     maxPlayers:   t.maxPlayers,
     startDate:    t.startDate,
     createdById:  t.createdById,
+    groupId:      t.groupId,
+    isPrivate:    t.isPrivate,
     createdAt:    t.createdAt,
     updatedAt:    t.updatedAt,
     deletedAt:    t.deletedAt,

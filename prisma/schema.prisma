@@ -132,18 +132,22 @@ model Tournament {
   maxPlayers   Int?             @map("max_players")
   startDate    DateTime?        @map("start_date")
   createdById  String           @map("created_by")
+  groupId      String?          @map("group_id")
+  isPrivate    Boolean          @default(false) @map("is_private")
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt      @map("updated_at")
   deletedAt    DateTime?        @map("deleted_at")
   archivedAt   DateTime?        @map("archived_at")
 
   createdBy Player             @relation("TournamentCreator", fields: [createdById], references: [id])
+  group     FriendGroup?       @relation("GroupTournaments", fields: [groupId], references: [id], onDelete: SetNull)
   members   TournamentMember[]
   games     Game[]
   matches   Match[]
 
   @@index([createdById])
   @@index([status])
+  @@index([groupId])
   @@map("tournaments")
 }
 
@@ -366,8 +370,9 @@ model FriendGroup {
   createdById String   @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt      @map("updated_at")
-  createdBy   Player   @relation("GroupCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  members     FriendGroupMember[]
+  createdBy    Player        @relation("GroupCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  members      FriendGroupMember[]
+  tournaments  Tournament[]  @relation("GroupTournaments")
   @@index([createdById])
   @@map("friend_groups")
 }

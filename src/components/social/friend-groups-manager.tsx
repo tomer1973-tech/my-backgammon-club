@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition, useRef, useEffect } from 'react'
-import { Users, Plus, Trash2, X, Search, UserPlus2 }   from 'lucide-react'
+import { useState, useTransition, useRef, useEffect, useCallback } from 'react'
+import { Users, Plus, Trash2, X, Search, UserPlus2, Trophy, ChevronDown, ChevronUp, ExternalLink, Loader2 } from 'lucide-react'
+import Link                                             from 'next/link'
 import { cn }                                           from '@/lib/utils'
 import { Button }                                       from '@/components/ui/button'
 import {
@@ -10,8 +11,11 @@ import {
   addToGroup,
   removeFromGroup,
   searchPlayers,
+  getGroupTournaments,
+  createGroupTournament,
   type FriendGroupWithMembers,
   type PlayerSearchResult,
+  type GroupTournamentSummary,
 } from '@/actions/social'
 
 interface FriendGroupsManagerProps {
@@ -134,6 +138,13 @@ function PlayerSearchInput({
 
 // ─── Single group card ────────────────────────────────────────────────────────
 
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: 'Draft', ACTIVE: 'Active', COMPLETED: 'Completed', ARCHIVED: 'Archived',
+}
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT: 'text-ink-subtle', ACTIVE: 'text-win', COMPLETED: 'text-gold', ARCHIVED: 'text-ink-subtle',
+}
+
 function GroupCard({
   group,
   onDeleted,
@@ -145,6 +156,37 @@ function GroupCard({
 }) {
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Tournaments tab
+  const [tournsOpen,    setTournsOpen]    = useState(false)
+  const [tournaments,   setTournaments]   = useState<GroupTournamentSummary[] | null>(null)
+  const [tournsLoading, setTournsLoading] = useState(false)
+  const [newTournName,  setNewTournName]  = useState('')
+  const [matchLen,      setMatchLen]      = useState(7)
+  const [creating,      setCreating]      = useState(false)
+
+  const loadTournaments = useCallback(async () => {
+    setTournsLoading(true)
+    try { setTournaments(await getGroupTournaments(group.id)) }
+    finally { setTournsLoading(false) }
+  }, [group.id])
+
+  function toggleTourns() {
+    if (!tournsOpen && tournaments === null) loadTournaments()
+    setTournsOpen(v => !v)
+  }
+
+  function handleCreateTournament() {
+    if (!newTournName.trim()) return
+    startTransition(async () => {
+      setCreating(true)
+      try {
+        await createGroupTournament({ groupId: group.id, name: newTournName.trim(), matchLength: matchLen })
+        setNewTournName('')
+        await loadTournaments()
+      } finally { setCreating(false) }
+    })
+  }
 
   function handleDelete() {
     if (!confirmDelete) { setConfirmDelete(true); return }
@@ -162,9 +204,9 @@ function GroupCard({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface-raised p-4">
+    <div className="rounded-xl border border-line bg-surface-raised overflow-hidden">
       {/* Group header */}
-      <div className="flex items-center justify-between gap-3 mb-3">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-gold" />
           <h3 className="font-semibold text-ink">{group.name}</h3>
@@ -185,36 +227,125 @@ function GroupCard({
         </button>
       </div>
 
-      {/* Members list */}
-      {group.members.length > 0 ? (
-        <div className="flex flex-col gap-1.5 mb-3">
-          {group.members.map(m => (
-            <div key={m.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-surface-base">
-              <MiniAvatar name={m.name} url={m.avatarUrl} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-ink truncate">{m.name}</p>
+      {/* Members */}
+      <div className="px-4 py-3 space-y-3">
+        {group.members.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            {group.members.map(m => (
+              <div key={m.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-surface-base">
+                <MiniAvatar name={m.name} url={m.avatarUrl} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ink truncate">{m.name}</p>
+                </div>
+                <button
+                  onClick={() => handleRemoveMember(m.id)}
+                  disabled={isPending}
+                  aria-label={`Remove ${m.name}`}
+                  className="rounded-md p-0.5 text-ink-subtle hover:text-loss hover:bg-loss/10 transition-colors disabled:opacity-40"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => handleRemoveMember(m.id)}
-                disabled={isPending}
-                aria-label={`Remove ${m.name}`}
-                className="rounded-md p-0.5 text-ink-subtle hover:text-loss hover:bg-loss/10 transition-colors disabled:opacity-40"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-ink-subtle mb-3 py-1">No members yet — add some below.</p>
-      )}
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-ink-subtle py-1">No members yet — add some below.</p>
+        )}
 
-      {/* Add player */}
-      <PlayerSearchInput
-        groupId={group.id}
-        existingIds={group.members.map(m => m.playerId)}
-        onAdded={() => onMembersChanged(group.id)}
-      />
+        {/* Add player */}
+        <PlayerSearchInput
+          groupId={group.id}
+          existingIds={group.members.map(m => m.playerId)}
+          onAdded={() => onMembersChanged(group.id)}
+        />
+      </div>
+
+      {/* ── Tournaments section ── */}
+      <div className="border-t border-line">
+        <button
+          onClick={toggleTourns}
+          className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-ink-subtle hover:text-ink transition-colors"
+        >
+          <span className="flex items-center gap-1.5">
+            <Trophy className="h-3.5 w-3.5 text-gold" />
+            Group Tournaments
+          </span>
+          {tournsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
+
+        {tournsOpen && (
+          <div className="px-4 pb-4 space-y-3">
+
+            {/* Loading */}
+            {tournsLoading && (
+              <div className="flex items-center gap-2 text-xs text-ink-subtle py-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading…
+              </div>
+            )}
+
+            {/* Tournament list */}
+            {!tournsLoading && tournaments !== null && (
+              <div className="space-y-1.5">
+                {tournaments.length === 0 && (
+                  <p className="text-xs text-ink-subtle py-1">No group tournaments yet. Create one below.</p>
+                )}
+                {tournaments.map(t => (
+                  <Link
+                    key={t.id}
+                    href={`/tournaments/${t.id}`}
+                    className="flex items-center gap-3 rounded-lg border border-line bg-surface-base px-3 py-2 hover:border-gold/40 transition-colors"
+                  >
+                    <Trophy className="h-3.5 w-3.5 text-ink-subtle shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-ink truncate">{t.name}</p>
+                      <p className="text-[10px] text-ink-subtle">{t.memberCount} players · {t.format.replace('_', ' ')}</p>
+                    </div>
+                    <span className={cn('text-[10px] font-semibold uppercase tracking-wide shrink-0', STATUS_COLOR[t.status] ?? 'text-ink-subtle')}>
+                      {STATUS_LABEL[t.status] ?? t.status}
+                    </span>
+                    <ExternalLink className="h-3 w-3 text-ink-subtle/50 shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* Create tournament */}
+            <div className="space-y-2 pt-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-subtle">New tournament</p>
+              <input
+                value={newTournName}
+                onChange={e => setNewTournName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreateTournament()}
+                placeholder="Tournament name…"
+                maxLength={60}
+                className="w-full rounded-lg border border-line bg-surface-base px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-1 focus:ring-gold/40"
+              />
+              <div className="flex items-center gap-2">
+                <select
+                  value={matchLen}
+                  onChange={e => setMatchLen(Number(e.target.value))}
+                  className="flex-1 rounded-lg border border-line bg-surface-base px-2 py-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-gold/40"
+                >
+                  {[1,3,5,7,9,11,13,15].map(n => (
+                    <option key={n} value={n}>Race to {n}</option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  onClick={handleCreateTournament}
+                  disabled={!newTournName.trim() || isPending || creating}
+                  isLoading={creating}
+                  className="shrink-0"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Create
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

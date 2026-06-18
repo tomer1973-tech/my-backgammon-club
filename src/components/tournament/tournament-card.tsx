@@ -2,7 +2,7 @@
 
 import Link                         from 'next/link'
 import { useState }                 from 'react'
-import { MapPin, Users, Calendar, Crown, MoreVertical, Trash2, Archive, ArrowRight } from 'lucide-react'
+import { MapPin, Users, Calendar, Crown, MoreVertical, Trash2, Archive, ArrowRight, Lock } from 'lucide-react'
 import { Button }                   from '@/components/ui/button'
 import { FormatBadge }              from './format-badge'
 import { StatusBadge }              from './status-badge'
@@ -46,12 +46,20 @@ export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCa
           {/* Top row: status badge */}
           <div className="flex items-start justify-between gap-2">
             <StatusBadge status={t.status} className="shrink-0" />
-            {t.isOwner && (
-              <span className="flex items-center gap-1 text-[10px] text-gold/70">
-                <Crown className="h-3 w-3" />
-                Yours
-              </span>
-            )}
+            <div className="flex items-center gap-1.5">
+              {t.isPrivate && (
+                <span className="flex items-center gap-1 text-[10px] text-ink-subtle">
+                  <Lock className="h-3 w-3" />
+                  Private
+                </span>
+              )}
+              {t.isOwner && (
+                <span className="flex items-center gap-1 text-[10px] text-gold/70">
+                  <Crown className="h-3 w-3" />
+                  Yours
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Name */}

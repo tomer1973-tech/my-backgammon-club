@@ -370,3 +370,89 @@ export async function searchPlayers(
 
   return players
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GROUP TOURNAMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface GroupTournamentSummary {
+  id:         string
+  name:       string
+  status:     string
+  format:     string
+  memberCount: number
+  code:       string
+  createdAt:  Date
+}
+
+export async function getGroupTournaments(
+  groupId: string,
+): Promise<GroupTournamentSummary[]> {
+  const user = await requireSessionUser()
+
+  // Verify user is a member or owner of this group
+  const group = await db.friendGroup.findFirst({
+    where: {
+      id: groupId,
+      OR: [
+        { createdById: user.id },
+        { members: { some: { playerId: user.id } } },
+      ],
+    },
+    select: { id: true },
+  })
+  if (!group) throw new Error('Group not found or not a member')
+
+  const tournaments = await db.tournament.findMany({
+    where:   { groupId, deletedAt: null },
+    include: { members: { select: { id: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return tournaments.map(t => ({
+    id:          t.id,
+    name:        t.name,
+    status:      t.status,
+    format:      t.format,
+    memberCount: t.members.length,
+    code:        t.code,
+    createdAt:   t.createdAt,
+  }))
+}
+
+export async function createGroupTournament(params: {
+  groupId:    string
+  name:       string
+  matchLength: number
+}): Promise<{ id: string }> {
+  const user = await requireSessionUser()
+
+  // Verify user is owner of this group
+  const group = await db.friendGroup.findFirst({
+    where: { id: params.groupId, createdById: user.id },
+    select: { id: true },
+  })
+  if (!group) throw new Error('Only the group owner can create tournaments')
+
+  // Generate unique code
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase()
+
+  const tournament = await db.tournament.create({
+    data: {
+      name:        params.name,
+      code,
+      format:      'ROUND_ROBIN',
+      status:      'DRAFT',
+      matchLength: params.matchLength,
+      pointsPerWin: 1,
+      isPrivate:   true,
+      groupId:     params.groupId,
+      createdById: user.id,
+    },
+  })
+
+  revalidatePath('/groups')
+  revalidatePath(`/tournaments/${tournament.id}`)
+
+  return { id: tournament.id }
+}

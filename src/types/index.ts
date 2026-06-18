@@ -132,6 +132,8 @@ export interface TournamentRow {
   maxPlayers:   number | null
   startDate:    Date | null
   createdById:  string
+  groupId:      string | null
+  isPrivate:    boolean
   createdAt:    Date
   updatedAt:    Date
   deletedAt:    Date | null
