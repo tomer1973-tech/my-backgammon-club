@@ -444,10 +444,43 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     : (aiThinking ? 'AI is thinking…' : 'AI to play')
 
   return (
-    <div className="animate-fade-in flex gap-5 items-start">
+    <div className="animate-fade-in">
 
-      {/* ── Left sidebar ── */}
-      <aside className="w-52 shrink-0 flex flex-col gap-3 sticky top-6">
+      {/* ── Mobile player strip (< lg) ── */}
+      <div className="mb-3 flex items-center gap-3 lg:hidden">
+        <Link
+          href="/"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-raised border border-line text-ink-muted hover:text-ink transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Link>
+        <div className={cn(
+          'flex-1 rounded-xl border px-3 py-2 flex items-center gap-2 transition-all',
+          !isHumanTurn ? 'border-gold/50 bg-gold/10' : 'border-line bg-surface-raised opacity-70',
+        )}>
+          <Bot className={cn('h-4 w-4 shrink-0', !isHumanTurn ? 'text-gold' : 'text-ink-subtle')} />
+          <span className="text-xs font-semibold text-ink flex-1">AI</span>
+          <span className={cn('text-sm font-bold tabular-nums', !isHumanTurn ? 'text-gold' : 'text-ink-muted')}>{aiPips}</span>
+          <span className="text-[9px] text-ink-subtle">pip</span>
+        </div>
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-gold/50 bg-surface-elevated text-xs font-bold text-gold">
+          {game.cube.value}
+        </div>
+        <div className={cn(
+          'flex-1 rounded-xl border px-3 py-2 flex items-center gap-2 transition-all',
+          isHumanTurn ? 'border-gold/50 bg-gold/10' : 'border-line bg-surface-raised opacity-70',
+        )}>
+          <UserCircle2 className={cn('h-4 w-4 shrink-0', isHumanTurn ? 'text-gold' : 'text-ink-subtle')} />
+          <span className="text-xs font-semibold text-ink flex-1 truncate">{humanName}</span>
+          <span className={cn('text-sm font-bold tabular-nums', isHumanTurn ? 'text-gold' : 'text-ink-muted')}>{humanPips}</span>
+          <span className="text-[9px] text-ink-subtle">pip</span>
+        </div>
+      </div>
+
+    <div className="flex gap-5 items-start">
+
+      {/* ── Left sidebar (desktop only) ── */}
+      <aside className="hidden lg:flex w-52 shrink-0 flex-col gap-3 sticky top-6">
 
         {/* Compact brand + nav */}
         <div className="flex items-center gap-2">
@@ -619,6 +652,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
           <span />
         </DialogFooter>
       </Dialog>
+    </div>
     </div>
   )
 }

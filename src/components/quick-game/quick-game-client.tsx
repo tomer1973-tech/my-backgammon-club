@@ -32,7 +32,7 @@ import Link                               from 'next/link'
 import {
   UserPlus, X, Trophy, RotateCcw, RefreshCcw,
   Zap, CheckCircle2, ChevronDown, ChevronUp, ChevronLeft,
-  Users, LogIn, Save, UserCircle2,
+  Users, LogIn, Save, UserCircle2, BadgeCheck,
 } from 'lucide-react'
 import { Avatar }   from '@/components/ui/avatar'
 import { Button }   from '@/components/ui/button'
@@ -48,7 +48,7 @@ type GameType     = 'NORMAL' | 'GAMMON' | 'BACKGAMMON'
 type Phase        = 'roster' | 'playing' | 'complete'
 type SaveStatus   = 'idle' | 'saving' | 'saved' | 'not-needed' | 'login-required'
 
-interface GameRecord { winnerId: string; type: GameType; pts: number }
+interface GameRecord { winnerId: string; type: GameType; pts: number; cubeValue: number }
 
 interface LiveMatch {
   /** First player */
@@ -137,16 +137,16 @@ export function QuickGameClient({ currentUser }: { currentUser: SessionUser | nu
     setPhase('playing')
   }
 
-  function recordGame(winnerId: string, type: GameType) {
+  function recordGame(winnerId: string, type: GameType, cubeValue: number) {
     if (!match || match.winnerId) return
-    const pts    = MULT[type]
+    const pts    = MULT[type] * cubeValue
     const isAWin = winnerId === match.a.id
     const scoreA = match.scoreA + (isAWin ? pts : 0)
     const scoreB = match.scoreB + (isAWin ? 0  : pts)
     const done   = scoreA >= match.target || scoreB >= match.target
     const updated = {
       ...match, scoreA, scoreB,
-      games:    [...match.games, { winnerId, type, pts }],
+      games:    [...match.games, { winnerId, type, pts, cubeValue }],
       winnerId: done ? winnerId : null,
     }
     setMatch(updated)
@@ -364,6 +364,11 @@ function RosterSetup({
                 >
                   <Avatar name={p.name} size="sm" />
                   <span className="flex-1 truncate text-sm font-medium text-ink">{p.name}</span>
+                  {isUUID(p.id) && (
+                    <span title="Registered player" className="shrink-0">
+                      <BadgeCheck className="h-3.5 w-3.5 text-gold" aria-label="Registered player" />
+                    </span>
+                  )}
 
                   {/* Selection badge (3+ players only) */}
                   {needsPick && (
@@ -454,22 +459,26 @@ function RosterSetup({
 
 // ─── Playing phase ────────────────────────────────────────────────────────────
 
+const CUBE_VALUES = [1, 2, 4, 8, 16, 32, 64]
+
 function PlayingPhase({
   match, onRecord,
 }: {
   match:    LiveMatch
-  onRecord: (winnerId: string, type: GameType) => void
+  onRecord: (winnerId: string, type: GameType, cubeValue: number) => void
 }) {
-  const [winner,   setWinner]   = useState<string | null>(null)
-  const [gameType, setGameType] = useState<GameType>('NORMAL')
+  const [winner,    setWinner]    = useState<string | null>(null)
+  const [gameType,  setGameType]  = useState<GameType>('NORMAL')
+  const [cubeValue, setCubeValue] = useState<number>(1)
 
-  const pts = MULT[gameType]
+  const pts = MULT[gameType] * cubeValue
 
   function confirm() {
     if (!winner) return
-    onRecord(winner, gameType)
+    onRecord(winner, gameType, cubeValue)
     setWinner(null)
     setGameType('NORMAL')
+    setCubeValue(1)
   }
 
   return (
@@ -529,11 +538,33 @@ function PlayingPhase({
           </div>
         </div>
 
+        {/* Doubling cube */}
+        <div>
+          <p className="text-xs text-ink-muted mb-2">Doubling cube value</p>
+          <div className="grid grid-cols-7 gap-1.5">
+            {CUBE_VALUES.map(v => (
+              <button
+                key={v}
+                onClick={() => setCubeValue(v)}
+                className={cn(
+                  'rounded-lg border py-2 text-xs font-bold transition-all',
+                  cubeValue === v
+                    ? 'border-gold/60 bg-gold/15 text-gold'
+                    : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/30',
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Points preview */}
         {winner && (
           <div className="rounded-lg border border-gold/20 bg-gold/5 px-3 py-2.5 text-center">
             <p className="text-xs text-ink-muted">Points awarded</p>
             <p className="text-xl font-bold text-gold">+{pts}</p>
+            {cubeValue > 1 && <p className="text-[10px] text-ink-subtle mt-0.5">{LABEL[gameType]} × cube {cubeValue}</p>}
           </div>
         )}
 
@@ -787,6 +818,7 @@ function GameLog({ match, initialExpanded = false }: { match: LiveMatch; initial
                 <span className="w-4 shrink-0 text-right text-ink-subtle">{i + 1}.</span>
                 <span className="font-medium text-ink">{scorer}</span>
                 <span>· {LABEL[g.type]}</span>
+                {g.cubeValue > 1 && <span className="rounded bg-gold/10 px-1 text-[10px] font-bold text-gold">×{g.cubeValue}</span>}
                 <span className="ml-auto font-semibold text-gold">+{g.pts}</span>
               </li>
             )

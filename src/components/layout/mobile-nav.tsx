@@ -3,12 +3,12 @@
 import Link            from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, Dices, type LucideIcon,
+  Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, Dices, Rss, type LucideIcon,
 } from 'lucide-react'
 import { cn }          from '@/lib/utils'
 import { NAV_ITEMS }   from './nav-items'
 
-const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, Dices }
+const ICONS: Record<string, LucideIcon> = { Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock, ShieldCheck, Zap, Medal, Dices, Rss }
 
 // Mobile nav needs role — we pass it via a wrapper that reads from layout
 interface MobileNavProps { userRole?: string }

@@ -18,6 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Play',        href: '/play',         icon: 'Dices',        matchExact: true },
   { label: 'Practice',    href: '/practice',     icon: 'Bot',          matchExact: true, hideOnMobile: true },
   { label: 'Lessons',     href: '/lessons',      icon: 'GraduationCap', matchExact: true, hideOnMobile: true },
+  { label: 'Feed',        href: '/feed',          icon: 'Rss',          matchExact: true },
   { label: 'Leaderboard', href: '/leaderboard',  icon: 'Medal' },
   { label: 'Schedule',    href: '/schedule',     icon: 'CalendarClock' },
   { label: 'My Stats',    href: '/stats',        icon: 'BarChart2' },
