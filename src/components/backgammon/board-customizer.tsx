@@ -20,7 +20,7 @@ const BOARD_THEME_KEY = 'pb_board_theme'
 const DICE_THEME_KEY  = 'pb_dice_theme'
 
 export function useBoardThemes() {
-  const [boardThemeId, setBoardThemeId] = useState('luxury')
+  const [boardThemeId, setBoardThemeId] = useState('navy')
   const [diceThemeId, setDiceThemeId]   = useState('ivory')
 
   useEffect(() => {

@@ -26,18 +26,20 @@ export interface DiceTheme {
 }
 
 export const BOARD_THEMES: BoardTheme[] = [
-  // Luxury: cream felt, jet-black + warm amber triangles — matches premium physical boards
-  { id: 'luxury',   label: 'Luxury',   felt: 'hsl(38 38% 87%)',  rail: 'hsl(28 52% 18%)',  pointDark: 'hsl(20 8% 11%)',    pointLight: 'hsl(37 70% 55%)' },
+  // Navy & Copper: medium steel-blue felt, deep navy + rich copper triangles, walnut rail
+  { id: 'navy',     label: 'Navy & Copper', felt: 'hsl(213 38% 50%)', rail: 'hsl(25 55% 14%)',  pointDark: 'hsl(220 65% 14%)',  pointLight: 'hsl(24 62% 36%)' },
+  // Luxury: cream felt, jet-black + warm amber triangles
+  { id: 'luxury',   label: 'Luxury',        felt: 'hsl(38 38% 87%)',  rail: 'hsl(28 52% 18%)',  pointDark: 'hsl(20 8% 11%)',    pointLight: 'hsl(37 70% 55%)' },
   // Classic: dark walnut felt — forest green + warm amber triangles
-  { id: 'classic',  label: 'Classic',  felt: 'hsl(26 26% 9%)',   rail: 'hsl(28 32% 6%)',   pointDark: 'hsl(155 55% 24%)',  pointLight: 'hsl(33 72% 52%)' },
+  { id: 'classic',  label: 'Classic',       felt: 'hsl(26 26% 9%)',   rail: 'hsl(28 32% 6%)',   pointDark: 'hsl(155 55% 24%)',  pointLight: 'hsl(33 72% 52%)' },
   // Emerald: rich green felt — deep green + gold accent triangles
-  { id: 'emerald',  label: 'Emerald',  felt: 'hsl(158 34% 7%)',  rail: 'hsl(160 38% 4%)',  pointDark: 'hsl(156 55% 20%)',  pointLight: 'hsl(45 72% 54%)' },
+  { id: 'emerald',  label: 'Emerald',       felt: 'hsl(158 34% 7%)',  rail: 'hsl(160 38% 4%)',  pointDark: 'hsl(156 55% 20%)',  pointLight: 'hsl(45 72% 54%)' },
   // Midnight: deep navy felt — sapphire + warm gold triangles
-  { id: 'midnight', label: 'Midnight', felt: 'hsl(221 38% 8%)',  rail: 'hsl(223 42% 5%)',  pointDark: 'hsl(220 60% 28%)',  pointLight: 'hsl(38 72% 52%)' },
+  { id: 'midnight', label: 'Midnight',      felt: 'hsl(221 38% 8%)',  rail: 'hsl(223 42% 5%)',  pointDark: 'hsl(220 60% 28%)',  pointLight: 'hsl(38 72% 52%)' },
   // Crimson: deep red felt — crimson + cream triangles
-  { id: 'crimson',  label: 'Crimson',  felt: 'hsl(351 34% 8%)',  rail: 'hsl(352 40% 5%)',  pointDark: 'hsl(352 58% 30%)',  pointLight: 'hsl(38 65% 58%)' },
+  { id: 'crimson',  label: 'Crimson',       felt: 'hsl(351 34% 8%)',  rail: 'hsl(352 40% 5%)',  pointDark: 'hsl(352 58% 30%)',  pointLight: 'hsl(38 65% 58%)' },
   // Slate: cool grey felt — steel + warm amber triangles
-  { id: 'slate',    label: 'Slate',    felt: 'hsl(220 9% 11%)',  rail: 'hsl(220 12% 7%)',  pointDark: 'hsl(220 30% 30%)',  pointLight: 'hsl(38 52% 54%)' },
+  { id: 'slate',    label: 'Slate',         felt: 'hsl(220 9% 11%)',  rail: 'hsl(220 12% 7%)',  pointDark: 'hsl(220 30% 30%)',  pointLight: 'hsl(38 52% 54%)' },
 ]
 
 export const DICE_THEMES: DiceTheme[] = [

@@ -245,8 +245,8 @@ export function BackgammonBoard({
           border: '8px solid var(--bg-rail)',
           boxShadow: [
             'inset 0 0 0 1.5px hsl(40 60% 52% / 0.22)',   // gold hairline frame
-            'inset 0 3px 24px rgba(0,0,0,0.22)',          // subtle felt depth (gentler on light themes)
-            '0 12px 36px rgba(0,0,0,0.5)',               // lift off the page
+            'inset 0 3px 28px rgba(0,0,0,0.32)',          // felt depth vignette
+            '0 12px 40px rgba(0,0,0,0.55)',              // lift off the page
           ].join(', '),
         }}
       >
@@ -538,22 +538,24 @@ function BearOffTray({
 // ─── Checker ─────────────────────────────────────────────────────────────────
 
 const CHECKER_STYLE: Record<Player, CSSProperties> = {
+  // Copper / rose-gold — warm metallic with a bright highlight and deep shadow
   white: {
-    backgroundImage: 'radial-gradient(circle at 36% 28%, hsl(44 50% 99%), hsl(40 32% 86%) 60%, hsl(36 24% 72%) 100%)',
-    borderColor: 'hsl(38 24% 60%)',
-    boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.85), inset 0 -3px 4px rgba(110,88,52,0.3), 0 3px 5px rgba(0,0,0,0.5)',
+    backgroundImage: 'radial-gradient(circle at 34% 26%, hsl(30 72% 82%), hsl(24 66% 54%) 52%, hsl(20 58% 34%) 100%)',
+    borderColor: 'hsl(22 50% 40%)',
+    boxShadow: 'inset 0 1.5px 2px rgba(255,230,180,0.75), inset 0 -3px 5px rgba(90,40,5,0.45), 0 3px 6px rgba(0,0,0,0.55)',
   },
+  // Deep navy blue — cool metallic with a subtle blue sheen
   black: {
-    backgroundImage: 'radial-gradient(circle at 36% 28%, hsl(30 18% 30%), hsl(26 26% 12%) 58%, hsl(24 30% 6%) 100%)',
-    borderColor: 'hsl(40 55% 48% / 0.55)',
-    boxShadow: 'inset 0 1.5px 2px rgba(255,255,255,0.22), inset 0 -3px 4px rgba(0,0,0,0.6), 0 3px 5px rgba(0,0,0,0.6)',
+    backgroundImage: 'radial-gradient(circle at 34% 26%, hsl(214 58% 56%), hsl(218 64% 28%) 54%, hsl(220 70% 13%) 100%)',
+    borderColor: 'hsl(216 55% 36% / 0.7)',
+    boxShadow: 'inset 0 1.5px 2px rgba(160,200,255,0.28), inset 0 -3px 5px rgba(0,0,0,0.6), 0 3px 6px rgba(0,0,0,0.6)',
   },
 }
 
 // Concentric ring detail (the engraved circle on a real checker).
 const CHECKER_RING: Record<Player, string> = {
-  white: 'hsl(38 26% 58% / 0.55)',
-  black: 'hsl(42 60% 55% / 0.45)',
+  white: 'hsl(24 55% 62% / 0.5)',
+  black: 'hsl(214 55% 58% / 0.38)',
 }
 
 function Checker({ player, overflowCount, small, glow }: { player: Player; overflowCount?: number; small?: boolean; glow?: boolean }) {
@@ -577,7 +579,7 @@ function Checker({ player, overflowCount, small, glow }: { player: Player; overf
       {overflowCount !== undefined && (
         <span className={cn(
           'absolute inset-0 z-10 flex items-center justify-center text-[10px] font-bold',
-          player === 'white' ? 'text-[hsl(25,25%,22%)]' : 'text-gold',
+          player === 'white' ? 'text-[hsl(20,45%,20%)]' : 'text-[hsl(210,80%,88%)]',
         )}>
           {overflowCount}
         </span>
