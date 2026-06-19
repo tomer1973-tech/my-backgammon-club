@@ -9,7 +9,9 @@
    Palette: deep navy playing surface + rich copper accents + walnut wood.
    ───────────────────────────────────────────────────────────────────────── */
 
-:root {
+/* ── Dark mode (default) ──────────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
   /* Surfaces — deep navy progression */
   --surface-canvas:   222 60%  3%;   /* near-black navy — deepest bg     */
   --surface-base:     220 55%  6%;   /* page body                        */
@@ -49,6 +51,47 @@
 
   /* Focus ring */
   --ring: 22 68% 54%;
+}
+
+/* ── Light mode ───────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  /* Surfaces — warm cream progression (matches luxury board felt) */
+  --surface-canvas:   36 40% 97%;    /* #faf7f2 — near-white cream       */
+  --surface-base:     35 32% 93%;    /* #ede8df — page body              */
+  --surface-raised:   34 28% 88%;    /* #e0d8cb — card surface           */
+  --surface-elevated: 33 22% 82%;    /* #d2c8b8 — input / elevated card  */
+  --surface-muted:    32 18% 74%;    /* #beb2a0 — section dividers       */
+  --surface-subtle:   30 14% 65%;    /* #a89a87 — hover state            */
+
+  /* Copper — slightly deeper for light backgrounds */
+  --gold:        22 72% 40%;         /* #ad4a10 — copper primary         */
+  --gold-dim:    20 60% 24%;         /* #6b2a08 — dark copper            */
+  --gold-bright: 26 68% 50%;         /* #c47530 — bright / hover         */
+  --gold-muted:  22 45% 52%;         /* #b06c34 — subtle copper          */
+
+  /* Silver */
+  --silver:      214 22% 42%;        /* #5a7490 — muted steel            */
+  --silver-dim:  216 18% 32%;        /* #435a6e — dark steel             */
+
+  /* Ink — dark navy on cream */
+  --ink:         220 52% 14%;        /* #111f38 — primary text           */
+  --ink-muted:   216 32% 36%;        /* #3d5878 — secondary text         */
+  --ink-subtle:  214 22% 54%;        /* #6882a0 — placeholder / hint     */
+
+  /* Lines */
+  --line:        30 20% 78%;         /* #ccc0ae — default border         */
+  --line-gold:   22 52% 58%;         /* #c07040 — copper border          */
+
+  /* Semantic */
+  --win:         152 45% 26%;        /* #23624a — positive               */
+  --loss:          0 48% 34%;        /* #842424 — negative               */
+  --warning:      28 70% 42%;        /* #b0601a — amber / cube           */
+
+  --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Georgia', 'Times New Roman', serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+
+  --ring: 22 72% 40%;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

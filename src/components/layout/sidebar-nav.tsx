@@ -11,6 +11,7 @@ import { cn }            from '@/lib/utils'
 import { NAV_ITEMS }     from './nav-items'
 import { Avatar }        from '@/components/ui/avatar'
 import { Badge }         from '@/components/ui/badge'
+import { ThemeToggle }   from '@/components/ui/theme-toggle'
 import type { SessionUser } from '@/types'
 
 const ICONS: Record<string, LucideIcon> = {
@@ -125,8 +126,13 @@ export function SidebarNav({ user }: SidebarNavProps) {
         {/* Divider */}
         <div className="mx-4 h-px bg-gradient-to-r from-transparent via-line to-transparent mt-2" />
 
+        {/* Theme toggle */}
+        <div className="px-3 pb-2">
+          <ThemeToggle />
+        </div>
+
         {/* User card */}
-        <div className="px-3 py-4">
+        <div className="px-3 pb-4">
           <Link
             href="/settings"
             className="flex items-center gap-3 rounded-xl border border-line/50 bg-surface-raised/40 px-3 py-2.5

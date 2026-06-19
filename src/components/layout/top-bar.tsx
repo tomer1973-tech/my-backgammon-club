@@ -5,6 +5,7 @@ import { usePathname }    from 'next/navigation'
 import { LogOut }         from 'lucide-react'
 import { logout }         from '@/actions/auth'
 import { Avatar }         from '@/components/ui/avatar'
+import { ThemeToggle }    from '@/components/ui/theme-toggle'
 import { NAV_ITEMS }      from './nav-items'
 import type { SessionUser } from '@/types'
 
@@ -41,8 +42,9 @@ export function TopBar({ user }: TopBarProps) {
         </div>
       </div>
 
-      {/* Right: user pill + logout */}
+      {/* Right: theme toggle + user pill + logout */}
       <div className="flex items-center gap-2 flex-shrink-0">
+        <ThemeToggle compact />
         <div className="flex items-center gap-2 rounded-full border border-white/8 bg-surface-raised/60 pl-2 pr-3 py-1.5">
           <Avatar name={user.name} src={user.avatarUrl} size="sm"
             className="ring-1 ring-gold/25 ring-offset-1 ring-offset-surface-canvas" />

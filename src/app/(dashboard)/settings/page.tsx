@@ -6,12 +6,13 @@
 
 import type { Metadata }   from 'next'
 import { redirect }        from 'next/navigation'
-import { Settings, Lock, LogOut, ShieldCheck, ImageIcon } from 'lucide-react'
+import { Settings, Lock, LogOut, ShieldCheck, ImageIcon, Palette } from 'lucide-react'
 import { getSessionUser }  from '@/lib/session'
 import { ProfileForm }     from '@/components/settings/profile-form'
 import { PasswordSection } from '@/components/settings/password-section'
 import { LogoutButton }    from '@/components/settings/logout-button'
 import { AvatarPicker }    from '@/components/settings/avatar-picker'
+import { ThemeToggle }     from '@/components/ui/theme-toggle'
 
 export const metadata: Metadata = { title: 'Settings — My Backgammon Club' }
 export const dynamic = 'force-dynamic'
@@ -61,6 +62,14 @@ export default async function SettingsPage() {
         </h1>
         <p className="mt-0.5 text-sm text-ink-muted">Manage your profile and account</p>
       </div>
+
+      {/* Appearance */}
+      <Section title="Appearance" description="Choose your preferred color theme" icon={Palette}>
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-ink-muted">Select Dark, Light, or Auto (follows your device setting).</p>
+          <ThemeToggle />
+        </div>
+      </Section>
 
       {/* Avatar */}
       <Section
