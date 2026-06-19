@@ -263,106 +263,123 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
     )
   }
 
+  // Pip counts
+  const pipsWhite = (() => { let c = 0; for (let i = 0; i < 24; i++) { const n = liveBoard.points[i]; if (n > 0) c += (i+1)*n; } c += liveBoard.bar.white * 25; return c })()
+  const pipsBlack = (() => { let c = 0; for (let i = 0; i < 24; i++) { const n = liveBoard.points[i]; if (n < 0) c += (24-i)*(-n); } c += liveBoard.bar.black * 25; return c })()
+
   return (
-    <div className="animate-fade-in">
-      <TopBar currentUser={currentUser} />
-      <PageHeader title="Local Play" subtitle="Two players, one device — pass and play" />
-
-      <div className="space-y-4">
-        {/* Toolbar */}
-        <div className="flex items-center justify-end">
-          <BoardCustomizeButton
-            boardThemeId={boardThemeId}
-            diceThemeId={diceThemeId}
-            onBoard={chooseBoardTheme}
-            onDice={chooseDiceTheme}
-          />
+    <div className="animate-fade-in flex flex-col gap-3">
+      {/* ── Compact top chrome ── */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Link href="/"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium
+              text-ink-subtle hover:text-ink hover:bg-surface-raised transition-colors -ml-1">
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Back
+          </Link>
+          <span className="text-xs text-ink-subtle">·</span>
+          <span className="text-sm font-semibold text-ink">Local Play</span>
         </div>
-
-        {/* Turn banner */}
-        <div className="rounded-xl border border-gold/40 bg-surface-raised px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-ink-subtle">On roll</p>
-              <p className="text-lg font-bold text-ink">{names[game.currentPlayer]}</p>
-              {noLegalMoves
-                ? <p className="mt-0.5 text-xs font-medium text-loss">No legal moves — passing…</p>
-                : game.dice && <MovesCounter total={diceToPlay(game.dice).length} used={game.movesPlayed.length} />
-              }
-            </div>
-            <div className="flex gap-4 text-right">
-              <div>
-                <p className="text-xs text-ink-subtle">{names.white}</p>
-                <p className="text-lg font-bold text-ink tabular-nums">
-                  {(() => {
-                    let c = 0; for (let i = 0; i < 24; i++) { const n = liveBoard.points[i]; if (n > 0) c += (i+1)*n; } c += liveBoard.bar.white * 25; return c
-                  })()}
-                </p>
-                <p className="text-[9px] text-ink-subtle">pips</p>
-              </div>
-              <div>
-                <p className="text-xs text-ink-subtle">{names.black}</p>
-                <p className="text-lg font-bold text-ink tabular-nums">
-                  {(() => {
-                    let c = 0; for (let i = 0; i < 24; i++) { const n = liveBoard.points[i]; if (n < 0) c += (24-i)*(-n); } c += liveBoard.bar.black * 25; return c
-                  })()}
-                </p>
-                <p className="text-[9px] text-ink-subtle">pips</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <BackgammonBoard
-          board={liveBoard}
-          perspective={game.currentPlayer}
-          toMove={turnDone || noLegalMoves ? null : game.currentPlayer}
-          dice={game.dice}
-          legalSequences={game.legalSequences}
-          movesPlayed={game.movesPlayed}
-          onMove={handleMove}
-          cube={game.cube}
-          boardTheme={boardTheme}
-          diceTheme={diceTheme}
-          suggestion={hint?.move ?? null}
+        <BoardCustomizeButton
+          boardThemeId={boardThemeId}
+          diceThemeId={diceThemeId}
+          onBoard={chooseBoardTheme}
+          onDice={chooseDiceTheme}
         />
+      </div>
 
-        {hint && (
-          <div className="flex flex-col items-center gap-0.5 text-center">
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-gold">
-              <Lightbulb className="h-4 w-4" />
-              Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
-            </p>
-            <p className="text-xs text-ink-muted">
-              {hint.why} Play the glowing checker to the gold dot.
-            </p>
+      {/* ── Game bar — players + pip counts + turn indicator ── */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-xl border border-line bg-surface-raised px-4 py-3">
+        {/* Player 1 (white / copper) */}
+        <div className={cn('flex items-center gap-2.5', game.currentPlayer === 'white' && 'text-gold')}>
+          <span className="h-3.5 w-3.5 rounded-full border-2 shrink-0"
+            style={{ background: 'radial-gradient(circle at 35% 30%, hsl(30 72% 82%), hsl(24 66% 54%))', borderColor: 'hsl(22 50% 40%)' }} />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-ink truncate">{names.white}</p>
+            <p className="text-[11px] text-ink-subtle tabular-nums">{pipsWhite} pips</p>
           </div>
+        </div>
+
+        {/* Centre: turn + moves left */}
+        <div className="flex flex-col items-center px-3">
+          {noLegalMoves ? (
+            <span className="text-[10px] font-semibold text-loss uppercase tracking-wide">Passing…</span>
+          ) : turnDone ? (
+            <span className="text-[10px] font-semibold text-win uppercase tracking-wide">Done!</span>
+          ) : game.dice ? (
+            <MovesCounter total={diceToPlay(game.dice).length} used={game.movesPlayed.length} />
+          ) : null}
+          <p className="text-[10px] text-ink-subtle mt-0.5">
+            {game.cube.value > 1 && `Cube ×${game.cube.value}`}
+          </p>
+        </div>
+
+        {/* Player 2 (black / navy) */}
+        <div className={cn('flex items-center gap-2.5 justify-end', game.currentPlayer === 'black' && 'text-gold')}>
+          <div className="min-w-0 text-right">
+            <p className="text-xs font-semibold text-ink truncate">{names.black}</p>
+            <p className="text-[11px] text-ink-subtle tabular-nums">{pipsBlack} pips</p>
+          </div>
+          <span className="h-3.5 w-3.5 rounded-full border-2 shrink-0"
+            style={{ background: 'radial-gradient(circle at 35% 30%, hsl(214 58% 56%), hsl(218 64% 28%))', borderColor: 'hsl(216 55% 36% / 0.7)' }} />
+        </div>
+      </div>
+
+      {/* ── Board ── */}
+      <BackgammonBoard
+        board={liveBoard}
+        perspective={game.currentPlayer}
+        toMove={turnDone || noLegalMoves ? null : game.currentPlayer}
+        dice={game.dice}
+        legalSequences={game.legalSequences}
+        movesPlayed={game.movesPlayed}
+        onMove={handleMove}
+        cube={game.cube}
+        boardTheme={boardTheme}
+        diceTheme={diceTheme}
+        suggestion={hint?.move ?? null}
+      />
+
+      {/* ── Hint text ── */}
+      {hint && (
+        <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-2.5 text-center">
+          <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-gold">
+            <Lightbulb className="h-3.5 w-3.5" />
+            Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
+          </p>
+          <p className="text-xs text-ink-muted mt-0.5">{hint.why}</p>
+        </div>
+      )}
+
+      {/* ── Controls ── */}
+      <div className="flex items-center gap-2">
+        <Button onClick={undo} variant="ghost" size="sm"
+          disabled={game.movesPlayed.length === 0}
+          className="gap-1.5 text-ink-subtle">
+          <Undo2 className="h-3.5 w-3.5" />
+          Undo
+        </Button>
+
+        <Button onClick={showHint} variant="ghost" size="sm"
+          disabled={!game.dice || noLegalMoves}
+          className="gap-1.5 text-ink-subtle">
+          <Lightbulb className="h-3.5 w-3.5" />
+          Hint
+        </Button>
+
+        {(game.cube.owner === null || game.cube.owner === game.currentPlayer)
+          && game.movesPlayed.length === 0 && !game.doubleOffer && (
+          <Button onClick={offerDouble} variant="ghost" size="sm" className="gap-1.5 text-ink-subtle">
+            Double ({game.cube.value}→{game.cube.value * 2})
+          </Button>
         )}
 
-        {/* Controls */}
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={undo} variant="secondary" disabled={game.movesPlayed.length === 0} className="gap-2">
-            <Undo2 className="h-4 w-4" />
-            Undo
-          </Button>
-
-          <Button onClick={showHint} variant="secondary" disabled={!game.dice || noLegalMoves} className="gap-2">
-            <Lightbulb className="h-4 w-4" />
-            Hint
-          </Button>
-
-          {(game.cube.owner === null || game.cube.owner === game.currentPlayer)
-            && game.movesPlayed.length === 0 && !game.doubleOffer && (
-            <Button onClick={offerDouble} variant="secondary" className="gap-2">
-              Double ({game.cube.value} → {game.cube.value * 2})
-            </Button>
-          )}
-
-          <Button onClick={endTurn} disabled={!turnDone && !noLegalMoves} className="ml-auto gap-2">
-            {names[opponent(game.currentPlayer)]}&apos;s turn
-            <ChevronLeft className="h-4 w-4 rotate-180" />
-          </Button>
-        </div>
+        <Button onClick={endTurn} disabled={!turnDone && !noLegalMoves}
+          size="sm" className="ml-auto gap-1.5 min-w-[120px]">
+          {names[opponent(game.currentPlayer)]}&apos;s turn
+          <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
+        </Button>
       </div>
 
       {/* Double offer dialog */}

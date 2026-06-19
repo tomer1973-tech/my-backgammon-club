@@ -409,7 +409,7 @@ function PointCell({
       onClick={onClick}
       aria-label={`Point ${index + 1}${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'}` : ', empty'}`}
       className={cn(
-        'relative flex h-36 sm:h-44 flex-col items-center gap-0.5 px-0.5 outline-none',
+        'relative flex h-28 sm:h-36 flex-col items-center gap-0.5 px-0.5 outline-none',
         rowPosition === 'top' ? 'justify-start pt-1.5' : 'flex-col-reverse justify-start pb-1.5',
         interactive ? 'cursor-pointer' : 'cursor-default',
       )}
@@ -485,7 +485,7 @@ function BarCell({
       onClick={onClick}
       aria-label={`Bar${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'} waiting to enter` : ''}`}
       className={cn(
-        'relative flex h-36 sm:h-44 flex-col items-center gap-0.5 rounded-md px-0.5',
+        'relative flex h-28 sm:h-36 flex-col items-center gap-0.5 rounded-md px-0.5',
         rowPosition === 'top' ? 'justify-start pt-1' : 'flex-col-reverse justify-start pb-1',
         highlighted && 'cursor-pointer bg-gold/20',
         selected === 'bar' && 'bg-gold/35',
