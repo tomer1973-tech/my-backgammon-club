@@ -2,7 +2,7 @@
 
 import Link                         from 'next/link'
 import { useState }                 from 'react'
-import { MapPin, Users, Calendar, Crown, MoreVertical, Trash2, Archive, ArrowRight, Lock } from 'lucide-react'
+import { MapPin, Users, Calendar, Crown, MoreVertical, Trash2, Archive, ArrowRight, Lock, Star } from 'lucide-react'
 import { Button }                   from '@/components/ui/button'
 import { FormatBadge }              from './format-badge'
 import { StatusBadge }              from './status-badge'
@@ -89,8 +89,16 @@ export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCa
             )}
           </div>
 
-          {/* Format badge */}
-          <FormatBadge format={t.format} />
+          {/* Bottom row: format + points per win */}
+          <div className="flex items-center justify-between gap-2">
+            <FormatBadge format={t.format} />
+            {t.pointsPerWin > 0 && (
+              <span className="flex items-center gap-1 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-[11px] font-bold text-gold">
+                <Star className="h-3 w-3 fill-gold" />
+                {t.pointsPerWin} pts/win
+              </span>
+            )}
+          </div>
         </Link>
 
         {/* Actions row */}

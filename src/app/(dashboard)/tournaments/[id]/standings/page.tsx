@@ -1,7 +1,7 @@
 import type { Metadata }            from 'next'
 import { notFound }                 from 'next/navigation'
 import Link                         from 'next/link'
-import { ChevronLeft }              from 'lucide-react'
+import { ChevronLeft, Trophy, Medal, Star }  from 'lucide-react'
 import { getTournamentWithMembers } from '@/actions/tournament'
 import { getStandings }             from '@/actions/match'
 import { StandingsTable }           from '@/components/match/standings-table'
@@ -71,6 +71,33 @@ export default async function StandingsPage({ params }: Props) {
             <span className="text-win">{leader.wins}W</span>
             <span className="text-loss">{leader.losses}L</span>
             <span className="text-ink-muted">{leader.winRate}% win rate</span>
+          </div>
+        </div>
+      )}
+
+      {/* Prize breakdown */}
+      {tournament.pointsPerWin > 0 && standings.length > 0 && (
+        <div className="rounded-xl border border-gold/20 bg-surface-raised overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+            <Star className="h-4 w-4 text-gold" />
+            <p className="text-sm font-semibold text-ink">Points Rewards</p>
+            <span className="ml-auto text-xs text-ink-muted">{tournament.pointsPerWin} pts per win</span>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-line">
+            {[
+              { place: '1st', icon: Trophy,  color: 'text-gold',      multiplier: 3 },
+              { place: '2nd', icon: Medal,   color: 'text-silver',    multiplier: 2 },
+              { place: '3rd', icon: Medal,   color: 'text-ink-muted', multiplier: 1 },
+            ].map(({ place, icon: Icon, color, multiplier }) => {
+              const pts = tournament.pointsPerWin * multiplier
+              return (
+                <div key={place} className="flex flex-col items-center gap-1 px-3 py-4">
+                  <Icon className={`h-5 w-5 ${color}`} />
+                  <p className={`text-lg font-black ${color}`}>{pts}</p>
+                  <p className="text-[10px] text-ink-subtle uppercase tracking-wider">{place} place</p>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
