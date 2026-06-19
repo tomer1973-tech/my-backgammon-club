@@ -409,7 +409,7 @@ function PointCell({
       onClick={onClick}
       aria-label={`Point ${index + 1}${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'}` : ', empty'}`}
       className={cn(
-        'relative flex h-28 sm:h-36 flex-col items-center gap-0.5 px-0.5 outline-none',
+        'relative flex h-24 sm:h-28 md:h-32 lg:h-36 flex-col items-center gap-0.5 px-0.5 outline-none',
         rowPosition === 'top' ? 'justify-start pt-1.5' : 'flex-col-reverse justify-start pb-1.5',
         interactive ? 'cursor-pointer' : 'cursor-default',
       )}

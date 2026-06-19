@@ -23,7 +23,7 @@ export function MobileNav({ userRole }: MobileNavProps) {
     .filter(i => !i.hideOnMobile)
 
   return (
-    <nav className="lg:hidden fixed inset-x-0 bottom-0 z-40
+    <nav className="md:hidden fixed inset-x-0 bottom-0 z-40
       bg-surface-canvas/92 backdrop-blur-xl border-t border-line/60
       pb-[env(safe-area-inset-bottom)]">
 

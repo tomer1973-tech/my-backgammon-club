@@ -47,7 +47,7 @@ export function SidebarNav({ user }: SidebarNavProps) {
   }
 
   return (
-    <aside className="hidden lg:flex flex-col w-[220px] flex-shrink-0 h-dvh sticky top-0 overflow-hidden">
+    <aside className="hidden md:flex flex-col w-[220px] flex-shrink-0 h-dvh sticky top-0 overflow-hidden">
       {/* Walnut-gradient left panel */}
       <div className="flex flex-col h-full bg-surface-canvas border-r border-line/60">
 

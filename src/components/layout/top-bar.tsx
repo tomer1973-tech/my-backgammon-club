@@ -23,7 +23,7 @@ export function TopBar({ user }: TopBarProps) {
   const firstName = user.name.split(' ')[0]
 
   return (
-    <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-16
+    <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-16
       bg-surface-canvas/88 backdrop-blur-xl border-b border-white/5">
 
       {/* Copper top-line accent */}
