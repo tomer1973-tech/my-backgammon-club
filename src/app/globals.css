@@ -9,33 +9,33 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Surfaces — dark mahogany/walnut wood progression */
-  --surface-canvas:    22 28%  3%;   /* #090704 — deepest background */
-  --surface-base:      24 26%  6%;   /* #100d08 — page body           */
-  --surface-raised:    25 24% 10%;   /* #1c1710 — card surface        */
-  --surface-elevated:  26 22% 14%;   /* #261f16 — elevated card       */
-  --surface-muted:     26 20% 18%;   /* #30271b — section divider bg  */
-  --surface-subtle:    27 18% 23%;   /* #3d3225 — hover state         */
+  /* Surfaces — deep navy progression (inspired by premium navy backgammon boards) */
+  --surface-canvas:    220 55%  4%;   /* near-black navy — deepest background */
+  --surface-base:      220 50%  7%;   /* deep navy page body                  */
+  --surface-raised:    218 44% 11%;   /* navy card surface                    */
+  --surface-elevated:  216 38% 16%;   /* elevated card / input bg             */
+  --surface-muted:     214 32% 21%;   /* section divider bg                   */
+  --surface-subtle:    212 26% 27%;   /* hover state                          */
 
-  /* Gold — antique brass / warm gold */
-  --gold:        40 62% 55%;         /* #c9a84c — primary accent      */
-  --gold-dim:    38 55% 32%;         /* #7d5e24 — muted gold          */
-  --gold-bright: 43 75% 65%;         /* #e8c56a — hover / highlight   */
-  --gold-muted:  40 35% 42%;         /* #8a7038 — very subtle gold    */
+  /* Copper — rich metallic copper from the board pieces */
+  --gold:        24 65% 52%;          /* #c2701e — copper primary accent      */
+  --gold-dim:    22 55% 30%;          /* #76380f — dark copper                */
+  --gold-bright: 28 72% 64%;          /* #dda060 — bright copper / highlight  */
+  --gold-muted:  24 42% 40%;          /* #8a5228 — very subtle copper         */
 
-  /* Ink — text hierarchy on dark backgrounds */
-  --ink:         38 42% 90%;         /* #ede5d3 — primary text        */
-  --ink-muted:   35 22% 56%;         /* #a39070 — secondary text      */
-  --ink-subtle:  30 18% 36%;         /* #6b5640 — placeholder / hint  */
+  /* Ink — cool blue-white text hierarchy on navy */
+  --ink:         210 40% 92%;         /* #ddeaf6 — primary text               */
+  --ink-muted:   214 20% 62%;         /* #829ab4 — secondary text             */
+  --ink-subtle:  216 16% 42%;         /* #536880 — placeholder / hint         */
 
-  /* Lines — borders */
-  --line:        25 24% 16%;         /* #2a2218 — default border      */
-  --line-gold:   40 45% 28%;         /* #5c4a22 — gold-tinted border  */
+  /* Lines — navy-tinted borders */
+  --line:        218 38% 20%;         /* #1f3252 — default border             */
+  --line-gold:   24 48% 30%;          /* #703a18 — copper-tinted border       */
 
   /* Semantic */
-  --win:         142 32% 32%;        /* #346645 — win / positive      */
-  --loss:          0 35% 36%;        /* #783535 — loss / negative     */
-  --warning:      38 72% 44%;        /* #c07e14 — amber / cube        */
+  --win:         152 38% 34%;         /* #2f7054 — win / positive             */
+  --loss:          0 42% 40%;         /* #8a3030 — loss / negative            */
+  --warning:      28 70% 48%;         /* #cb7018 — amber / cube               */
 
   /* Typography */
   --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
@@ -43,7 +43,7 @@
   --font-mono:    'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
 
   /* Focus ring */
-  --ring: 40 62% 55%;
+  --ring: 24 65% 52%;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -101,16 +101,15 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 @layer components {
-  /* The board-line texture — a very subtle diagonal grain overlay
-     applied to the page background to evoke a premium wooden surface */
+  /* Subtle diagonal grain overlay — evokes a woven fabric / felt surface */
   .wood-texture {
     background-image:
       repeating-linear-gradient(
         -45deg,
         transparent,
         transparent 2px,
-        hsl(var(--surface-muted) / 0.15) 2px,
-        hsl(var(--surface-muted) / 0.15) 3px
+        hsl(var(--surface-muted) / 0.12) 2px,
+        hsl(var(--surface-muted) / 0.12) 3px
       );
   }
 
