@@ -12,13 +12,13 @@
 /* ── Dark mode (default) ──────────────────────────────────────────────────── */
 :root,
 [data-theme="dark"] {
-  /* Surfaces — deep navy progression */
-  --surface-canvas:   222 60%  3%;   /* near-black navy — deepest bg     */
-  --surface-base:     220 55%  6%;   /* page body                        */
-  --surface-raised:   218 48% 10%;   /* card surface                     */
-  --surface-elevated: 216 40% 15%;   /* input bg / elevated card         */
-  --surface-muted:    214 32% 21%;   /* section dividers                 */
-  --surface-subtle:   212 26% 28%;   /* hover state                      */
+  /* Surfaces — refined dark slate (bright enough to read, dark enough to feel premium) */
+  --surface-canvas:   220 16% 10%;   /* #151c28 — dark slate base        */
+  --surface-base:     218 15% 13%;   /* #1b2232 — page body              */
+  --surface-raised:   216 13% 18%;   /* #252e42 — card surface           */
+  --surface-elevated: 214 12% 24%;   /* #303c52 — input / elevated card  */
+  --surface-muted:    212 10% 30%;   /* #3d4a5e — section dividers       */
+  --surface-subtle:   210  9% 38%;   /* #4e5d72 — hover state            */
 
   /* Copper — rich metallic copper (from the checker pieces) */
   --gold:        22 68% 54%;         /* #c87428 — copper primary         */

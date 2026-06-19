@@ -11,6 +11,7 @@ import { Input }               from '@/components/ui/input'
 import { TournamentCard }      from './tournament-card'
 import { JoinDialog }          from './join-dialog'
 import { QuickMatchDialog }    from '@/components/quick-game/quick-match-dialog'
+import { FairPlayBanner }      from '@/components/lobby/fair-play-banner'
 import { archiveTournament }   from '@/actions/tournament'
 import { cn }                  from '@/lib/utils'
 import type { Tournament, SessionUser } from '@/types'
@@ -186,6 +187,9 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
           desc="Your record"
         />
       </div>
+
+      {/* ── Fair Play ──────────────────────────────────────────────── */}
+      <FairPlayBanner />
 
       {/* ── Tournaments section ─────────────────────────────────────── */}
       <div className="flex flex-col gap-4">
