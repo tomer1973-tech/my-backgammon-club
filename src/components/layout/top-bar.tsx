@@ -5,7 +5,6 @@ import { usePathname }    from 'next/navigation'
 import { LogOut }         from 'lucide-react'
 import { logout }         from '@/actions/auth'
 import { Avatar }         from '@/components/ui/avatar'
-import { Button }         from '@/components/ui/button'
 import { NAV_ITEMS }      from './nav-items'
 import type { SessionUser } from '@/types'
 
@@ -15,43 +14,49 @@ export function TopBar({ user }: TopBarProps) {
   const [isPending, startTransition] = useTransition()
   const pathname = usePathname()
 
-  // Resolve current page title from nav items
   const match = NAV_ITEMS
     .filter(i => i.matchExact ? pathname === i.href : pathname.startsWith(i.href))
     .sort((a, b) => b.href.length - a.href.length)[0]
-  const pageTitle = match?.label ?? 'Backgammon Club'
+  const pageTitle = match?.label ?? 'Club'
 
   const handleLogout = () => startTransition(async () => { await logout() })
+  const firstName = user.name.split(' ')[0]
 
   return (
-    <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-14
-      bg-surface-canvas/85 backdrop-blur-xl border-b border-line/60">
+    <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-16
+      bg-surface-canvas/88 backdrop-blur-xl border-b border-white/5">
 
-      {/* Brand mark */}
-      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg
-          bg-gradient-to-br from-gold to-gold-dim shadow-[0_1px_8px_hsl(var(--gold)/0.3)] flex-shrink-0">
+      {/* Copper top-line accent */}
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
+
+      {/* Left: logo + page title */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl flex-shrink-0
+          bg-gradient-to-br from-gold to-gold-dim shadow-[0_2px_10px_hsl(var(--gold)/0.4)]">
           <span className="text-sm leading-none">🎲</span>
         </div>
-        <span className="font-display font-bold text-ink text-[15px] tracking-tight truncate">
-          {pageTitle}
-        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium text-ink-subtle leading-none mb-0.5">My Backgammon Club</p>
+          <p className="text-[15px] font-bold text-ink leading-none truncate">{pageTitle}</p>
+        </div>
       </div>
 
-      {/* Right: avatar + logout */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <Avatar name={user.name} src={user.avatarUrl} size="sm"
-          className="ring-1 ring-gold/20 ring-offset-1 ring-offset-surface-canvas" />
-        <Button
-          variant="ghost"
-          size="icon-sm"
+      {/* Right: user pill + logout */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 rounded-full border border-white/8 bg-surface-raised/60 pl-2 pr-3 py-1.5">
+          <Avatar name={user.name} src={user.avatarUrl} size="sm"
+            className="ring-1 ring-gold/25 ring-offset-1 ring-offset-surface-canvas" />
+          <span className="text-[13px] font-semibold text-ink hidden xs:block">{firstName}</span>
+        </div>
+        <button
           onClick={handleLogout}
-          isLoading={isPending}
+          disabled={isPending}
           aria-label="Sign out"
-          className="text-ink-subtle hover:text-ink"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8
+            bg-surface-raised/60 text-ink-subtle hover:text-loss hover:border-loss/30 transition-all"
         >
-          <LogOut className="h-4 w-4" />
-        </Button>
+          <LogOut className="h-3.5 w-3.5" />
+        </button>
       </div>
     </header>
   )

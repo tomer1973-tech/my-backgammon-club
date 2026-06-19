@@ -4,7 +4,7 @@ import { useState, useMemo }  from 'react'
 import Link                   from 'next/link'
 import {
   Plus, LogIn, Search, Trophy, Filter,
-  Zap, ChevronRight, Users, BarChart2, Settings,
+  Zap, ChevronRight, Users, BarChart2, Settings, Bot, GraduationCap,
 } from 'lucide-react'
 import { Button }              from '@/components/ui/button'
 import { Input }               from '@/components/ui/input'
@@ -147,7 +147,7 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
       </div>
 
       {/* ── Action grid ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3">
         <ActionCard
           href="/tournaments/new"
           icon={<Plus className="h-5 w-5" />}
@@ -162,9 +162,21 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
           desc="Enter invite code"
         />
         <ActionCard
+          href="/practice"
+          icon={<Bot className="h-5 w-5" />}
+          label="Practice"
+          desc="Play vs AI"
+        />
+        <ActionCard
+          href="/lessons"
+          icon={<GraduationCap className="h-5 w-5" />}
+          label="Lessons"
+          desc="Learn strategy"
+        />
+        <ActionCard
           href="/players"
           icon={<Users className="h-5 w-5" />}
-          label="Manage Players"
+          label="Players"
           desc="View & add players"
         />
         <ActionCard

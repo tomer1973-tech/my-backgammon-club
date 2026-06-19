@@ -4,14 +4,14 @@ import Link            from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock,
-  ShieldCheck, Zap, Medal, Dices, Rss, type LucideIcon,
+  ShieldCheck, Zap, Medal, Dices, Rss, Bot, GraduationCap, type LucideIcon,
 } from 'lucide-react'
 import { cn }          from '@/lib/utils'
 import { NAV_ITEMS }   from './nav-items'
 
 const ICONS: Record<string, LucideIcon> = {
   Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock,
-  ShieldCheck, Zap, Medal, Dices, Rss,
+  ShieldCheck, Zap, Medal, Dices, Rss, Bot, GraduationCap,
 }
 
 interface MobileNavProps { userRole?: string }
