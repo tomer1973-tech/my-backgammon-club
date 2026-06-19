@@ -8,12 +8,6 @@ interface AppShellProps {
   children: React.ReactNode
 }
 
-/**
- * Responsive application shell.
- *
- * Desktop (≥ lg):  sidebar (240 px) + scrollable content area
- * Mobile  (< lg):  sticky top bar + scrollable content + fixed bottom nav
- */
 export function AppShell({ user, children }: AppShellProps) {
   return (
     <div className="flex min-h-dvh bg-surface-base">
@@ -26,12 +20,7 @@ export function AppShell({ user, children }: AppShellProps) {
         <TopBar user={user} />
 
         {/* Page content */}
-        <main
-          className="flex-1 overflow-y-auto
-            px-3 py-4 pb-20
-            sm:px-4 sm:py-5
-            lg:px-8 lg:py-6 lg:pb-8"
-        >
+        <main className="flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-6 lg:px-10 lg:py-8 lg:pb-10">
           <div className="mx-auto max-w-3xl w-full lg:max-w-4xl">
             {children}
           </div>

@@ -4,38 +4,43 @@
 
 /* ─────────────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
-   All values are defined as space-separated HSL channels so Tailwind can
-   inject the alpha-value modifier (e.g. bg-surface-raised/50 → 50% opacity).
+   All values are space-separated HSL channels so Tailwind can inject the
+   alpha modifier (e.g. bg-surface-raised/50 → 50% opacity).
+   Palette: deep navy playing surface + rich copper accents + walnut wood.
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Surfaces — deep navy progression (inspired by premium navy backgammon boards) */
-  --surface-canvas:    220 55%  4%;   /* near-black navy — deepest background */
-  --surface-base:      220 50%  7%;   /* deep navy page body                  */
-  --surface-raised:    218 44% 11%;   /* navy card surface                    */
-  --surface-elevated:  216 38% 16%;   /* elevated card / input bg             */
-  --surface-muted:     214 32% 21%;   /* section divider bg                   */
-  --surface-subtle:    212 26% 27%;   /* hover state                          */
+  /* Surfaces — deep navy progression */
+  --surface-canvas:   222 60%  3%;   /* near-black navy — deepest bg     */
+  --surface-base:     220 55%  6%;   /* page body                        */
+  --surface-raised:   218 48% 10%;   /* card surface                     */
+  --surface-elevated: 216 40% 15%;   /* input bg / elevated card         */
+  --surface-muted:    214 32% 21%;   /* section dividers                 */
+  --surface-subtle:   212 26% 28%;   /* hover state                      */
 
-  /* Copper — rich metallic copper from the board pieces */
-  --gold:        24 65% 52%;          /* #c2701e — copper primary accent      */
-  --gold-dim:    22 55% 30%;          /* #76380f — dark copper                */
-  --gold-bright: 28 72% 64%;          /* #dda060 — bright copper / highlight  */
-  --gold-muted:  24 42% 40%;          /* #8a5228 — very subtle copper         */
+  /* Copper — rich metallic copper (from the checker pieces) */
+  --gold:        22 68% 54%;         /* #c87428 — copper primary         */
+  --gold-dim:    20 56% 30%;         /* #742f0e — dark copper            */
+  --gold-bright: 28 76% 66%;         /* #e09c58 — bright / hover         */
+  --gold-muted:  22 44% 40%;         /* #884e20 — subtle copper          */
 
-  /* Ink — cool blue-white text hierarchy on navy */
-  --ink:         210 40% 92%;         /* #ddeaf6 — primary text               */
-  --ink-muted:   214 20% 62%;         /* #829ab4 — secondary text             */
-  --ink-subtle:  216 16% 42%;         /* #536880 — placeholder / hint         */
+  /* Silver — secondary accent from the doubling cube / bar */
+  --silver:      214 18% 68%;        /* #9aaec2 — steel blue-grey        */
+  --silver-dim:  216 14% 44%;        /* #5e7488 — muted steel            */
+
+  /* Ink — cool blue-white text hierarchy */
+  --ink:         208 50% 94%;        /* #deedf8 — primary text           */
+  --ink-muted:   212 24% 64%;        /* #7e9eb8 — secondary text         */
+  --ink-subtle:  216 18% 44%;        /* #526e86 — placeholder / hint     */
 
   /* Lines — navy-tinted borders */
-  --line:        218 38% 20%;         /* #1f3252 — default border             */
-  --line-gold:   24 48% 30%;          /* #703a18 — copper-tinted border       */
+  --line:        218 40% 18%;        /* #1b2e4a — default border         */
+  --line-gold:   22 50% 28%;         /* #6e3412 — copper border          */
 
   /* Semantic */
-  --win:         152 38% 34%;         /* #2f7054 — win / positive             */
-  --loss:          0 42% 40%;         /* #8a3030 — loss / negative            */
-  --warning:      28 70% 48%;         /* #cb7018 — amber / cube               */
+  --win:         152 40% 34%;        /* #2d7056 — positive               */
+  --loss:          0 44% 40%;        /* #8c2d2d — negative               */
+  --warning:      28 72% 50%;        /* #cb741a — amber / cube           */
 
   /* Typography */
   --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
@@ -43,7 +48,7 @@
   --font-mono:    'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
 
   /* Focus ring */
-  --ring: 24 65% 52%;
+  --ring: 22 68% 54%;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -51,9 +56,7 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 @layer base {
-  *, *::before, *::after {
-    box-sizing: border-box;
-  }
+  *, *::before, *::after { box-sizing: border-box; }
 
   html {
     -webkit-font-smoothing: antialiased;
@@ -65,55 +68,32 @@
   body {
     @apply bg-surface-base text-ink font-sans;
     min-height: 100dvh;
+    /* Subtle navy noise texture — evokes premium felt */
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, hsl(218 55% 14% / 0.6), transparent),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   }
 
-  /* Headings inherit the display font for premium feel */
-  h1, h2, h3 {
-    @apply font-display tracking-tight;
-  }
+  h1, h2, h3 { @apply font-display tracking-tight; }
 
-  /* Focus visible ring — gold-tinted */
   :focus-visible {
     @apply outline-none ring-2 ring-gold/60 ring-offset-2 ring-offset-surface-base;
   }
 
-  /* Scrollbar — subtle dark */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-surface-muted rounded-full;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-surface-subtle;
-  }
+  ::-webkit-scrollbar-thumb { @apply bg-surface-elevated rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-surface-muted; }
 
-  /* Selection highlight — gold */
-  ::selection {
-    @apply bg-gold/20 text-ink;
-  }
+  ::selection { @apply bg-gold/20 text-ink; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   COMPONENT LAYER — shared patterns
+   COMPONENT LAYER
    ───────────────────────────────────────────────────────────────────────── */
 
 @layer components {
-  /* Subtle diagonal grain overlay — evokes a woven fabric / felt surface */
-  .wood-texture {
-    background-image:
-      repeating-linear-gradient(
-        -45deg,
-        transparent,
-        transparent 2px,
-        hsl(var(--surface-muted) / 0.12) 2px,
-        hsl(var(--surface-muted) / 0.12) 3px
-      );
-  }
-
-  /* Gold shimmer — applied to loading skeletons */
+  /* Copper shimmer skeleton */
   .shimmer {
     background: linear-gradient(
       90deg,
@@ -125,16 +105,21 @@
     @apply animate-shimmer;
   }
 
-  /* Glow ring — used on active/highlighted cards */
+  /* Copper glow ring */
   .ring-gold-glow {
     box-shadow:
       0 0 0 1px hsl(var(--gold) / 0.25),
-      0 0 16px 0 hsl(var(--gold) / 0.08);
+      0 0 20px 0 hsl(var(--gold) / 0.1);
+  }
+
+  /* Card — standard elevated surface */
+  .card {
+    @apply rounded-xl border border-line bg-surface-raised;
   }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   UTILITY LAYER — one-off helpers
+   UTILITY LAYER
    ───────────────────────────────────────────────────────────────────────── */
 
 @layer utilities {
