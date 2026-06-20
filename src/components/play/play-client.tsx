@@ -7,7 +7,7 @@
  * each turn so the player on roll always sees their home board bottom-right.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Lightbulb } from 'lucide-react'
 import { Avatar }  from '@/components/ui/avatar'
@@ -69,8 +69,23 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
   const [game,  setGame]  = useState<GameState | null>(null)
   const [result, setResult] = useState<{ winner: Player; type: GameType } | null>(null)
   const [hint, setHint] = useState<Hint | null>(null)
+  const [showTurnBanner, setShowTurnBanner] = useState<string | null>(null)
 
   const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
+
+  // Show "[Name]'s turn!" banner when player changes
+  const prevPlayerRef = useRef<Player | null>(null)
+  useEffect(() => {
+    if (!game || phase !== 'playing') return
+    const prev = prevPlayerRef.current
+    prevPlayerRef.current = game.currentPlayer
+    if (prev !== null && prev !== game.currentPlayer) {
+      setShowTurnBanner(names[game.currentPlayer])
+      const t = setTimeout(() => setShowTurnBanner(null), 1800)
+      return () => clearTimeout(t)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.currentPlayer, phase])
 
   function startGame() {
     setGame(freshGame())
@@ -327,28 +342,50 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
       </div>
 
       {/* ── Board ── */}
-      <BackgammonBoard
-        board={liveBoard}
-        perspective={game.currentPlayer}
-        toMove={turnDone || noLegalMoves ? null : game.currentPlayer}
-        dice={game.dice}
-        legalSequences={game.legalSequences}
-        movesPlayed={game.movesPlayed}
-        onMove={handleMove}
-        cube={game.cube}
-        boardTheme={boardTheme}
-        diceTheme={diceTheme}
-        suggestion={hint?.move ?? null}
-      />
+      <div className="relative">
+        <BackgammonBoard
+          board={liveBoard}
+          perspective={game.currentPlayer}
+          toMove={turnDone || noLegalMoves ? null : game.currentPlayer}
+          dice={game.dice}
+          legalSequences={game.legalSequences}
+          movesPlayed={game.movesPlayed}
+          onMove={handleMove}
+          cube={game.cube}
+          boardTheme={boardTheme}
+          diceTheme={diceTheme}
+          suggestion={hint?.move ?? null}
+        />
 
-      {/* ── Hint text ── */}
+        {/* Pass-the-device turn banner */}
+        {showTurnBanner && (
+          <div
+            className="pointer-events-none absolute inset-0 flex items-center justify-center z-50"
+            style={{ animation: 'your-turn-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both' }}
+          >
+            <div className="flex flex-col items-center gap-1 rounded-2xl border-2 border-gold/60 bg-surface-canvas/92 backdrop-blur-sm px-8 py-5 shadow-[0_8px_40px_hsl(var(--gold)/0.35)]">
+              <span className="text-4xl leading-none select-none">🎲</span>
+              <p className="text-xl font-black text-gold tracking-tight mt-1" style={{ textShadow: '0 0 20px hsl(var(--gold)/0.6)' }}>
+                {showTurnBanner}&apos;s turn!
+              </p>
+              <p className="text-xs text-ink-muted">Pass the device and tap a checker</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Hint callout ── */}
       {hint && (
-        <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-2.5 text-center">
-          <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-gold">
-            <Lightbulb className="h-3.5 w-3.5" />
-            Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
-          </p>
-          <p className="text-xs text-ink-muted mt-0.5">{hint.why}</p>
+        <div className="flex items-start gap-3 rounded-xl border border-gold/35 bg-gold/6 px-4 py-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gold/40 bg-gold/15 mt-0.5">
+            <Lightbulb className="h-4 w-4 text-gold" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gold">
+              Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
+            </p>
+            <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">{hint.why} Follow the arrow on the board.</p>
+          </div>
         </div>
       )}
 

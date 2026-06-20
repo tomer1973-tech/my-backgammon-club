@@ -170,3 +170,26 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
+
+/* ── Hint arrow + turn announcement keyframes ────────────────────────────── */
+@keyframes hint-march {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -20; }
+}
+
+@keyframes hint-pulse-ring {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%       { opacity: 0.1; transform: scale(1.7); }
+}
+
+@keyframes your-turn-pop {
+  0%   { opacity: 0; transform: scale(0.7) translateY(10px); }
+  55%  { opacity: 1; transform: scale(1.06) translateY(-2px); }
+  75%  { transform: scale(0.97); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes your-turn-out {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.85) translateY(-6px); }
+}

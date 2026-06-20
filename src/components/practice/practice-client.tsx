@@ -7,7 +7,7 @@
  * board + controls on the right — keeping the full-height board prominent.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, ArrowRight, Lightbulb, MessageCircle, Share2 } from 'lucide-react'
 import { Avatar }  from '@/components/ui/avatar'
@@ -102,6 +102,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   const [game, setGame] = useState<GameState | null>(null)
   const [result, setResult] = useState<{ winner: Player; type: GameType } | null>(null)
   const [aiThinking, setAiThinking] = useState(false)
+  const [showYourTurn, setShowYourTurn] = useState(false)
 
   const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
   const [hint, setHint] = useState<Hint | null>(null)
@@ -213,6 +214,20 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   }, [phase, game?.currentPlayer, game?.dice, game?.legalSequences, aiThinking])
 
   useEffect(() => { setHint(null) }, [game?.currentPlayer, game?.movesPlayed.length])
+
+  // Flash "YOUR TURN!" when it becomes the human's turn (not on first load)
+  const prevPlayerRef = useRef<Player | null>(null)
+  useEffect(() => {
+    if (!game) return
+    const prev = prevPlayerRef.current
+    prevPlayerRef.current = game.currentPlayer
+    if (prev !== null && prev !== game.currentPlayer && game.currentPlayer === humanPlayer && !aiThinking) {
+      setShowYourTurn(true)
+      const t = setTimeout(() => setShowYourTurn(false), 1800)
+      return () => clearTimeout(t)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.currentPlayer, aiThinking])
 
   function showHint() {
     if (!game || !game.dice) return
@@ -565,30 +580,53 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
 
       {/* ── Board + controls ── */}
       <div className="flex-1 min-w-0 flex flex-col gap-4">
-        <BackgammonBoard
-          board={liveBoard}
-          perspective={humanPlayer}
-          toMove={isHumanTurn && !turnDone && !noLegalMoves ? humanPlayer : null}
-          dice={game.dice}
-          legalSequences={game.legalSequences}
-          movesPlayed={game.movesPlayed}
-          onMove={handleMove}
-          cube={game.cube}
-          disabled={!isHumanTurn}
-          boardTheme={boardTheme}
-          diceTheme={diceTheme}
-          suggestion={hint?.move ?? null}
-        />
+        <div className="relative">
+          <BackgammonBoard
+            board={liveBoard}
+            perspective={humanPlayer}
+            toMove={isHumanTurn && !turnDone && !noLegalMoves ? humanPlayer : null}
+            dice={game.dice}
+            legalSequences={game.legalSequences}
+            movesPlayed={game.movesPlayed}
+            onMove={handleMove}
+            cube={game.cube}
+            disabled={!isHumanTurn}
+            boardTheme={boardTheme}
+            diceTheme={diceTheme}
+            suggestion={hint?.move ?? null}
+          />
 
+          {/* "YOUR TURN!" pop-in overlay */}
+          {showYourTurn && (
+            <div
+              className="pointer-events-none absolute inset-0 flex items-center justify-center z-50"
+              style={{ animation: 'your-turn-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both' }}
+            >
+              <div className="flex flex-col items-center gap-1 rounded-2xl border-2 border-gold/60 bg-surface-canvas/88 backdrop-blur-sm px-8 py-5 shadow-[0_8px_40px_hsl(var(--gold)/0.35)]">
+                <span className="text-4xl leading-none select-none">🎲</span>
+                <p className="text-2xl font-black text-gold tracking-tight mt-1" style={{ textShadow: '0 0 20px hsl(var(--gold)/0.6)' }}>
+                  YOUR TURN!
+                </p>
+                <p className="text-xs text-ink-muted">Tap a glowing checker to move</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Hint callout — visual card */}
         {hint && (
-          <div className="flex flex-col items-center gap-0.5 text-center px-2">
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-gold">
-              <Lightbulb className="h-4 w-4" />
-              Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
-            </p>
-            <p className="text-xs text-ink-muted">
-              {hint.why} Play the glowing checker to the gold dot.
-            </p>
+          <div className="relative rounded-xl border border-gold/35 bg-gold/6 px-4 py-3 flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gold/40 bg-gold/15 mt-0.5">
+              <Lightbulb className="h-4 w-4 text-gold" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-gold">
+                Best play: <span className="font-mono tracking-wide">{hint.notation}</span>
+              </p>
+              <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">
+                {hint.why} Follow the arrow on the board and tap the glowing checker.
+              </p>
+            </div>
           </div>
         )}
 

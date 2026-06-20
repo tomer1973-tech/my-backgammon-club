@@ -17,7 +17,7 @@
  * move; tapping a highlighted destination calls `onMove` with that move.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 import {
   isSequencePrefix,
@@ -204,6 +204,40 @@ export function BackgammonBoard({
   const suggestFromPoint = suggestion && typeof suggestion.from === 'number' ? suggestion.from : null
   const suggestToPoint   = suggestion && typeof suggestion.to   === 'number' ? suggestion.to   : null
 
+  // ── Hint arrow overlay ────────────────────────────────────────────────────
+  type ArrowPoints = { x1: number; y1: number; x2: number; y2: number; cx: number; cy: number; w: number; h: number }
+  const [arrowPts, setArrowPts] = useState<ArrowPoints | null>(null)
+
+  const computeArrow = useCallback(() => {
+    if (suggestFromPoint === null || suggestToPoint === null) { setArrowPts(null); return }
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const wr = wrap.getBoundingClientRect()
+    const fromEl = wrap.querySelector(`[data-cell="${suggestFromPoint}"]`) as HTMLElement | null
+    const toEl   = wrap.querySelector(`[data-cell="${suggestToPoint}"]`)   as HTMLElement | null
+    if (!fromEl || !toEl) return
+    const fr = fromEl.getBoundingClientRect()
+    const tr = toEl.getBoundingClientRect()
+    const x1 = fr.left + fr.width  / 2 - wr.left
+    const y1 = fr.top  + fr.height / 2 - wr.top
+    const x2 = tr.left + tr.width  / 2 - wr.left
+    const y2 = tr.top  + tr.height / 2 - wr.top
+    // Arc control point: bulge perpendicular to the line
+    const dx = x2 - x1, dy = y2 - y1
+    const len = Math.sqrt(dx * dx + dy * dy) || 1
+    const bulge = Math.min(70, len * 0.38)
+    const cx = (x1 + x2) / 2 + (-dy / len) * bulge
+    const cy = (y1 + y2) / 2 + ( dx / len) * bulge
+    setArrowPts({ x1, y1, x2, y2, cx, cy, w: wr.width, h: wr.height })
+  }, [suggestFromPoint, suggestToPoint])
+
+  useLayoutEffect(() => { computeArrow() }, [computeArrow])
+  // Also recompute on window resize
+  useEffect(() => {
+    window.addEventListener('resize', computeArrow)
+    return () => window.removeEventListener('resize', computeArrow)
+  }, [computeArrow])
+
   const usedDice = movesPlayed.map(m => m.die)
   const diceFaces = dice ? diceToPlay(dice) : []
   // Mark one occurrence of each used die value as consumed.
@@ -223,6 +257,59 @@ export function BackgammonBoard({
       className={cn('relative flex flex-col gap-3 sm:flex-row sm:items-stretch', className)}
       style={themeVars(boardTheme, diceTheme)}
     >
+      {/* Hint arrow overlay — curved arc from suggestion.from to suggestion.to */}
+      {arrowPts && (
+        <svg
+          key={`${suggestFromPoint}-${suggestToPoint}`}
+          className="pointer-events-none absolute inset-0 z-40 animate-fade-in"
+          width={arrowPts.w}
+          height={arrowPts.h}
+          viewBox={`0 0 ${arrowPts.w} ${arrowPts.h}`}
+          style={{ overflow: 'visible' }}
+        >
+          <defs>
+            <marker id="hint-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="hsl(40 85% 62%)" />
+            </marker>
+            <filter id="hint-glow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <linearGradient id="hint-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stopColor="hsl(40 85% 62%)" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="hsl(22 90% 58%)" stopOpacity="0.9" />
+            </linearGradient>
+          </defs>
+          {/* Glow shadow */}
+          <path
+            d={`M ${arrowPts.x1} ${arrowPts.y1} Q ${arrowPts.cx} ${arrowPts.cy} ${arrowPts.x2} ${arrowPts.y2}`}
+            fill="none"
+            stroke="hsl(40 85% 62% / 0.35)"
+            strokeWidth="8"
+            strokeLinecap="round"
+            filter="url(#hint-glow)"
+          />
+          {/* Main arrow */}
+          <path
+            d={`M ${arrowPts.x1} ${arrowPts.y1} Q ${arrowPts.cx} ${arrowPts.cy} ${arrowPts.x2} ${arrowPts.y2}`}
+            fill="none"
+            stroke="url(#hint-grad)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="6 4"
+            markerEnd="url(#hint-arrow)"
+            style={{
+              strokeDashoffset: 0,
+              animation: 'hint-march 1.2s linear infinite',
+            }}
+          />
+          {/* Pulsing dot at source */}
+          <circle cx={arrowPts.x1} cy={arrowPts.y1} r="6" fill="hsl(40 85% 62% / 0.3)"
+            style={{ animation: 'hint-pulse 1s ease-in-out infinite' }} />
+          <circle cx={arrowPts.x1} cy={arrowPts.y1} r="4" fill="hsl(40 85% 62%)" />
+        </svg>
+      )}
+
       {/* Sliding ghost checker */}
       {anim && (
         <div
