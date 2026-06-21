@@ -503,10 +503,10 @@ function PointCell({
   // Premium triangle: vivid base colour with strong tip darkening + edge gloss
   const base = dark ? 'var(--bg-point-dark)' : 'var(--bg-point-light)'
   // Gloss highlight at the wide end (white streak fading toward tip)
-  const gloss = `radial-gradient(ellipse 80% 18% at 50% ${isTop ? '0%' : '100%'}, rgba(255,255,255,0.14), transparent)`
+  const gloss = `radial-gradient(ellipse 80% 18% at 50% ${isTop ? '0%' : '100%'}, rgba(255,255,255,0.18), transparent)`
   const gradient = isTop
-    ? `linear-gradient(to bottom, color-mix(in srgb, ${base} 88%, white), ${base} 35%, color-mix(in srgb, ${base} 48%, black))`
-    : `linear-gradient(to top,   color-mix(in srgb, ${base} 88%, white), ${base} 35%, color-mix(in srgb, ${base} 48%, black))`
+    ? `linear-gradient(to bottom, color-mix(in srgb, ${base} 90%, white), ${base} 40%, color-mix(in srgb, ${base} 72%, black))`
+    : `linear-gradient(to top,   color-mix(in srgb, ${base} 90%, white), ${base} 40%, color-mix(in srgb, ${base} 72%, black))`
 
   const interactive = isSource || isTarget || selected
   const goldFill = interactive || suggestFrom
