@@ -345,7 +345,7 @@ export function PlayClient({ currentUser }: { currentUser: SessionUser | null })
       <div className="relative">
         <BackgammonBoard
           board={liveBoard}
-          perspective={game.currentPlayer}
+          perspective="white"
           toMove={turnDone || noLegalMoves ? null : game.currentPlayer}
           dice={game.dice}
           legalSequences={game.legalSequences}

@@ -262,10 +262,8 @@ export function BackgammonBoard({
         <svg
           key={`${suggestFromPoint}-${suggestToPoint}`}
           className="pointer-events-none absolute inset-0 z-40 animate-fade-in"
-          width={arrowPts.w}
-          height={arrowPts.h}
-          viewBox={`0 0 ${arrowPts.w} ${arrowPts.h}`}
-          style={{ overflow: 'visible' }}
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}
         >
           <defs>
             <marker id="hint-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
@@ -326,17 +324,37 @@ export function BackgammonBoard({
 
       {/* ── Board ── */}
       <div
-        className="flex-1 rounded-2xl p-2 sm:p-3"
+        className="flex-1 rounded-2xl"
         style={{
-          backgroundColor: 'var(--bg-felt)',
-          border: '8px solid var(--bg-rail)',
+          /* Rosewood / walnut frame */
+          backgroundColor: 'var(--bg-rail)',
+          backgroundImage: [
+            'linear-gradient(160deg, rgba(255,255,255,0.06) 0%, transparent 45%, rgba(0,0,0,0.14) 100%)',
+            'repeating-linear-gradient(88deg, transparent 0px, transparent 7px, rgba(255,255,255,0.012) 7px, rgba(255,255,255,0.012) 8px)',
+          ].join(', '),
+          padding: '10px',
           boxShadow: [
-            'inset 0 0 0 1.5px hsl(40 60% 52% / 0.22)',   // gold hairline frame
-            'inset 0 3px 28px rgba(0,0,0,0.32)',          // felt depth vignette
-            '0 12px 40px rgba(0,0,0,0.55)',              // lift off the page
+            'inset 0 0 0 1px hsl(35 55% 32% / 0.5)',   /* inner gold bead */
+            'inset 0 3px 18px rgba(0,0,0,0.55)',         /* depth inside frame */
+            '0 20px 60px rgba(0,0,0,0.75)',              /* large lift */
+            '0 6px 20px rgba(0,0,0,0.55)',               /* mid shadow */
+            '0 0 0 1px rgba(0,0,0,0.8)',                 /* sharp outer edge */
           ].join(', '),
         }}
       >
+        {/* Felt surface with radial vignette */}
+        <div
+          className="rounded-xl h-full flex flex-col"
+          style={{
+            backgroundColor: 'var(--bg-felt)',
+            backgroundImage: [
+              'radial-gradient(ellipse 100% 85% at 50% 50%, transparent 30%, rgba(0,0,0,0.52) 100%)',
+              'repeating-linear-gradient(45deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 9px)',
+              'repeating-linear-gradient(-45deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 9px)',
+            ].join(', '),
+            padding: '8px 6px',
+          }}
+        >
         <BoardRow
           order={topOrder}
           rowPosition="top"
@@ -364,31 +382,35 @@ export function BackgammonBoard({
           suggestFromPoint={suggestFromPoint}
           suggestToPoint={suggestToPoint}
         />
-      </div>
+        </div>{/* /felt */}
+      </div>{/* /frame */}
 
       {/* ── Side panel: bear-off trays + dice ── */}
-      <div className="flex shrink-0 flex-row gap-2 sm:w-28 sm:flex-col">
+      <div className="flex shrink-0 flex-row gap-2 sm:w-24 sm:flex-col">
         <BearOffTray player={flip ? 'black' : 'white'} board={board}
           highlighted={toOptions.has('off')}
           onClick={() => handleClick('off')} />
+        {/* Dice tray */}
         <div
           className="flex flex-1 items-center justify-center rounded-xl p-2"
           style={{
-            backgroundColor: 'var(--bg-felt)',
-            border: '5px solid var(--bg-rail)',
-            boxShadow: 'inset 0 0 0 1px hsl(40 60% 52% / 0.18), inset 0 2px 8px rgba(0,0,0,0.5)',
+            backgroundColor: 'var(--bg-rail)',
+            backgroundImage: 'linear-gradient(160deg, rgba(255,255,255,0.05) 0%, transparent 50%, rgba(0,0,0,0.12) 100%)',
+            boxShadow: [
+              'inset 0 0 0 1px hsl(35 50% 30% / 0.45)',
+              'inset 0 2px 10px rgba(0,0,0,0.6)',
+              '0 4px 12px rgba(0,0,0,0.4)',
+            ].join(', '),
           }}
         >
           {dice ? (
-            // Keyed on the roll so the roll-in animation plays once per new roll,
-            // not on every checker move within the turn.
-            <div key={dice.join('-')} className="flex flex-wrap items-center justify-center gap-1.5">
+            <div key={dice.join('-')} className="flex flex-wrap items-center justify-center gap-2">
               {diceState.map((d, i) => (
                 <Die key={i} value={d.value} used={d.used} delay={i * 70} />
               ))}
             </div>
           ) : (
-            <span className="text-xs text-ink-subtle">—</span>
+            <span className="text-xs text-ink-subtle opacity-50">—</span>
           )}
         </div>
         <BearOffTray player={flip ? 'white' : 'black'} board={board}
@@ -473,17 +495,18 @@ function PointCell({
   suggestTo?: boolean
 }) {
   const dark = index % 2 === 0
-  const clipPath = rowPosition === 'top'
+  const isTop = rowPosition === 'top'
+  const clipPath = isTop
     ? 'polygon(0% 0%, 100% 0%, 50% 100%)'
     : 'polygon(0% 100%, 100% 100%, 50% 0%)'
 
-  // Solid triangle, lit at the wide base and darkening toward the tip.
+  // Premium triangle: vivid base colour with strong tip darkening + edge gloss
   const base = dark ? 'var(--bg-point-dark)' : 'var(--bg-point-light)'
-  const lit  = `color-mix(in srgb, ${base} 84%, white)`
-  const tip  = `color-mix(in srgb, ${base} 64%, black)`
-  const gradient = rowPosition === 'top'
-    ? `linear-gradient(to bottom, ${lit}, ${base} 40%, ${tip})`
-    : `linear-gradient(to top, ${lit}, ${base} 40%, ${tip})`
+  // Gloss highlight at the wide end (white streak fading toward tip)
+  const gloss = `radial-gradient(ellipse 80% 18% at 50% ${isTop ? '0%' : '100%'}, rgba(255,255,255,0.14), transparent)`
+  const gradient = isTop
+    ? `linear-gradient(to bottom, color-mix(in srgb, ${base} 88%, white), ${base} 35%, color-mix(in srgb, ${base} 48%, black))`
+    : `linear-gradient(to top,   color-mix(in srgb, ${base} 88%, white), ${base} 35%, color-mix(in srgb, ${base} 48%, black))`
 
   const interactive = isSource || isTarget || selected
   const goldFill = interactive || suggestFrom
@@ -501,17 +524,26 @@ function PointCell({
         interactive ? 'cursor-pointer' : 'cursor-default',
       )}
     >
-      {/* Triangle: themed gradient normally; gold when interactive / suggested. */}
+      {/* Triangle base shape */}
       <div
-        className={cn(
-          'absolute inset-0',
-          selected && 'bg-gold/45',
-          isTarget && !selected && 'bg-gold/30',
-          suggestFrom && !selected && 'bg-gold/40 animate-pulse',
-          isSource && !suggestFrom && !selected && 'bg-gold/15',
-        )}
-        style={goldFill ? { clipPath } : { clipPath, backgroundImage: gradient }}
+        className="absolute inset-0"
+        style={{ clipPath, backgroundImage: goldFill ? undefined : `${gloss}, ${gradient}`,
+          backgroundColor: goldFill ? undefined : 'transparent',
+        }}
       />
+      {/* Interactive / suggestion gold overlay (same clip) */}
+      {goldFill && (
+        <div
+          className={cn(
+            'absolute inset-0',
+            selected         && 'bg-gold/50',
+            isTarget && !selected && 'bg-gold/32',
+            suggestFrom && !selected && 'bg-gold/44 animate-pulse',
+            isSource && !suggestFrom && !selected && 'bg-gold/18',
+          )}
+          style={{ clipPath }}
+        />
+      )}
 
       {/* Checkers (centered on the point). The pickable / suggested top checker glows. */}
       {Array.from({ length: stack }).map((_, i) => (
@@ -600,6 +632,7 @@ function BearOffTray({
   onClick: () => void
 }) {
   const count = board.borneOff[player]
+  const pct = count / CHECKERS_PER_PLAYER
   return (
     <button
       type="button"
@@ -607,16 +640,40 @@ function BearOffTray({
       onClick={onClick}
       aria-label={`${player} borne off: ${count} of ${CHECKERS_PER_PLAYER}`}
       className={cn(
-        'flex flex-1 flex-col items-center justify-center gap-1 rounded-xl p-2 sm:p-3 transition-colors',
-        highlighted && 'cursor-pointer',
+        'flex flex-1 flex-col items-center justify-center gap-1.5 rounded-xl p-2 sm:p-3 transition-all duration-200 overflow-hidden relative',
+        highlighted ? 'cursor-pointer' : '',
       )}
       style={highlighted
-        ? { backgroundColor: 'hsl(40 62% 55% / 0.12)', border: '5px solid hsl(40 62% 55% / 0.6)' }
-        : { backgroundColor: 'var(--bg-felt)', border: '5px solid var(--bg-rail)', boxShadow: 'inset 0 0 0 1px hsl(40 60% 52% / 0.18), inset 0 2px 8px rgba(0,0,0,0.5)' }}
+        ? {
+          backgroundColor: 'hsl(40 62% 40% / 0.18)',
+          border: '4px solid hsl(40 72% 55% / 0.7)',
+          boxShadow: '0 0 16px hsl(40 72% 55% / 0.25), inset 0 0 0 1px hsl(40 72% 55% / 0.2)',
+        }
+        : {
+          backgroundColor: 'var(--bg-rail)',
+          backgroundImage: 'linear-gradient(160deg, rgba(255,255,255,0.05) 0%, transparent 50%, rgba(0,0,0,0.12) 100%)',
+          border: '4px solid rgba(0,0,0,0.3)',
+          boxShadow: [
+            'inset 0 0 0 1px hsl(35 50% 28% / 0.4)',
+            'inset 0 2px 8px rgba(0,0,0,0.55)',
+            '0 3px 8px rgba(0,0,0,0.35)',
+          ].join(', '),
+        }}
     >
+      {/* Progress fill */}
+      {pct > 0 && (
+        <div
+          className="pointer-events-none absolute inset-0 transition-all duration-500"
+          style={{
+            background: player === 'white'
+              ? `linear-gradient(to top, hsl(28 65% 48% / 0.18) 0%, transparent ${pct * 100}%)`
+              : `linear-gradient(to top, hsl(218 65% 40% / 0.18) 0%, transparent ${pct * 100}%)`,
+          }}
+        />
+      )}
       <Checker player={player} small />
-      <span className="text-xs font-semibold tabular-nums text-ink">
-        {count}/{CHECKERS_PER_PLAYER}
+      <span className="text-[11px] font-bold tabular-nums text-ink relative">
+        {count}<span className="text-ink-subtle font-normal">/{CHECKERS_PER_PLAYER}</span>
       </span>
     </button>
   )
@@ -625,24 +682,40 @@ function BearOffTray({
 // ─── Checker ─────────────────────────────────────────────────────────────────
 
 const CHECKER_STYLE: Record<Player, CSSProperties> = {
-  // Copper / rose-gold — warm metallic with a bright highlight and deep shadow
+  // Copper / warm gold — strong specular hotspot, rich metallic gradient, deep drop shadow
   white: {
-    backgroundImage: 'radial-gradient(circle at 34% 26%, hsl(30 72% 82%), hsl(24 66% 54%) 52%, hsl(20 58% 34%) 100%)',
-    borderColor: 'hsl(22 50% 40%)',
-    boxShadow: 'inset 0 1.5px 2px rgba(255,230,180,0.75), inset 0 -3px 5px rgba(90,40,5,0.45), 0 3px 6px rgba(0,0,0,0.55)',
+    backgroundImage: [
+      'radial-gradient(circle at 28% 22%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 42%)',  // specular
+      'radial-gradient(circle at 38% 30%, hsl(38 80% 90%), hsl(28 72% 62%) 48%, hsl(20 65% 32%) 100%)',  // body
+    ].join(', '),
+    borderColor: 'hsl(22 50% 35%)',
+    boxShadow: [
+      'inset 0 2px 3px rgba(255,245,210,0.9)',    // bright top rim
+      'inset 0 -4px 7px rgba(80,28,0,0.55)',       // dark bottom rim
+      '0 5px 12px rgba(0,0,0,0.75)',               // strong drop shadow
+      '0 2px 4px rgba(0,0,0,0.5)',
+    ].join(', '),
   },
-  // Deep navy blue — cool metallic with a subtle blue sheen
+  // Deep navy — blue specular hotspot, dark rich gradient, heavy shadow
   black: {
-    backgroundImage: 'radial-gradient(circle at 34% 26%, hsl(214 58% 56%), hsl(218 64% 28%) 54%, hsl(220 70% 13%) 100%)',
-    borderColor: 'hsl(216 55% 36% / 0.7)',
-    boxShadow: 'inset 0 1.5px 2px rgba(160,200,255,0.28), inset 0 -3px 5px rgba(0,0,0,0.6), 0 3px 6px rgba(0,0,0,0.6)',
+    backgroundImage: [
+      'radial-gradient(circle at 28% 22%, rgba(180,210,255,0.45) 0%, rgba(180,210,255,0) 42%)', // blue specular
+      'radial-gradient(circle at 38% 30%, hsl(215 62% 46%), hsl(220 72% 20%) 48%, hsl(222 80% 8%) 100%)', // body
+    ].join(', '),
+    borderColor: 'hsl(218 52% 26%)',
+    boxShadow: [
+      'inset 0 2px 3px rgba(160,205,255,0.42)',   // blue top rim
+      'inset 0 -4px 7px rgba(0,0,0,0.85)',         // very dark bottom rim
+      '0 5px 12px rgba(0,0,0,0.82)',               // strong drop shadow
+      '0 2px 4px rgba(0,0,0,0.6)',
+    ].join(', '),
   },
 }
 
-// Concentric ring detail (the engraved circle on a real checker).
+// Engraved concentric ring on each checker
 const CHECKER_RING: Record<Player, string> = {
-  white: 'hsl(24 55% 62% / 0.5)',
-  black: 'hsl(214 55% 58% / 0.38)',
+  white: 'hsl(26 52% 58% / 0.52)',
+  black: 'hsl(216 52% 55% / 0.35)',
 }
 
 function Checker({ player, overflowCount, small, glow }: { player: Player; overflowCount?: number; small?: boolean; glow?: boolean }) {
@@ -690,17 +763,29 @@ function Die({ value, used, delay = 0 }: { value: number; used: boolean; delay?:
   return (
     <div
       className={cn(
-        'grid h-10 w-10 grid-cols-3 grid-rows-3 gap-[2px] rounded-[26%] border p-[5px] animate-dice-in',
-        used ? 'border-line bg-surface-elevated opacity-40' : '',
+        'grid h-10 w-10 grid-cols-3 grid-rows-3 gap-[2px] rounded-[28%] border p-[5px] animate-dice-in',
+        used ? 'opacity-30' : '',
       )}
-      style={used ? { animationDelay: `${delay}ms`, animationFillMode: 'backwards' } : {
+      style={used ? {
+        animationDelay: `${delay}ms`, animationFillMode: 'backwards',
+        backgroundColor: 'var(--die-bg)', borderColor: 'var(--die-border)',
+        filter: 'saturate(0.4)',
+      } : {
         animationDelay: `${delay}ms`,
         animationFillMode: 'backwards',
-        // die face + soft top gloss baked into the background
         backgroundColor: 'var(--die-bg)',
-        backgroundImage: 'linear-gradient(155deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 48%)',
+        backgroundImage: [
+          'radial-gradient(circle at 28% 22%, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0) 50%)', // specular
+          'linear-gradient(145deg, rgba(255,255,255,0.22) 0%, transparent 55%)',                    // top gloss
+        ].join(', '),
         borderColor: 'var(--die-border)',
-        boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.55), inset 0 -2px 3px rgba(0,0,0,0.18), 0 3px 7px rgba(0,0,0,0.5)',
+        boxShadow: [
+          'inset 0 1.5px 3px rgba(255,255,255,0.65)',
+          'inset 0 -2px 4px rgba(0,0,0,0.22)',
+          '0 6px 14px rgba(0,0,0,0.65)',
+          '0 2px 5px rgba(0,0,0,0.45)',
+          '0 0 0 0.5px rgba(0,0,0,0.4)',
+        ].join(', '),
       }}
     >
       {Array.from({ length: 9 }).map((_, i) => {
