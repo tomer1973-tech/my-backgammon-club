@@ -43,6 +43,12 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
     }
   }
 
+  function handleEnd(id: string) {
+    setTournaments(prev =>
+      prev.map(t => t.id === id ? { ...t, status: 'COMPLETED' } : t),
+    )
+  }
+
   const filtered = useMemo(() => {
     return tournaments
       .filter(t => t.deletedAt === null)
@@ -264,6 +270,7 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
                 tournament={t}
                 onDelete={handleDelete}
                 onArchive={handleArchive}
+                onEnd={handleEnd}
               />
             ))}
           </div>

@@ -135,7 +135,9 @@ export default async function MatchesPage({ params }: Props) {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">
             Results ({completedMatches.length})
           </h2>
-          {completedMatches.map(m => <MatchCard key={m.id} match={m} />)}
+          {completedMatches.map(m => (
+            <MatchCard key={m.id} match={m} canEditScore={canManage} />
+          ))}
         </section>
       )}
 

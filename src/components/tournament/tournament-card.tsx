@@ -2,21 +2,23 @@
 
 import Link                         from 'next/link'
 import { useState }                 from 'react'
-import { MapPin, Users, Calendar, Crown, MoreVertical, Trash2, Archive, ArrowRight, Lock, Star } from 'lucide-react'
+import { MapPin, Users, Calendar, Crown, MoreVertical, Trash2, Archive, ArrowRight, Lock, Star, StopCircle, Pencil } from 'lucide-react'
 import { Button }                   from '@/components/ui/button'
 import { FormatBadge }              from './format-badge'
 import { StatusBadge }              from './status-badge'
 import { DeleteConfirm }            from './delete-confirm'
 import { cn }                       from '@/lib/utils'
+import { endTournament }            from '@/actions/tournament'
 import type { Tournament }          from '@/types'
 
 interface TournamentCardProps {
   tournament: Tournament
   onDelete?:  (id: string) => void
   onArchive?: (id: string) => void
+  onEnd?:     (id: string) => void
 }
 
-export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCardProps) {
+export function TournamentCard({ tournament, onDelete, onArchive, onEnd }: TournamentCardProps) {
   const [menuOpen, setMenuOpen]     = useState(false)
   const [delConfirm, setDelConfirm] = useState(false)
 
@@ -118,8 +120,8 @@ export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCa
             </Link>
           </Button>
 
-          {/* Owner actions menu */}
-          {(t.isOwner || t.userRole === 'ORGANIZER') && (
+          {/* Owner / admin actions menu */}
+          {(t.isOwner || t.isAdmin || t.userRole === 'ORGANIZER') && (
             <div className="relative">
               <Button
                 size="icon-sm"
@@ -132,29 +134,56 @@ export function TournamentCard({ tournament, onDelete, onArchive }: TournamentCa
 
               {menuOpen && (
                 <>
-                  {/* Backdrop */}
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setMenuOpen(false)}
-                  />
-                  <div className="absolute bottom-full right-0 z-20 mb-1 w-44 rounded-lg border border-line bg-surface-elevated shadow-elevated">
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute bottom-full right-0 z-20 mb-1 w-48 rounded-lg border border-line bg-surface-elevated shadow-lg overflow-hidden">
+
+                    {/* Edit settings */}
+                    <Link
+                      href={`/tournaments/${t.id}/edit`}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-ink-muted hover:bg-surface-raised hover:text-ink transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit settings
+                    </Link>
+
+                    {/* End tournament */}
+                    {t.status === 'ACTIVE' && onEnd && (
+                      <button
+                        onClick={async () => {
+                          setMenuOpen(false)
+                          await endTournament({ tournamentId: t.id })
+                          onEnd(t.id)
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-ink-muted hover:bg-surface-raised hover:text-ink transition-colors"
+                      >
+                        <StopCircle className="h-3.5 w-3.5 text-warning" />
+                        End tournament
+                      </button>
+                    )}
+
+                    {/* Archive */}
                     {onArchive && t.status !== 'ARCHIVED' && (
                       <button
                         onClick={() => { onArchive(t.id); setMenuOpen(false) }}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-ink-muted hover:bg-surface-raised hover:text-ink transition-colors rounded-t-lg"
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-ink-muted hover:bg-surface-raised hover:text-ink transition-colors"
                       >
                         <Archive className="h-3.5 w-3.5" />
                         Archive
                       </button>
                     )}
-                    {t.isOwner && onDelete && (
-                      <button
-                        onClick={() => { setDelConfirm(true); setMenuOpen(false) }}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-loss hover:bg-loss/10 transition-colors rounded-b-lg"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </button>
+
+                    {/* Delete — divider + red */}
+                    {(t.isOwner || t.isAdmin) && onDelete && (
+                      <div className="border-t border-line/50">
+                        <button
+                          onClick={() => { setDelConfirm(true); setMenuOpen(false) }}
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-loss hover:bg-loss/10 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete tournament
+                        </button>
+                      </div>
                     )}
                   </div>
                 </>

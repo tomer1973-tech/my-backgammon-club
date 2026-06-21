@@ -62,6 +62,17 @@ export const createTournamentSchema = z.object({
   startDate:    z.string().optional(),   // ISO date string, validated loosely
 })
 
+export const updateTournamentSchema = z.object({
+  tournamentId: uuidSchema,
+  name:         z.string().min(1, 'Tournament name is required').max(80).trim(),
+  description:  z.string().max(500).trim().optional(),
+  location:     z.string().max(80).trim().optional(),
+  pointsPerWin: z.number().int().min(1).max(1000),
+  matchLength:  z.number().int().min(1).max(99).optional(),
+  maxPlayers:   z.number().int().min(2).max(500).optional(),
+  startDate:    z.string().optional(),
+})
+
 export const updateTournamentStatusSchema = z.object({
   tournamentId: uuidSchema,
   status:       z.enum(['DRAFT', 'ACTIVE', 'COMPLETED', 'ARCHIVED']),

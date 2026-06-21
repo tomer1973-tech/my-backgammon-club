@@ -18,6 +18,7 @@ import { db }                        from '@/lib/db'
 import { requireSessionUser }        from '@/lib/session'
 import {
   createTournamentSchema,
+  updateTournamentSchema,
   deleteTournamentSchema,
   archiveTournamentSchema,
   endTournamentSchema,
@@ -372,6 +373,47 @@ export async function updateTournamentStatus(
 // are still PENDING or ACTIVE — they're removed without affecting standings,
 // the same way `abandonMatch` works for a single match.
 // ─────────────────────────────────────────────────────────────────────────────
+
+export async function updateTournament(
+  data: unknown,
+): Promise<ActionResult> {
+  const user = await requireSessionUser()
+
+  const parsed = updateTournamentSchema.safeParse(data)
+  if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
+
+  const { tournamentId, name, description, location, pointsPerWin, matchLength, maxPlayers, startDate } = parsed.data
+
+  const tournament = await db.tournament.findUnique({
+    where: { id: tournamentId, deletedAt: null },
+    select: { createdById: true },
+  })
+  if (!tournament) return { success: false, error: 'Tournament not found.' }
+
+  const isOrganizer = await db.tournamentMember.findFirst({
+    where: { tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
+  })
+  if (!isOrganizer && tournament.createdById !== user.id && user.role !== 'ADMIN') {
+    return { success: false, error: 'You do not have permission to edit this tournament.' }
+  }
+
+  await db.tournament.update({
+    where: { id: tournamentId },
+    data: {
+      name,
+      description:  description ?? null,
+      location:     location    ?? null,
+      pointsPerWin,
+      matchLength:  matchLength ?? null,
+      maxPlayers:   maxPlayers  ?? null,
+      startDate:    startDate   ? new Date(startDate) : null,
+    },
+  })
+
+  revalidatePath('/')
+  revalidatePath(`/tournaments/${tournamentId}`)
+  redirect(`/tournaments/${tournamentId}`)
+}
 
 export async function endTournament(
   data: unknown,

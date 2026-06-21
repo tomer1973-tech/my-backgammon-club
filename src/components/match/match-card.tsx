@@ -8,20 +8,22 @@
  *  • Pending: Start Now button + Cancel button
  */
 
-import { useState, useTransition }                         from 'react'
-import Link                                                 from 'next/link'
-import { useRouter }                                        from 'next/navigation'
-import { Calendar, Clock, Trophy, Trash2, Play, Check, X } from 'lucide-react'
-import { Badge }                                            from '@/components/ui/badge'
-import { OPENING_TYPE_LABEL }                               from '@/types'
-import { cn }                                               from '@/lib/utils'
-import { abandonMatch, cancelScheduledMatch, startScheduledMatch } from '@/actions/match'
-import type { MatchSummary }                                from '@/types'
+import { useState, useTransition }                                  from 'react'
+import Link                                                          from 'next/link'
+import { useRouter }                                                 from 'next/navigation'
+import { Calendar, Clock, Trophy, Trash2, Play, Check, X, Pencil }  from 'lucide-react'
+import { Badge }                                                     from '@/components/ui/badge'
+import { OPENING_TYPE_LABEL }                                        from '@/types'
+import { cn }                                                        from '@/lib/utils'
+import { abandonMatch, cancelScheduledMatch, startScheduledMatch, setMatchScore } from '@/actions/match'
+import type { MatchSummary }                                         from '@/types'
 
 interface MatchCardProps {
   match:         MatchSummary
   /** If true, action bar (abandon/cancel/start) is shown. */
   canManage?:    boolean
+  /** If true, allow score editing on completed matches (admin only). */
+  canEditScore?: boolean
 }
 
 const statusVariant = {
@@ -30,10 +32,14 @@ const statusVariant = {
   COMPLETED: 'default',
 } as const
 
-export function MatchCard({ match, canManage = false }: MatchCardProps) {
+export function MatchCard({ match, canManage = false, canEditScore = false }: MatchCardProps) {
   const router = useRouter()
   const [confirming,    setConfirming]    = useState(false)
   const [busy,          startTransition]  = useTransition()
+  const [editingScore,  setEditingScore]  = useState(false)
+  const [s1, setS1] = useState(String(match.player1Score))
+  const [s2, setS2] = useState(String(match.player2Score))
+  const [scoreError, setScoreError] = useState('')
 
   const isActive    = match.status === 'ACTIVE'
   const isPending   = match.status === 'PENDING'
@@ -81,6 +87,26 @@ export function MatchCard({ match, canManage = false }: MatchCardProps) {
       await action(match.id)
       setConfirming(false)
       router.refresh()
+    })
+  }
+
+  function handleSaveScore(e: React.MouseEvent) {
+    block(e)
+    const n1 = parseInt(s1, 10)
+    const n2 = parseInt(s2, 10)
+    if (isNaN(n1) || isNaN(n2) || n1 < 0 || n2 < 0) {
+      setScoreError('Scores must be non-negative numbers.')
+      return
+    }
+    setScoreError('')
+    startTransition(async () => {
+      const res = await setMatchScore({ matchId: match.id, player1Score: n1, player2Score: n2 })
+      if (res.success) {
+        setEditingScore(false)
+        router.refresh()
+      } else {
+        setScoreError(res.error ?? 'Failed to update score.')
+      }
     })
   }
 
@@ -173,6 +199,56 @@ export function MatchCard({ match, canManage = false }: MatchCardProps) {
           </div>
         </div>
       </Link>
+
+      {/* ── Admin score editor (completed matches) ────────────────────── */}
+      {canEditScore && isCompleted && (
+        <div className="border-t border-line/40 bg-surface-base/60 px-4 py-2.5">
+          {editingScore ? (
+            <div className="flex flex-col gap-2" onClick={block}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-ink-muted w-24 truncate">{match.player1Name}</span>
+                <input
+                  type="number" min={0} value={s1}
+                  onChange={e => setS1(e.target.value)}
+                  className="w-14 rounded-lg border border-line bg-surface-elevated px-2 py-1 text-sm font-bold text-ink text-center focus:border-gold/50 focus:outline-none"
+                />
+                <span className="text-ink-subtle">–</span>
+                <input
+                  type="number" min={0} value={s2}
+                  onChange={e => setS2(e.target.value)}
+                  className="w-14 rounded-lg border border-line bg-surface-elevated px-2 py-1 text-sm font-bold text-ink text-center focus:border-gold/50 focus:outline-none"
+                />
+                <span className="text-xs text-ink-muted w-24 truncate text-right">{match.player2Name}</span>
+              </div>
+              {scoreError && <p className="text-xs text-loss">{scoreError}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveScore}
+                  disabled={busy}
+                  className="flex items-center gap-1.5 rounded-lg bg-gold/15 border border-gold/40 text-gold text-xs font-semibold px-3 py-1.5 hover:bg-gold/25 transition-colors disabled:opacity-50"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {busy ? 'Saving…' : 'Save score'}
+                </button>
+                <button
+                  onClick={e => { block(e); setEditingScore(false); setScoreError('') }}
+                  className="text-xs text-ink-subtle hover:text-ink transition-colors px-2 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={e => { block(e); setS1(String(match.player1Score)); setS2(String(match.player2Score)); setEditingScore(true) }}
+              className="flex items-center gap-1.5 text-xs text-ink-subtle hover:text-gold transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit score
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Action bar (visible for active/pending when canManage) ────── */}
       {showActions && (
