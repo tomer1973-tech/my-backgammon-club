@@ -335,7 +335,7 @@ export function BackgammonBoard({
           padding: '10px',
           boxShadow: [
             'inset 0 0 0 1px hsl(35 55% 32% / 0.5)',   /* inner gold bead */
-            'inset 0 3px 18px rgba(0,0,0,0.55)',         /* depth inside frame */
+            'inset 0 3px 18px rgba(0,0,0,0.30)',         /* depth inside frame */
             '0 20px 60px rgba(0,0,0,0.75)',              /* large lift */
             '0 6px 20px rgba(0,0,0,0.55)',               /* mid shadow */
             '0 0 0 1px rgba(0,0,0,0.8)',                 /* sharp outer edge */
@@ -348,7 +348,7 @@ export function BackgammonBoard({
           style={{
             backgroundColor: 'var(--bg-felt)',
             backgroundImage: [
-              'radial-gradient(ellipse 100% 85% at 50% 50%, transparent 30%, rgba(0,0,0,0.52) 100%)',
+              'radial-gradient(ellipse 100% 85% at 50% 50%, transparent 40%, rgba(0,0,0,0.22) 100%)',
               'repeating-linear-gradient(45deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 9px)',
               'repeating-linear-gradient(-45deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 9px)',
             ].join(', '),

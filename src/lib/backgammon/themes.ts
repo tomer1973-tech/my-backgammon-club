@@ -26,20 +26,20 @@ export interface DiceTheme {
 }
 
 export const BOARD_THEMES: BoardTheme[] = [
-  // Navy & Copper: DARK navy felt, deep navy + vivid amber triangles, rosewood rail
-  { id: 'navy',     label: 'Navy & Copper', felt: 'hsl(218 55% 9%)',  rail: 'hsl(20 52% 9%)',   pointDark: 'hsl(222 80% 11%)',  pointLight: 'hsl(40 90% 50%)' },
-  // Luxury: cream felt, jet-black + warm amber triangles
+  // Navy & Copper: medium-dark navy felt, vivid royal-blue + bright amber — high contrast
+  { id: 'navy',     label: 'Navy & Copper', felt: 'hsl(218 52% 14%)', rail: 'hsl(20 48% 11%)',  pointDark: 'hsl(220 80% 28%)',  pointLight: 'hsl(40 92% 54%)' },
+  // Luxury: warm cream felt, jet-black + amber triangles — bright & elegant
   { id: 'luxury',   label: 'Luxury',        felt: 'hsl(38 38% 87%)',  rail: 'hsl(28 52% 18%)',  pointDark: 'hsl(20 8% 11%)',    pointLight: 'hsl(37 82% 52%)' },
-  // Classic: dark walnut felt — deep green + warm amber triangles
-  { id: 'classic',  label: 'Classic',       felt: 'hsl(155 50% 8%)',  rail: 'hsl(25 45% 8%)',   pointDark: 'hsl(155 60% 16%)',  pointLight: 'hsl(38 88% 54%)' },
-  // Emerald: rich green felt — deep green + gold accent triangles
-  { id: 'emerald',  label: 'Emerald',       felt: 'hsl(158 55% 7%)',  rail: 'hsl(160 38% 5%)',  pointDark: 'hsl(156 65% 14%)',  pointLight: 'hsl(45 90% 56%)' },
-  // Midnight: deep navy felt — sapphire + warm gold triangles
-  { id: 'midnight', label: 'Midnight',      felt: 'hsl(222 65% 7%)',  rail: 'hsl(224 55% 5%)',  pointDark: 'hsl(220 75% 22%)',  pointLight: 'hsl(42 88% 54%)' },
-  // Crimson: deep red felt — crimson + cream triangles
-  { id: 'crimson',  label: 'Crimson',       felt: 'hsl(350 55% 7%)',  rail: 'hsl(352 48% 5%)',  pointDark: 'hsl(352 70% 24%)',  pointLight: 'hsl(40 80% 62%)' },
-  // Slate: cool grey felt — steel + warm amber triangles
-  { id: 'slate',    label: 'Slate',         felt: 'hsl(220 14% 9%)',  rail: 'hsl(220 16% 6%)',  pointDark: 'hsl(220 38% 24%)',  pointLight: 'hsl(38 80% 56%)' },
+  // Classic: rich forest-green felt — bright emerald + warm amber triangles
+  { id: 'classic',  label: 'Classic',       felt: 'hsl(155 42% 11%)', rail: 'hsl(25 40% 10%)',  pointDark: 'hsl(155 62% 22%)',  pointLight: 'hsl(38 90% 56%)' },
+  // Emerald: vivid green felt — saturated emerald + bright gold triangles
+  { id: 'emerald',  label: 'Emerald',       felt: 'hsl(158 50% 10%)', rail: 'hsl(160 35% 7%)',  pointDark: 'hsl(156 65% 24%)',  pointLight: 'hsl(45 92% 58%)' },
+  // Midnight: deep indigo felt — bright sapphire + vivid warm gold
+  { id: 'midnight', label: 'Midnight',      felt: 'hsl(232 52% 12%)', rail: 'hsl(234 48% 8%)',  pointDark: 'hsl(228 78% 32%)',  pointLight: 'hsl(42 92% 56%)' },
+  // Crimson: deep burgundy felt — vivid red + creamy ivory triangles
+  { id: 'crimson',  label: 'Crimson',       felt: 'hsl(350 48% 12%)', rail: 'hsl(352 42% 8%)',  pointDark: 'hsl(352 72% 30%)',  pointLight: 'hsl(40 82% 66%)' },
+  // Slate: charcoal felt — bright steel-blue + warm amber triangles
+  { id: 'slate',    label: 'Slate',         felt: 'hsl(220 16% 13%)', rail: 'hsl(220 14% 9%)',  pointDark: 'hsl(218 50% 32%)',  pointLight: 'hsl(38 82% 58%)' },
 ]
 
 export const DICE_THEMES: DiceTheme[] = [
