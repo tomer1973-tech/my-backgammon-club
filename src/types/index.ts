@@ -404,10 +404,12 @@ export interface Match extends MatchRow {
 
 /** Lightweight match for list views. */
 export interface MatchSummary extends MatchRow {
-  player1Name: string
-  player2Name: string
-  winnerName:  string | null
-  gameCount:   number
+  player1Name:    string
+  player2Name:    string
+  winnerName:     string | null
+  gameCount:      number
+  player1IsGuest: boolean
+  player2IsGuest: boolean
 }
 
 /** Complete standings row for a tournament member. */

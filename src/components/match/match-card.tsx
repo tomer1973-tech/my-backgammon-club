@@ -6,23 +6,28 @@
  * For ACTIVE / PENDING matches owned by the current user (or admin):
  *  • Active:  Abandon button (with inline confirm)
  *  • Pending: Start Now button + Cancel button
+ *
+ * For ALL matches when canManage:
+ *  • Edit score (completed matches)
+ *  • Delete match (completed matches, with confirm)
+ *  • Rename guest players (inline)
  */
 
-import { useState, useTransition }                                  from 'react'
-import Link                                                          from 'next/link'
-import { useRouter }                                                 from 'next/navigation'
-import { Calendar, Clock, Trophy, Trash2, Play, Check, X, Pencil }  from 'lucide-react'
-import { Badge }                                                     from '@/components/ui/badge'
-import { OPENING_TYPE_LABEL }                                        from '@/types'
-import { cn }                                                        from '@/lib/utils'
-import { abandonMatch, cancelScheduledMatch, startScheduledMatch, setMatchScore } from '@/actions/match'
-import type { MatchSummary }                                         from '@/types'
+import { useState, useTransition }                                       from 'react'
+import Link                                                               from 'next/link'
+import { useRouter }                                                      from 'next/navigation'
+import { Calendar, Clock, Trophy, Trash2, Play, Check, X, Pencil, UserPen } from 'lucide-react'
+import { Badge }                                                          from '@/components/ui/badge'
+import { OPENING_TYPE_LABEL }                                             from '@/types'
+import { cn }                                                             from '@/lib/utils'
+import { abandonMatch, cancelScheduledMatch, startScheduledMatch, setMatchScore, deleteMatch, updateGuestName } from '@/actions/match'
+import type { MatchSummary }                                              from '@/types'
 
 interface MatchCardProps {
   match:         MatchSummary
   /** If true, action bar (abandon/cancel/start) is shown. */
   canManage?:    boolean
-  /** If true, allow score editing on completed matches (admin only). */
+  /** If true, allow score editing and delete on completed matches. */
   canEditScore?: boolean
 }
 
@@ -34,27 +39,31 @@ const statusVariant = {
 
 export function MatchCard({ match, canManage = false, canEditScore = false }: MatchCardProps) {
   const router = useRouter()
-  const [confirming,    setConfirming]    = useState(false)
-  const [busy,          startTransition]  = useTransition()
-  const [editingScore,  setEditingScore]  = useState(false)
+  const [confirming,       setConfirming]       = useState(false)
+  const [confirmDelete,    setConfirmDelete]     = useState(false)
+  const [busy,             startTransition]      = useTransition()
+  const [editingScore,     setEditingScore]      = useState(false)
   const [s1, setS1] = useState(String(match.player1Score))
   const [s2, setS2] = useState(String(match.player2Score))
-  const [scoreError, setScoreError] = useState('')
+  const [scoreError,       setScoreError]        = useState('')
+  const [editingP1Name,    setEditingP1Name]     = useState(false)
+  const [editingP2Name,    setEditingP2Name]     = useState(false)
+  const [p1Name,           setP1Name]            = useState(match.player1Name)
+  const [p2Name,           setP2Name]            = useState(match.player2Name)
+  const [nameError,        setNameError]         = useState('')
 
   const isActive    = match.status === 'ACTIVE'
   const isPending   = match.status === 'PENDING'
   const isCompleted = match.status === 'COMPLETED'
   const showActions = canManage && !isCompleted
 
-  // Bracket matches: a slot may still be TBD, and we don't allow cancelling
-  // individual bracket matches (it would break advancement). Use Regenerate
-  // or End tournament instead.
-  const isBracket  = match.bracket != null
-  const ready      = match.player1Id != null && match.player2Id != null
-  const startable  = isPending && ready
+  const isBracket        = match.bracket != null
+  const ready            = match.player1Id != null && match.player2Id != null
+  const startable        = isPending && ready
   const allowDestructive = !isBracket
 
-  // Swallow clicks so they don't bubble to the card <Link>
+  const showManageBar = (canEditScore || canManage) && isCompleted
+
   function block(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
@@ -70,15 +79,8 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
     })
   }
 
-  function handleAskConfirm(e: React.MouseEvent) {
-    block(e)
-    setConfirming(true)
-  }
-
-  function handleCancelConfirm(e: React.MouseEvent) {
-    block(e)
-    setConfirming(false)
-  }
+  function handleAskConfirm(e: React.MouseEvent) { block(e); setConfirming(true) }
+  function handleCancelConfirm(e: React.MouseEvent) { block(e); setConfirming(false) }
 
   function handleConfirmedDelete(e: React.MouseEvent) {
     block(e)
@@ -110,6 +112,33 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
     })
   }
 
+  function handleDeleteMatch(e: React.MouseEvent) {
+    block(e)
+    startTransition(async () => {
+      await deleteMatch(match.id)
+      setConfirmDelete(false)
+      router.refresh()
+    })
+  }
+
+  function handleSaveGuestName(e: React.MouseEvent, player: 1 | 2) {
+    block(e)
+    const memberId = player === 1 ? match.player1Id : match.player2Id
+    const name     = player === 1 ? p1Name : p2Name
+    if (!memberId) return
+    setNameError('')
+    startTransition(async () => {
+      const res = await updateGuestName(memberId, name)
+      if (res.success) {
+        if (player === 1) setEditingP1Name(false)
+        else              setEditingP2Name(false)
+        router.refresh()
+      } else {
+        setNameError(res.error ?? 'Failed to rename player.')
+      }
+    })
+  }
+
   const formattedDate = new Date(match.createdAt).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric',
   })
@@ -130,20 +159,88 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
           {/* Players + score */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn(
-                'text-sm font-semibold',
-                isCompleted && match.winnerName === match.player1Name ? 'text-win' : 'text-ink',
-              )}>
-                {match.player1Name}
-              </span>
+              {/* Player 1 name — inline edit for guests */}
+              {canManage && match.player1IsGuest && match.player1Id ? (
+                editingP1Name ? (
+                  <span className="flex items-center gap-1.5" onClick={block}>
+                    <input
+                      autoFocus
+                      value={p1Name}
+                      onChange={e => setP1Name(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSaveGuestName(e as any, 1); if (e.key === 'Escape') setEditingP1Name(false) }}
+                      className="w-28 rounded border border-gold/40 bg-surface-elevated px-2 py-0.5 text-sm font-semibold text-ink focus:border-gold/70 focus:outline-none"
+                    />
+                    <button onClick={e => handleSaveGuestName(e, 1)} disabled={busy} className="text-win hover:text-win/80">
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={e => { block(e); setEditingP1Name(false) }} className="text-ink-subtle hover:text-ink">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={e => { block(e); setEditingP1Name(true) }}
+                    className={cn(
+                      'flex items-center gap-1 text-sm font-semibold group',
+                      isCompleted && match.winnerName === match.player1Name ? 'text-win' : 'text-ink',
+                    )}
+                  >
+                    {match.player1Name}
+                    <UserPen className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity text-gold" />
+                  </button>
+                )
+              ) : (
+                <span className={cn(
+                  'text-sm font-semibold',
+                  isCompleted && match.winnerName === match.player1Name ? 'text-win' : 'text-ink',
+                )}>
+                  {match.player1Name}
+                </span>
+              )}
+
               <span className="text-xs text-ink-subtle">vs</span>
-              <span className={cn(
-                'text-sm font-semibold',
-                isCompleted && match.winnerName === match.player2Name ? 'text-win' : 'text-ink',
-              )}>
-                {match.player2Name}
-              </span>
+
+              {/* Player 2 name — inline edit for guests */}
+              {canManage && match.player2IsGuest && match.player2Id ? (
+                editingP2Name ? (
+                  <span className="flex items-center gap-1.5" onClick={block}>
+                    <input
+                      autoFocus
+                      value={p2Name}
+                      onChange={e => setP2Name(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSaveGuestName(e as any, 2); if (e.key === 'Escape') setEditingP2Name(false) }}
+                      className="w-28 rounded border border-gold/40 bg-surface-elevated px-2 py-0.5 text-sm font-semibold text-ink focus:border-gold/70 focus:outline-none"
+                    />
+                    <button onClick={e => handleSaveGuestName(e, 2)} disabled={busy} className="text-win hover:text-win/80">
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={e => { block(e); setEditingP2Name(false) }} className="text-ink-subtle hover:text-ink">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={e => { block(e); setEditingP2Name(true) }}
+                    className={cn(
+                      'flex items-center gap-1 text-sm font-semibold group',
+                      isCompleted && match.winnerName === match.player2Name ? 'text-win' : 'text-ink',
+                    )}
+                  >
+                    {match.player2Name}
+                    <UserPen className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity text-gold" />
+                  </button>
+                )
+              ) : (
+                <span className={cn(
+                  'text-sm font-semibold',
+                  isCompleted && match.winnerName === match.player2Name ? 'text-win' : 'text-ink',
+                )}>
+                  {match.player2Name}
+                </span>
+              )}
             </div>
+
+            {nameError && <p className="mt-1 text-xs text-loss">{nameError}</p>}
 
             {(isActive || isCompleted) && (
               <p className="mt-1 text-lg font-black font-mono tracking-tight text-gold">
@@ -200,13 +297,13 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
         </div>
       </Link>
 
-      {/* ── Admin score editor (completed matches) ────────────────────── */}
-      {canEditScore && isCompleted && (
+      {/* ── Management bar for completed matches (score edit + delete) ── */}
+      {showManageBar && (
         <div className="border-t border-line/40 bg-surface-base/60 px-4 py-2.5">
           {editingScore ? (
             <div className="flex flex-col gap-2" onClick={block}>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-ink-muted w-24 truncate">{match.player1Name}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-ink-muted max-w-[80px] truncate">{match.player1Name}</span>
                 <input
                   type="number" min={0} value={s1}
                   onChange={e => setS1(e.target.value)}
@@ -218,7 +315,7 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
                   onChange={e => setS2(e.target.value)}
                   className="w-14 rounded-lg border border-line bg-surface-elevated px-2 py-1 text-sm font-bold text-ink text-center focus:border-gold/50 focus:outline-none"
                 />
-                <span className="text-xs text-ink-muted w-24 truncate text-right">{match.player2Name}</span>
+                <span className="text-xs text-ink-muted max-w-[80px] truncate text-right">{match.player2Name}</span>
               </div>
               {scoreError && <p className="text-xs text-loss">{scoreError}</p>}
               <div className="flex items-center gap-2">
@@ -238,14 +335,43 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
                 </button>
               </div>
             </div>
+          ) : confirmDelete ? (
+            <div className="flex items-center gap-2" onClick={block}>
+              <span className="text-xs font-medium text-loss">Delete this match permanently?</span>
+              <button
+                onClick={handleDeleteMatch}
+                disabled={busy}
+                className="flex items-center gap-1 rounded-lg bg-loss/10 border border-loss/40 text-loss text-xs font-bold px-2.5 py-1 hover:bg-loss/20 transition-colors disabled:opacity-50"
+              >
+                <Check className="h-3 w-3" />
+                {busy ? '…' : 'Delete'}
+              </button>
+              <button
+                onClick={e => { block(e); setConfirmDelete(false) }}
+                className="rounded-lg border border-line text-ink-muted text-xs px-2 py-1 hover:border-gold/30 transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
           ) : (
-            <button
-              onClick={e => { block(e); setS1(String(match.player1Score)); setS2(String(match.player2Score)); setEditingScore(true) }}
-              className="flex items-center gap-1.5 text-xs text-ink-subtle hover:text-gold transition-colors"
-            >
-              <Pencil className="h-3 w-3" />
-              Edit score
-            </button>
+            <div className="flex items-center gap-3" onClick={block}>
+              <button
+                onClick={e => { block(e); setS1(String(match.player1Score)); setS2(String(match.player2Score)); setEditingScore(true) }}
+                className="flex items-center gap-1.5 text-xs text-ink-subtle hover:text-gold transition-colors"
+              >
+                <Pencil className="h-3 w-3" />
+                Edit score
+              </button>
+              {canManage && (
+                <button
+                  onClick={e => { block(e); setConfirmDelete(true) }}
+                  className="flex items-center gap-1.5 text-xs text-ink-subtle hover:text-loss transition-colors ml-auto"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Delete
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -262,7 +388,6 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
           </span>
 
           <div className="flex items-center gap-2">
-            {/* Start now — only for PENDING matches that have both players */}
             {startable && (
               <button
                 onClick={handleStartNow}
@@ -276,7 +401,6 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
               </button>
             )}
 
-            {/* Abandon / Cancel with inline confirm — hidden for bracket matches */}
             {!allowDestructive ? null : confirming ? (
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-medium text-loss">

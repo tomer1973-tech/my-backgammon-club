@@ -87,7 +87,7 @@ export default async function TournamentDetailPage({ params }: Props) {
               Live matches
             </h2>
           </div>
-          {activeMatches.map(m => <MatchCard key={m.id} match={m} />)}
+          {activeMatches.map(m => <MatchCard key={m.id} match={m} canManage={canManage} />)}
         </section>
       )}
 
@@ -133,7 +133,7 @@ export default async function TournamentDetailPage({ params }: Props) {
               All matches →
             </Link>
           </div>
-          {recentCompleted.map(m => <MatchCard key={m.id} match={m} />)}
+          {recentCompleted.map(m => <MatchCard key={m.id} match={m} canManage={canManage} canEditScore={canManage} />)}
         </section>
       )}
 

@@ -164,27 +164,29 @@ export async function getTournamentMatches(tournamentId: string): Promise<MatchS
     tournamentId: m.tournamentId,
     player1Id:    m.player1Id,
     player2Id:    m.player2Id,
-    player1Name:  resolveName(m.player1),
-    player2Name:  resolveName(m.player2),
-    winnerName:   m.winner ? resolveName(m.winner) : null,
-    targetScore:  m.targetScore,
-    player1Score: m.player1Score,
-    player2Score: m.player2Score,
-    cubeValue:    m.cubeValue,
-    cubeOwnerId:  m.cubeOwnerId,
-    status:       m.status as MatchStatus,
-    winnerId:     m.winnerId,
-    round:        m.round,
-    bracket:      m.bracket,
-    openingType:  m.openingType as OpeningType | null,
-    notes:        m.notes,
-    startedAt:    m.startedAt,
-    completedAt:  m.completedAt,
-    duration:     m.duration,
-    recordedById: m.recordedById,
-    createdAt:    m.createdAt,
-    updatedAt:    m.updatedAt,
-    gameCount:    m._count.games,
+    player1Name:    resolveName(m.player1),
+    player2Name:    resolveName(m.player2),
+    winnerName:     m.winner ? resolveName(m.winner) : null,
+    player1IsGuest: m.player1 ? m.player1.player === null : false,
+    player2IsGuest: m.player2 ? m.player2.player === null : false,
+    targetScore:    m.targetScore,
+    player1Score:   m.player1Score,
+    player2Score:   m.player2Score,
+    cubeValue:      m.cubeValue,
+    cubeOwnerId:    m.cubeOwnerId,
+    status:         m.status as MatchStatus,
+    winnerId:       m.winnerId,
+    round:          m.round,
+    bracket:        m.bracket,
+    openingType:    m.openingType as OpeningType | null,
+    notes:          m.notes,
+    startedAt:      m.startedAt,
+    completedAt:    m.completedAt,
+    duration:       m.duration,
+    recordedById:   m.recordedById,
+    createdAt:      m.createdAt,
+    updatedAt:      m.updatedAt,
+    gameCount:      m._count.games,
   }))
 }
 
@@ -860,17 +862,24 @@ export async function setMatchScore(
   data: unknown,
 ): Promise<ActionResult> {
   const user = await requireSessionUser()
-  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
-    return { success: false, error: 'Only admins or tournament managers can override scores.' }
-  }
 
   const parsed = setScoreSchema.safeParse(data)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
 
   const { matchId, player1Score, player2Score } = parsed.data
 
-  const match = await db.match.findUnique({ where: { id: matchId } })
+  const match = await db.match.findUnique({ where: { id: matchId }, select: { tournamentId: true } })
   if (!match) return { success: false, error: 'Match not found.' }
+
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const tournament = await db.tournament.findUnique({
+      where: { id: match.tournamentId }, select: { createdById: true },
+    })
+    const isOrganizer = tournament?.createdById === user.id || !!(await db.tournamentMember.findFirst({
+      where: { tournamentId: match.tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
+    }))
+    if (!isOrganizer) return { success: false, error: 'You do not have permission to edit match scores.' }
+  }
 
   await db.match.update({
     where: { id: matchId },
@@ -878,6 +887,69 @@ export async function setMatchScore(
   })
 
   revalidatePath(`/tournaments/${match.tournamentId}/matches/${matchId}`)
+  revalidatePath(`/tournaments/${match.tournamentId}/matches`)
+  revalidatePath(`/tournaments/${match.tournamentId}`)
+  return { success: true, data: undefined }
+}
+
+export async function deleteMatch(matchId: string): Promise<ActionResult> {
+  const user = await requireSessionUser()
+
+  const match = await db.match.findUnique({
+    where: { id: matchId },
+    select: { tournamentId: true, status: true },
+  })
+  if (!match) return { success: false, error: 'Match not found.' }
+
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const tournament = await db.tournament.findUnique({
+      where: { id: match.tournamentId }, select: { createdById: true },
+    })
+    const isOrganizer = tournament?.createdById === user.id || !!(await db.tournamentMember.findFirst({
+      where: { tournamentId: match.tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
+    }))
+    if (!isOrganizer) return { success: false, error: 'You do not have permission to delete this match.' }
+  }
+
+  await db.match.delete({ where: { id: matchId } })
+
+  revalidatePath(`/tournaments/${match.tournamentId}/matches`)
+  revalidatePath(`/tournaments/${match.tournamentId}`)
+  revalidatePath(`/tournaments/${match.tournamentId}/standings`)
+  return { success: true, data: undefined }
+}
+
+export async function updateGuestName(memberId: string, newName: string): Promise<ActionResult> {
+  const user = await requireSessionUser()
+
+  const member = await db.tournamentMember.findUnique({
+    where: { id: memberId },
+    select: { tournamentId: true, playerId: true },
+  })
+  if (!member) return { success: false, error: 'Member not found.' }
+  if (member.playerId !== null) return { success: false, error: 'Cannot rename a registered player.' }
+
+  const trimmed = newName.trim().slice(0, 50)
+  if (!trimmed) return { success: false, error: 'Name cannot be empty.' }
+
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const tournament = await db.tournament.findUnique({
+      where: { id: member.tournamentId }, select: { createdById: true },
+    })
+    const isOrganizer = tournament?.createdById === user.id || !!(await db.tournamentMember.findFirst({
+      where: { tournamentId: member.tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
+    }))
+    if (!isOrganizer) return { success: false, error: 'You do not have permission to rename this player.' }
+  }
+
+  await db.tournamentMember.update({
+    where: { id: memberId },
+    data:  { guestName: trimmed },
+  })
+
+  revalidatePath(`/tournaments/${member.tournamentId}`)
+  revalidatePath(`/tournaments/${member.tournamentId}/matches`)
+  revalidatePath(`/tournaments/${member.tournamentId}/players`)
   return { success: true, data: undefined }
 }
 

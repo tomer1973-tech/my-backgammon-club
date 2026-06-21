@@ -8,11 +8,12 @@
 
 import { useState }         from 'react'
 import Link                 from 'next/link'
-import { Shield, Trash2 }   from 'lucide-react'
+import { Shield, Trash2, Pencil, Check, X } from 'lucide-react'
 import { Avatar }           from '@/components/ui/avatar'
 import { Badge }            from '@/components/ui/badge'
 import { Button }           from '@/components/ui/button'
 import { removeMember, updateMemberRole } from '@/actions/player'
+import { updateGuestName }  from '@/actions/match'
 import { cn }               from '@/lib/utils'
 import type { Member }      from '@/types'
 
@@ -24,9 +25,11 @@ interface PlayerCardProps {
 }
 
 export function PlayerCard({ member, tournamentId, canManage = false, showLink = true }: PlayerCardProps) {
-  const [removing, setRemoving] = useState(false)
-  const [promoting, setPromoting] = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [removing,    setRemoving]    = useState(false)
+  const [promoting,   setPromoting]   = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameVal,     setNameVal]     = useState(member.name)
+  const [error,       setError]       = useState<string | null>(null)
 
   const winRate = member.wins + member.losses > 0
     ? Math.round((member.wins / (member.wins + member.losses)) * 100)
@@ -39,6 +42,14 @@ export function PlayerCard({ member, tournamentId, canManage = false, showLink =
     const result = await removeMember({ memberId: member.id, tournamentId })
     setRemoving(false)
     if (!result.success) setError(result.error)
+  }
+
+  async function handleRenameGuest() {
+    if (!nameVal.trim()) return
+    setError(null)
+    const result = await updateGuestName(member.id, nameVal)
+    if (!result.success) { setError(result.error ?? null); return }
+    setEditingName(false)
   }
 
   async function handleToggleRole() {
@@ -58,7 +69,19 @@ export function PlayerCard({ member, tournamentId, canManage = false, showLink =
       {/* Name + role */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          {showLink ? (
+          {canManage && member.isGuest && editingName ? (
+            <span className="flex items-center gap-1">
+              <input
+                autoFocus
+                value={nameVal}
+                onChange={e => setNameVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleRenameGuest(); if (e.key === 'Escape') { setEditingName(false); setNameVal(member.name) } }}
+                className="w-32 rounded border border-gold/40 bg-surface-elevated px-2 py-0.5 text-sm font-medium text-ink focus:border-gold/70 focus:outline-none"
+              />
+              <button onClick={handleRenameGuest} className="text-win hover:text-win/80"><Check className="h-3.5 w-3.5" /></button>
+              <button onClick={() => { setEditingName(false); setNameVal(member.name) }} className="text-ink-subtle hover:text-ink"><X className="h-3.5 w-3.5" /></button>
+            </span>
+          ) : showLink ? (
             <Link
               href={`/tournaments/${tournamentId}/players/${member.id}`}
               className="truncate text-sm font-medium text-ink hover:text-gold transition-colors"
@@ -68,7 +91,7 @@ export function PlayerCard({ member, tournamentId, canManage = false, showLink =
           ) : (
             <span className="truncate text-sm font-medium text-ink">{member.name}</span>
           )}
-          {member.isGuest && (
+          {member.isGuest && !editingName && (
             <Badge variant="guest" className="shrink-0">Guest</Badge>
           )}
           {member.memberRole === 'ORGANIZER' && (
@@ -90,8 +113,19 @@ export function PlayerCard({ member, tournamentId, canManage = false, showLink =
       </div>
 
       {/* Organizer actions */}
-      {canManage && (
+      {canManage && !editingName && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {member.isGuest && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => setEditingName(true)}
+              aria-label="Rename guest"
+              title="Rename guest"
+            >
+              <Pencil className="h-3.5 w-3.5 text-ink-subtle" />
+            </Button>
+          )}
           {!member.isGuest && (
             <Button
               size="icon-sm"
