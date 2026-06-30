@@ -19,15 +19,17 @@ Set all of these in your Vercel project → Settings → Environment Variables.
 
 ### Connection String Format
 
-The password `tX9tX!GZDRzzFoTs!qkU` contains `!` characters. **URL-encode them as `%21`** in connection strings.
+If your database password contains special characters (e.g. `!`), **URL-encode them** in connection strings (`!` → `%21`, etc.).
 
 ```
 # Pooled (app queries — use pgbouncer):
-DATABASE_URL="postgresql://postgres.PROJECT_ID:tX9tX%21GZDRzzFoTs%21qkU@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DATABASE_URL="postgresql://postgres.PROJECT_ID:YOUR_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
 
 # Direct (Prisma migrations only):
-DIRECT_URL="postgresql://postgres:tX9tX%21GZDRzzFoTs%21qkU@db.PROJECT_ID.supabase.co:5432/postgres"
+DIRECT_URL="postgresql://postgres:YOUR_PASSWORD@db.PROJECT_ID.supabase.co:5432/postgres"
 ```
+
+Never commit real credentials to this file — set the actual values only in Vercel's environment variables and your local, gitignored `.env`.
 
 ---
 
