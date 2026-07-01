@@ -27,6 +27,7 @@ import { revalidatePath }     from 'next/cache'
 import { redirect }           from 'next/navigation'
 import { db }                 from '@/lib/db'
 import { requireSessionUser } from '@/lib/session'
+import { applyEloIfRated }    from '@/lib/elo'
 import {
   createMatchSchema,
   recordMatchGameSchema,
@@ -123,6 +124,8 @@ export async function getMatch(matchId: string): Promise<Match> {
     player2Id:    m.player2Id,
     player1Name:  resolveName(m.player1),
     player2Name:  resolveName(m.player2),
+    player1IsGuest: m.player1 ? m.player1.player === null : false,
+    player2IsGuest: m.player2 ? m.player2.player === null : false,
     winnerName:   m.winner ? resolveName(m.winner) : null,
     targetScore:  m.targetScore,
     player1Score: m.player1Score,
@@ -273,6 +276,73 @@ export async function createMatch(
   revalidatePath(`/tournaments/${tournamentId}/matches`)
   revalidatePath('/schedule')
   return { success: true, data: { id: match.id, scheduled: isScheduled } }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REMATCH — same two players, same tournament, optionally a new target score.
+// Only callable once the original match is COMPLETED.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function rematchMatch(
+  matchId: string,
+  targetScore?: number,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await requireSessionUser()
+
+  if (targetScore !== undefined && (!Number.isInteger(targetScore) || targetScore < 1 || targetScore > 99)) {
+    return { success: false, error: 'Invalid target score.' }
+  }
+
+  const original = await db.match.findUnique({
+    where:  { id: matchId },
+    select: {
+      status: true, tournamentId: true, targetScore: true,
+      player1Id: true, player2Id: true,
+      player1: { select: { playerId: true } },
+      player2: { select: { playerId: true } },
+    },
+  })
+  if (!original) return { success: false, error: 'Match not found.' }
+  if (original.status !== 'COMPLETED') {
+    return { success: false, error: 'Only a completed match can be rematched.' }
+  }
+  if (!original.player1Id || !original.player2Id || !original.player1 || !original.player2) {
+    return { success: false, error: 'Both players are required for a rematch.' }
+  }
+
+  const isParticipant = original.player1.playerId === user.id || original.player2.playerId === user.id
+  if (!isParticipant && user.role !== 'ADMIN') {
+    return { success: false, error: 'Only a participant or an admin can start a rematch.' }
+  }
+
+  const existing = await db.match.findFirst({
+    where: {
+      tournamentId: original.tournamentId,
+      status: { in: ['PENDING', 'ACTIVE'] },
+      OR: [
+        { player1Id: original.player1Id, player2Id: original.player2Id },
+        { player1Id: original.player2Id, player2Id: original.player1Id },
+      ],
+    },
+  })
+  if (existing) return { success: false, error: 'These players already have an active or scheduled match.' }
+
+  const match = await db.match.create({
+    data: {
+      tournamentId: original.tournamentId,
+      player1Id:    original.player1Id,
+      player2Id:    original.player2Id,
+      targetScore:  targetScore ?? original.targetScore,
+      status:       'ACTIVE',
+      startedAt:    new Date(),
+      recordedById: user.id,
+    },
+    select: { id: true },
+  })
+
+  revalidatePath(`/tournaments/${original.tournamentId}/matches`)
+  revalidatePath(`/tournaments/${original.tournamentId}`)
+  return { success: true, data: { id: match.id } }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -527,7 +597,7 @@ async function advanceBracketWinner(matchId: string): Promise<void> {
 export async function recordGameInMatch(
   data: unknown,
 ): Promise<ActionResult<{ matchComplete: boolean; winnerId?: string | null }>> {
-  await requireSessionUser()
+  const user = await requireSessionUser()
 
   const parsed = recordMatchGameSchema.safeParse(data)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
@@ -536,12 +606,24 @@ export async function recordGameInMatch(
 
   const match = await db.match.findUnique({
     where: { id: matchId },
-    include: { tournament: { select: { pointsPerWin: true, id: true } } },
+    include: { tournament: { select: { pointsPerWin: true, id: true, createdById: true } } },
   })
   if (!match)              return { success: false, error: 'Match not found.' }
   if (match.status !== 'ACTIVE') return { success: false, error: 'Match is not active.' }
   if (!match.player1Id || !match.player2Id) {
     return { success: false, error: 'This match is still waiting for both players.' }
+  }
+
+  // Auth: only the players in this match, tournament organizer/owner, or admin may record games
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const userMember = await db.tournamentMember.findFirst({
+      where: { tournamentId: match.tournamentId, playerId: user.id },
+    })
+    const isPlayer    = userMember && (userMember.id === match.player1Id || userMember.id === match.player2Id)
+    const isOrganizer = userMember?.memberRole === 'ORGANIZER' || match.tournament.createdById === user.id
+    if (!isPlayer && !isOrganizer) {
+      return { success: false, error: 'You are not authorized to record games in this match.' }
+    }
   }
 
   if (winnerId !== match.player1Id && winnerId !== match.player2Id) {
@@ -628,6 +710,7 @@ export async function recordGameInMatch(
   if (matchComplete) {
     revalidatePath(`/tournaments/${match.tournament.id}/matches`)
     await advanceBracketWinner(matchId)   // bracket: push winner into next match (no-op otherwise)
+    await applyEloIfRated(matchId)        // ranked rating update (no-op outside the Friendly Matches tournament)
   }
 
   return { success: true, data: { matchComplete, winnerId: matchWinnerId } }
@@ -644,14 +727,17 @@ export async function recordGameInMatch(
 export async function acceptDouble(
   data: unknown,
 ): Promise<ActionResult<{ newCubeValue: number }>> {
-  await requireSessionUser()
+  const user = await requireSessionUser()
 
   const parsed = acceptDoubleSchema.safeParse(data)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
 
   const { matchId, acceptorId } = parsed.data
 
-  const match = await db.match.findUnique({ where: { id: matchId } })
+  const match = await db.match.findUnique({
+    where: { id: matchId },
+    include: { tournament: { select: { createdById: true } } },
+  })
   if (!match)              return { success: false, error: 'Match not found.' }
   if (match.status !== 'ACTIVE') return { success: false, error: 'Match is not active.' }
 
@@ -660,6 +746,18 @@ export async function acceptDouble(
 
   if (acceptorId !== match.player1Id && acceptorId !== match.player2Id) {
     return { success: false, error: 'Invalid player.' }
+  }
+
+  // Auth: only a player in this match, organizer, or admin
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const userMember = await db.tournamentMember.findFirst({
+      where: { tournamentId: match.tournamentId, playerId: user.id },
+    })
+    const isPlayer    = userMember && (userMember.id === match.player1Id || userMember.id === match.player2Id)
+    const isOrganizer = userMember?.memberRole === 'ORGANIZER' || match.tournament.createdById === user.id
+    if (!isPlayer && !isOrganizer) {
+      return { success: false, error: 'You are not authorized to act on this match.' }
+    }
   }
 
   await db.match.update({
@@ -685,7 +783,7 @@ export async function acceptDouble(
 export async function declineDouble(
   data: unknown,
 ): Promise<ActionResult<{ matchComplete: boolean; winnerId?: string | null }>> {
-  await requireSessionUser()
+  const user = await requireSessionUser()
 
   const parsed = declineDoubleSchema.safeParse(data)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
@@ -694,7 +792,7 @@ export async function declineDouble(
 
   const match = await db.match.findUnique({
     where:   { id: matchId },
-    include: { tournament: { select: { pointsPerWin: true } } },
+    include: { tournament: { select: { pointsPerWin: true, createdById: true } } },
   })
   if (!match)              return { success: false, error: 'Match not found.' }
   if (match.status !== 'ACTIVE') return { success: false, error: 'Match is not active.' }
@@ -704,6 +802,18 @@ export async function declineDouble(
 
   if (offererId !== match.player1Id && offererId !== match.player2Id) {
     return { success: false, error: 'Invalid player.' }
+  }
+
+  // Auth: only a player in this match, organizer, or admin
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const userMember = await db.tournamentMember.findFirst({
+      where: { tournamentId: match.tournamentId, playerId: user.id },
+    })
+    const isPlayer    = userMember && (userMember.id === match.player1Id || userMember.id === match.player2Id)
+    const isOrganizer = userMember?.memberRole === 'ORGANIZER' || match.tournament.createdById === user.id
+    if (!isPlayer && !isOrganizer) {
+      return { success: false, error: 'You are not authorized to act on this match.' }
+    }
   }
 
   // Winner = the player who offered the double
@@ -779,6 +889,7 @@ export async function declineDouble(
   if (matchComplete) {
     revalidatePath(`/tournaments/${match.tournamentId}/matches`)
     await advanceBracketWinner(matchId)   // bracket: push winner into next match (no-op otherwise)
+    await applyEloIfRated(matchId)        // ranked rating update (no-op outside the Friendly Matches tournament)
   }
   revalidatePath(`/tournaments/${match.tournamentId}/standings`)
   return { success: true, data: { matchComplete, winnerId: matchWinnerId } }
@@ -791,11 +902,26 @@ export async function declineDouble(
 export async function undoLastGame(
   matchId: string,
 ): Promise<ActionResult> {
-  await requireSessionUser()
+  const user = await requireSessionUser()
 
-  const match = await db.match.findUnique({ where: { id: matchId } })
+  const match = await db.match.findUnique({
+    where: { id: matchId },
+    include: { tournament: { select: { createdById: true } } },
+  })
   if (!match) return { success: false, error: 'Match not found.' }
   if (match.status === 'COMPLETED') return { success: false, error: 'Cannot undo a completed match.' }
+
+  // Auth: only a player in this match, organizer, or admin
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const userMember = await db.tournamentMember.findFirst({
+      where: { tournamentId: match.tournamentId, playerId: user.id },
+    })
+    const isPlayer    = userMember && (userMember.id === match.player1Id || userMember.id === match.player2Id)
+    const isOrganizer = userMember?.memberRole === 'ORGANIZER' || match.tournament.createdById === user.id
+    if (!isPlayer && !isOrganizer) {
+      return { success: false, error: 'You are not authorized to modify this match.' }
+    }
+  }
 
   const lastGame = await db.matchGame.findFirst({
     where:   { matchId },
@@ -832,15 +958,29 @@ export async function undoLastGame(
 export async function finalizeMatch(
   data: unknown,
 ): Promise<ActionResult> {
-  await requireSessionUser()
+  const user = await requireSessionUser()
 
   const parsed = completeMatchSchema.safeParse(data)
   if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
 
   const { matchId, openingType, notes } = parsed.data
 
-  const match = await db.match.findUnique({ where: { id: matchId } })
+  const match = await db.match.findUnique({
+    where: { id: matchId },
+    include: { tournament: { select: { createdById: true } } },
+  })
   if (!match) return { success: false, error: 'Match not found.' }
+
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const userMember = await db.tournamentMember.findFirst({
+      where: { tournamentId: match.tournamentId, playerId: user.id },
+    })
+    const isPlayer    = userMember && (userMember.id === match.player1Id || userMember.id === match.player2Id)
+    const isOrganizer = userMember?.memberRole === 'ORGANIZER' || match.tournament.createdById === user.id
+    if (!isPlayer && !isOrganizer) {
+      return { success: false, error: 'You are not authorized to finalize this match.' }
+    }
+  }
 
   await db.match.update({
     where: { id: matchId },
@@ -889,6 +1029,45 @@ export async function setMatchScore(
   revalidatePath(`/tournaments/${match.tournamentId}/matches/${matchId}`)
   revalidatePath(`/tournaments/${match.tournamentId}/matches`)
   revalidatePath(`/tournaments/${match.tournamentId}`)
+  return { success: true, data: undefined }
+}
+
+export async function updateMatchTargetScore(
+  matchId: string,
+  targetScore: number,
+): Promise<ActionResult> {
+  const user = await requireSessionUser()
+
+  if (!Number.isInteger(targetScore) || targetScore < 1 || targetScore > 99) {
+    return { success: false, error: 'Invalid target score.' }
+  }
+
+  const match = await db.match.findUnique({
+    where:  { id: matchId },
+    select: { tournamentId: true, status: true, player1Score: true, player2Score: true },
+  })
+  if (!match) return { success: false, error: 'Match not found.' }
+  if (match.status === 'COMPLETED') {
+    return { success: false, error: 'Completed matches cannot be edited.' }
+  }
+  if (targetScore < Math.max(match.player1Score, match.player2Score)) {
+    return { success: false, error: 'Race length cannot be lower than the current score.' }
+  }
+
+  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
+    const tournament = await db.tournament.findUnique({
+      where: { id: match.tournamentId }, select: { createdById: true },
+    })
+    const isOrganizer = tournament?.createdById === user.id || !!(await db.tournamentMember.findFirst({
+      where: { tournamentId: match.tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
+    }))
+    if (!isOrganizer) return { success: false, error: 'You do not have permission to edit this match.' }
+  }
+
+  await db.match.update({ where: { id: matchId }, data: { targetScore } })
+
+  revalidatePath(`/tournaments/${match.tournamentId}/matches/${matchId}`)
+  revalidatePath(`/tournaments/${match.tournamentId}/matches`)
   return { success: true, data: undefined }
 }
 

@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useMemo }  from 'react'
+import { useState, useMemo, useRef } from 'react'
 import Link                   from 'next/link'
 import {
   Plus, LogIn, Search, Trophy, Filter,
-  Zap, ChevronRight, Users, BarChart2, Settings, Bot, GraduationCap,
+  ChevronRight, BarChart2, Settings, Bot, GraduationCap, Globe,
+  Play, UserPlus2, Swords, TrendingUp, Flame,
 } from 'lucide-react'
 import { Button }              from '@/components/ui/button'
 import { Input }               from '@/components/ui/input'
@@ -12,23 +13,41 @@ import { TournamentCard }      from './tournament-card'
 import { JoinDialog }          from './join-dialog'
 import { QuickMatchDialog }    from '@/components/quick-game/quick-match-dialog'
 import { FairPlayBanner }      from '@/components/lobby/fair-play-banner'
+import { MatchmakingWidget }   from '@/components/lobby/matchmaking-widget'
+import { BoardGlimpse }        from '@/components/lobby/board-glimpse'
 import { archiveTournament }   from '@/actions/tournament'
 import { cn }                  from '@/lib/utils'
 import type { Tournament, SessionUser } from '@/types'
+import type { LobbyHeader }    from '@/actions/stats'
 
-type FilterKey = 'all' | 'mine' | 'active'
+type FilterKey = 'all' | 'mine' | 'active' | 'discover'
 
 interface LobbyClientProps {
   initialTournaments: Tournament[]
   currentUser:        SessionUser | null
+  header?:            LobbyHeader | null
 }
 
-export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProps) {
+/** Time-of-day greeting word. */
+function greeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+export function LobbyClient({ initialTournaments, currentUser, header }: LobbyClientProps) {
   const [tournaments, setTournaments]       = useState<Tournament[]>(initialTournaments)
   const [search, setSearch]                 = useState('')
   const [filter, setFilter]                 = useState<FilterKey>('all')
   const [joinOpen, setJoinOpen]             = useState(false)
   const [quickMatchOpen, setQuickMatchOpen] = useState(false)
+  const tournamentsRef = useRef<HTMLDivElement>(null)
+
+  function openDiscover() {
+    setFilter('discover')
+    setTimeout(() => tournamentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
 
   function handleDelete(id: string) {
     setTournaments(prev => prev.filter(t => t.id !== id))
@@ -53,10 +72,12 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
     return tournaments
       .filter(t => t.deletedAt === null)
       .filter(t => {
-        if (filter === 'mine')   return t.isMember || t.isOwner
-        if (filter === 'active') return t.status === 'ACTIVE'
+        if (filter === 'mine')     return t.isMember || t.isOwner
+        if (filter === 'active')   return t.status === 'ACTIVE' && (t.isMember || t.isOwner)
+        if (filter === 'discover') return !t.isMember && !t.isOwner && !t.isPrivate && t.status !== 'ARCHIVED'
+        // 'all': show user's tournaments + hide archived public ones they haven't joined
         if (t.status === 'ARCHIVED') return t.isMember || t.isOwner
-        return true
+        return t.isMember || t.isOwner || t.status === 'ACTIVE'
       })
       .filter(t =>
         search.trim() === '' ||
@@ -66,13 +87,14 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
   }, [tournaments, filter, search])
 
   const filterLabels: { key: FilterKey; label: string }[] = [
-    { key: 'all',    label: 'All' },
-    { key: 'mine',   label: 'Mine' },
-    { key: 'active', label: 'Active' },
+    { key: 'all',      label: 'Mine' },
+    { key: 'active',   label: 'Active' },
+    { key: 'discover', label: 'Discover' },
   ]
 
-  const activeCount = tournaments.filter(t => !t.deletedAt && t.status === 'ACTIVE').length
-  const totalCount  = tournaments.filter(t => !t.deletedAt).length
+  const activeCount   = tournaments.filter(t => !t.deletedAt && t.status === 'ACTIVE' && (t.isMember || t.isOwner)).length
+  const discoverCount = tournaments.filter(t => !t.deletedAt && !t.isMember && !t.isOwner && !t.isPrivate && t.status !== 'ARCHIVED').length
+  const totalCount    = tournaments.filter(t => !t.deletedAt && (t.isMember || t.isOwner)).length
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
@@ -80,14 +102,10 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
       {/* ── Greeting header ────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-ink">
-            Welcome{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''} 👋
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-gold">My Backgammon Club</p>
+          <h1 className="font-display text-2xl font-bold text-ink mt-1">
+            {greeting()}{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''}
           </h1>
-          <p className="text-sm text-ink-muted mt-0.5">
-            {activeCount > 0
-              ? `You have ${activeCount} active tournament${activeCount > 1 ? 's' : ''}`
-              : 'Ready to play? Start a quick game or manage your tournaments.'}
-          </p>
         </div>
         <Link
           href="/settings"
@@ -98,60 +116,73 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
         </Link>
       </div>
 
-      {/* ── QUICK MATCH — big hero button ──────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border-2 border-gold/40 bg-surface-raised">
-        {/* Animated gold glow background */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0
-            bg-[radial-gradient(ellipse_80%_100%_at_50%_0%,hsl(var(--gold)/0.12),transparent)]"
-        />
+      {/* ── HERO — board glimpse + single primary CTA ────────────────── */}
+      <div className="relative overflow-hidden rounded-3xl border border-line shadow-lg">
+        <BoardGlimpse />
+        <div className="absolute inset-0 bg-gradient-to-r from-surface-base via-surface-base/85 to-transparent" />
 
-        <div className="relative p-4 sm:p-6">
-          {/* Label */}
-          <div className="flex items-center gap-2 mb-1">
-            <Zap className="h-4 w-4 text-gold" />
-            <span className="text-xs font-bold uppercase tracking-widest text-gold">Quick Match</span>
-            <span className="rounded-full bg-gold/20 border border-gold/30 px-2 py-0.5 text-[10px] font-bold text-gold">
-              FREE
+        <div className="relative flex flex-col gap-5 p-5 sm:p-8 lg:max-w-[62%]">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-jade/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-jade">
+              Free to play
             </span>
+            {activeCount > 0 && (
+              <span className="rounded-full bg-win/15 border border-win/25 px-2.5 py-0.5 text-[10px] font-bold text-win">
+                {activeCount} active tournament{activeCount > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
 
-          {/* Headline */}
-          <h2 className="text-xl sm:text-2xl font-bold text-ink mt-1">
-            Start a game right now
-          </h2>
-          <p className="text-sm text-ink-muted mt-1 mb-4 sm:mb-5">
-            Add players from your club or as guests, choose a race-to, and start scoring instantly.
-          </p>
+          <div>
+            <h2 className="font-display text-2xl font-bold leading-tight text-ink sm:text-4xl">
+              Your move<span className="text-gold">.</span>
+            </h2>
+            <p className="mt-2 max-w-md text-sm text-ink-muted">
+              Add players from your club or as guests, choose a race-to, and start scoring instantly.
+            </p>
+          </div>
 
-          {/* CTA buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => setQuickMatchOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl
-                bg-gold text-black font-bold text-sm sm:text-base py-3 sm:py-3.5 px-6
-                hover:bg-gold/90 active:scale-[0.98] transition-all
-                shadow-[0_4px_20px_hsl(var(--gold)/0.35)]"
+              className="group flex items-center gap-2.5 rounded-2xl border border-gold-dim/60
+                bg-gradient-to-b from-gold-bright to-gold px-6 py-3.5 text-base font-bold text-surface-canvas
+                shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.25),0_6px_24px_-4px_hsl(var(--gold)/0.6)]
+                transition-all hover:to-gold-bright active:scale-[0.98]"
             >
-              <Users className="h-5 w-5" />
-              Add Players &amp; Start
+              <Play className="h-5 w-5 fill-current" />
+              Play Now
+              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
             <Link
-              href="/quick-game"
-              className="flex items-center justify-center gap-2 rounded-xl
-                border-2 border-gold/40 bg-gold/10 hover:bg-gold/20
-                text-gold font-semibold text-sm py-3 sm:py-3.5 px-5
-                active:scale-[0.98] transition-all"
+              href="/players"
+              className="flex items-center gap-2 rounded-2xl border border-line bg-surface-raised/80
+                px-5 py-3.5 text-sm font-semibold text-ink backdrop-blur transition-colors hover:border-gold/40"
             >
-              <Zap className="h-4 w-4" />
-              Quick Start
-              <ChevronRight className="h-4 w-4" />
+              <UserPlus2 className="h-4 w-4 text-gold" />
+              Invite a friend
             </Link>
           </div>
         </div>
       </div>
+
+      {/* ── Stat ribbon ───────────────────────────────────────────────── */}
+      {header && (
+        <div className="grid grid-cols-3 gap-3">
+          <StatPill icon={TrendingUp} label="Rating" value={String(header.rating)} tint="bg-gold/15 text-gold" />
+          <StatPill
+            icon={Flame}
+            label="Streak"
+            value={header.streakType ? `${header.streakCount} ${header.streakType === 'win' ? 'W' : 'L'}` : '—'}
+            tint={header.streakType === 'win' ? 'bg-gold/15 text-gold' : header.streakType === 'loss' ? 'bg-loss/15 text-loss' : 'bg-surface-elevated text-ink-subtle'}
+          />
+          <StatPill icon={Trophy} label="Win rate" value={header.totalMatches > 0 ? `${header.winRate}%` : '—'} tint="bg-jade/15 text-jade" />
+        </div>
+      )}
+
+      {/* ── Ranked matchmaking ─────────────────────────────────────── */}
+      {currentUser && <MatchmakingWidget />}
 
       {/* ── Action grid ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3">
@@ -181,10 +212,10 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
           desc="Learn strategy"
         />
         <ActionCard
-          href="/players"
-          icon={<Users className="h-5 w-5" />}
-          label="Players"
-          desc="View & add players"
+          onClick={openDiscover}
+          icon={<Globe className="h-5 w-5" />}
+          label="Discover"
+          desc="Open tournaments"
         />
         <ActionCard
           href="/stats"
@@ -194,26 +225,63 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
         />
       </div>
 
-      {/* ── Fair Play ──────────────────────────────────────────────── */}
-      <FairPlayBanner />
+      {/* ── Recent matches ────────────────────────────────────────────── */}
+      {header && header.recentMatches.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 font-display text-lg font-bold text-ink">
+              <Swords className="h-4 w-4 text-gold" /> Recent matches
+            </h3>
+            <Link href="/stats" className="text-xs font-medium text-gold hover:underline">View all</Link>
+          </div>
+
+          <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface-raised">
+            {header.recentMatches.map((m, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-elevated/60">
+                <span className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold shrink-0',
+                  m.win ? 'bg-jade/15 text-jade' : 'bg-loss/15 text-loss',
+                )}>
+                  {m.win ? 'W' : 'L'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">vs {m.opponentName}</p>
+                  <p className="flex items-center gap-1 text-xs text-ink-subtle">
+                    {m.date}
+                  </p>
+                </div>
+                <span className="font-mono text-sm font-bold tabular-nums text-ink shrink-0">{m.score}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Tournaments section ─────────────────────────────────────── */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" ref={tournamentsRef}>
 
         {/* Section header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy className="h-4 w-4 text-gold" />
-            <h2 className="text-base font-semibold text-ink">My Tournaments</h2>
-            {activeCount > 0 && (
+            <h2 className="text-base font-semibold text-ink">
+              {filter === 'discover' ? 'Open Tournaments' : 'My Tournaments'}
+            </h2>
+            {activeCount > 0 && filter !== 'discover' && (
               <span className="rounded-full bg-win/15 border border-win/25 px-2 py-0.5
                 text-[10px] font-semibold text-win">
                 {activeCount} active
               </span>
             )}
+            {filter === 'discover' && discoverCount > 0 && (
+              <span className="rounded-full bg-gold/15 border border-gold/25 px-2 py-0.5
+                text-[10px] font-semibold text-gold">
+                {discoverCount} open
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-subtle">{totalCount} total</span>
+            {filter !== 'discover' && <span className="text-xs text-ink-subtle">{totalCount} total</span>}
             <Link
               href="/tournaments/new"
               className="flex items-center gap-1 rounded-lg border border-line bg-surface-raised
@@ -243,13 +311,21 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
                 key={key}
                 onClick={() => setFilter(key)}
                 className={cn(
-                  'rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
+                  'rounded-lg px-3 py-1.5 text-xs font-medium transition-all flex items-center gap-1.5',
                   filter === key
                     ? 'bg-surface-raised text-gold shadow-sm'
                     : 'text-ink-subtle hover:text-ink-muted',
                 )}
               >
                 {label}
+                {key === 'discover' && discoverCount > 0 && (
+                  <span className={cn(
+                    'rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none',
+                    filter === 'discover' ? 'bg-gold/20 text-gold' : 'bg-surface-elevated text-ink-subtle',
+                  )}>
+                    {discoverCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -261,6 +337,7 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
             hasSearch={search.trim().length > 0}
             filter={filter}
             onJoin={() => setJoinOpen(true)}
+            onDiscover={openDiscover}
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -277,6 +354,9 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
         )}
       </div>
 
+      {/* ── Fair Play ──────────────────────────────────────────────── */}
+      <FairPlayBanner />
+
       {joinOpen && (
         <JoinDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
       )}
@@ -288,6 +368,24 @@ export function LobbyClient({ initialTournaments, currentUser }: LobbyClientProp
           currentUser={currentUser}
         />
       )}
+    </div>
+  )
+}
+
+// ─── Stat Pill ────────────────────────────────────────────────────────────────
+
+function StatPill({ icon: Icon, label, value, tint }: {
+  icon: React.ElementType; label: string; value: string; tint: string
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-raised px-4 py-3">
+      <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', tint)}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div>
+        <p className="text-lg font-bold leading-none text-ink tabular-nums">{value}</p>
+        <p className="mt-1 text-[11px] uppercase tracking-wide text-ink-subtle">{label}</p>
+      </div>
     </div>
   )
 }
@@ -306,7 +404,7 @@ interface ActionCardProps {
 
 function ActionCard({ href, onClick, icon, label, desc, accent = 'default', className }: ActionCardProps) {
   const base = cn(
-    'flex flex-col gap-2 sm:gap-2.5 rounded-xl border p-3 sm:p-4 transition-all duration-150',
+    'glossy flex flex-col gap-2 sm:gap-2.5 rounded-xl border p-3 sm:p-4 transition-all duration-150',
     'active:scale-[0.97] cursor-pointer select-none text-left',
     accent === 'gold'
       ? 'border-gold/40 bg-gold/8 hover:bg-gold/12 hover:border-gold/60 hover:shadow-gold'
@@ -342,10 +440,11 @@ function ActionCard({ href, onClick, icon, label, desc, accent = 'default', clas
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
-function EmptyState({ hasSearch, filter, onJoin }: {
-  hasSearch: boolean
-  filter:    FilterKey
-  onJoin:    () => void
+function EmptyState({ hasSearch, filter, onJoin, onDiscover }: {
+  hasSearch:   boolean
+  filter:      FilterKey
+  onJoin:      () => void
+  onDiscover:  () => void
 }) {
   if (hasSearch) return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface-raised py-10 text-center">
@@ -354,16 +453,24 @@ function EmptyState({ hasSearch, filter, onJoin }: {
     </div>
   )
 
-  if (filter !== 'all') return (
+  if (filter === 'discover') return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface-raised py-10 text-center">
-      <Filter className="h-8 w-8 text-ink-subtle/40" />
-      <p className="text-sm text-ink-muted">
-        {filter === 'mine' ? "You haven't joined any tournaments yet." : 'No active tournaments right now.'}
-      </p>
+      <Trophy className="h-8 w-8 text-ink-subtle/40" />
+      <p className="text-sm text-ink-muted">No open public tournaments right now.</p>
       <Button variant="secondary" size="sm" onClick={onJoin} className="gap-1.5">
         <LogIn className="h-4 w-4" />
-        Join a tournament
+        Join with invite code
       </Button>
+    </div>
+  )
+
+  if (filter === 'active') return (
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface-raised py-10 text-center">
+      <Filter className="h-8 w-8 text-ink-subtle/40" />
+      <p className="text-sm text-ink-muted">No active tournaments right now.</p>
+      <button onClick={onDiscover} className="text-xs text-gold hover:text-gold/80 transition-colors">
+        Browse open tournaments →
+      </button>
     </div>
   )
 
@@ -372,12 +479,16 @@ function EmptyState({ hasSearch, filter, onJoin }: {
       <Trophy className="h-10 w-10 text-gold/30" />
       <div>
         <p className="text-sm font-semibold text-ink">No tournaments yet</p>
-        <p className="mt-1 text-xs text-ink-muted">Create one or join with a code.</p>
+        <p className="mt-1 text-xs text-ink-muted">Create one, join with a code, or discover open tournaments.</p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap justify-center">
         <Button variant="secondary" size="sm" onClick={onJoin} className="gap-1.5">
           <LogIn className="h-4 w-4" />
           Join with code
+        </Button>
+        <Button variant="secondary" size="sm" onClick={onDiscover} className="gap-1.5">
+          <Search className="h-4 w-4" />
+          Discover
         </Button>
         <Button asChild size="sm" className="gap-1.5">
           <Link href="/tournaments/new">

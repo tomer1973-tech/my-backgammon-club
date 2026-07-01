@@ -5,7 +5,8 @@
 
 'use client'
 
-import { MapPin, Calendar, Hash, Users, Trophy, Clock, MessageCircle, Share2 } from 'lucide-react'
+import { MapPin, Calendar, Hash, Users, Trophy, Clock, MessageCircle, Copy, Check as CheckIcon } from 'lucide-react'
+import { useState } from 'react'
 import { Badge }         from '@/components/ui/badge'
 import { FormatBadge }   from './format-badge'
 import { StatusBadge }   from './status-badge'
@@ -35,6 +36,14 @@ function InfoRow({ icon: Icon, label, value }: {
 }
 
 export function TournamentOverview({ tournament: t }: TournamentOverviewProps) {
+  const [copied, setCopied] = useState(false)
+
+  function handleCopyCode() {
+    navigator.clipboard.writeText(t.code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
   const formattedDate = t.startDate
     ? new Date(t.startDate).toLocaleDateString('en-US', {
         weekday: 'long',
@@ -100,6 +109,14 @@ export function TournamentOverview({ tournament: t }: TournamentOverviewProps) {
                   <p className="font-mono text-base font-bold tracking-widest text-gold">
                     {t.code}
                   </p>
+                  <button
+                    onClick={handleCopyCode}
+                    title="Copy code"
+                    className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface-elevated px-2 py-1 text-[10px] font-medium text-ink-muted hover:text-ink hover:border-gold/30 transition-colors"
+                  >
+                    {copied ? <CheckIcon className="h-3 w-3 text-win" /> : <Copy className="h-3 w-3" />}
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
                   <button
                     onClick={() => {
                       const text = `Join my backgammon tournament "${t.name}"! Use code: ${t.code} at My Backgammon Club`

@@ -69,7 +69,7 @@ export function RecordGamePanel({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface-raised p-5 space-y-5">
+    <div className="rounded-xl border border-line bg-surface-raised p-4 space-y-4">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">
         Record a game
       </h3>

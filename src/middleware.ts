@@ -38,7 +38,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/quick-game') || // no-account quick game mode
     pathname.startsWith('/play')       || // no-account local hot-seat play
     pathname.startsWith('/practice')   || // no-account practice vs AI
-    pathname.startsWith('/lessons')       // no-account interactive tutorial
+    pathname.startsWith('/lessons')    || // no-account interactive tutorial
+    pathname.startsWith('/style-preview') // temp design comparison, no auth needed
 
   // Redirect unauthenticated users to login (preserve intended destination)
   if (!isPublicRoute && !isAuthed) {

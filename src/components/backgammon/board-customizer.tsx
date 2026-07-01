@@ -16,11 +16,11 @@ import {
   type BoardTheme, type DiceTheme,
 } from '@/lib/backgammon/themes'
 
-const BOARD_THEME_KEY = 'pb_board_theme'
+const BOARD_THEME_KEY = 'pb_board_theme_v2'
 const DICE_THEME_KEY  = 'pb_dice_theme'
 
 export function useBoardThemes() {
-  const [boardThemeId, setBoardThemeId] = useState('navy')
+  const [boardThemeId, setBoardThemeId] = useState(BOARD_THEMES[0].id)
   const [diceThemeId, setDiceThemeId]   = useState('ivory')
 
   useEffect(() => {

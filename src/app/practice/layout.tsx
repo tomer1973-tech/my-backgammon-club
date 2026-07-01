@@ -8,7 +8,7 @@ export default function PracticeLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="relative min-h-dvh bg-surface-canvas wood-texture flex items-start justify-center px-4 py-10">
+    <div className="relative min-h-dvh bg-surface-canvas wood-texture flex items-start justify-center px-4 py-10 [@media(max-height:500px)]:py-2">
       {/* Ambient gold glow */}
       <div
         aria-hidden

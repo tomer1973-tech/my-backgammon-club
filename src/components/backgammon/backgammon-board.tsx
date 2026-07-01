@@ -143,6 +143,17 @@ export function BackgammonBoard({
     }
   }
 
+  // Double-tap/double-click a checker to play it immediately, preferring the
+  // highest die that has a legal destination from that point.
+  function handleDoubleClick(target: Highlight) {
+    if (!interactive) return
+    const candidates = nextMoves.filter(m => m.from === target)
+    if (candidates.length === 0) return
+    const move = [...candidates].sort((a, b) => b.die - a.die)[0]
+    onMove!(move)
+    setSelected(null)
+  }
+
   // ── Checker glide animation ───────────────────────────────────────────────
   // When exactly one move is added, slide a ghost checker from the source cell
   // to where the moved checker now rests. The real checker at the destination
@@ -324,17 +335,17 @@ export function BackgammonBoard({
 
       {/* ── Board ── */}
       <div
-        className="flex-1 rounded-2xl"
+        className="flex-1 rounded-2xl p-[10px] [@media(max-height:500px)]:p-1.5"
         style={{
           /* Rosewood / walnut frame */
           backgroundColor: 'var(--bg-rail)',
           backgroundImage: [
+            'linear-gradient(125deg, transparent 30%, rgba(255,255,255,var(--felt-gloss,0.05)) 48%, transparent 66%)',
             'linear-gradient(160deg, rgba(255,255,255,0.06) 0%, transparent 45%, rgba(0,0,0,0.14) 100%)',
             'repeating-linear-gradient(88deg, transparent 0px, transparent 7px, rgba(255,255,255,0.012) 7px, rgba(255,255,255,0.012) 8px)',
           ].join(', '),
-          padding: '10px',
           boxShadow: [
-            'inset 0 0 0 1px hsl(35 55% 32% / 0.5)',   /* inner gold bead */
+            'inset 0 0 0 1px var(--bg-trim)',            /* inner metal bead */
             'inset 0 3px 18px rgba(0,0,0,0.30)',         /* depth inside frame */
             '0 20px 60px rgba(0,0,0,0.75)',              /* large lift */
             '0 6px 20px rgba(0,0,0,0.55)',               /* mid shadow */
@@ -344,15 +355,18 @@ export function BackgammonBoard({
       >
         {/* Felt surface with radial vignette */}
         <div
-          className="rounded-xl h-full flex flex-col"
+          className="rounded-xl h-full flex flex-col py-2 px-1.5 [@media(max-height:500px)]:py-0.5 [@media(max-height:500px)]:px-1"
           style={{
             backgroundColor: 'var(--bg-felt)',
             backgroundImage: [
+              /* Glassy diagonal sheen — a clear-coat reflection sweeping across the surface */
+              'linear-gradient(115deg, transparent 28%, rgba(255,255,255,var(--felt-gloss,0.05)) 47%, transparent 64%)',
               'radial-gradient(ellipse 100% 85% at 50% 50%, transparent 40%, rgba(0,0,0,0.22) 100%)',
-              'repeating-linear-gradient(45deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 9px)',
-              'repeating-linear-gradient(-45deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 9px)',
+              /* Weave texture — fine crosshatch, intensity driven per-theme (dense for carbon-fibre finishes) */
+              'repeating-linear-gradient(45deg, rgba(255,255,255,var(--felt-weave,0.008)) 0px, rgba(255,255,255,var(--felt-weave,0.008)) 1px, transparent 1px, transparent 4px)',
+              'repeating-linear-gradient(-45deg, rgba(255,255,255,var(--felt-weave,0.008)) 0px, rgba(255,255,255,var(--felt-weave,0.008)) 1px, transparent 1px, transparent 4px)',
+              'repeating-linear-gradient(45deg, rgba(0,0,0,var(--felt-weave,0.008)) 2px, rgba(0,0,0,var(--felt-weave,0.008)) 3px, transparent 3px, transparent 4px)',
             ].join(', '),
-            padding: '8px 6px',
           }}
         >
         <BoardRow
@@ -363,6 +377,7 @@ export function BackgammonBoard({
           fromOptions={fromOptions}
           toOptions={toOptions}
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           hidePoint={anim?.hidePoint ?? null}
           suggestFromPoint={suggestFromPoint}
           suggestToPoint={suggestToPoint}
@@ -378,6 +393,7 @@ export function BackgammonBoard({
           fromOptions={fromOptions}
           toOptions={toOptions}
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           hidePoint={anim?.hidePoint ?? null}
           suggestFromPoint={suggestFromPoint}
           suggestToPoint={suggestToPoint}
@@ -389,7 +405,8 @@ export function BackgammonBoard({
       <div className="flex shrink-0 flex-row gap-2 sm:w-24 sm:flex-col">
         <BearOffTray player={flip ? 'black' : 'white'} board={board}
           highlighted={toOptions.has('off')}
-          onClick={() => handleClick('off')} />
+          onClick={() => handleClick('off')}
+          onDoubleClick={() => handleDoubleClick('off')} />
         {/* Dice tray */}
         <div
           className="flex flex-1 items-center justify-center rounded-xl p-2"
@@ -397,7 +414,7 @@ export function BackgammonBoard({
             backgroundColor: 'var(--bg-rail)',
             backgroundImage: 'linear-gradient(160deg, rgba(255,255,255,0.05) 0%, transparent 50%, rgba(0,0,0,0.12) 100%)',
             boxShadow: [
-              'inset 0 0 0 1px hsl(35 50% 30% / 0.45)',
+              'inset 0 0 0 1px var(--bg-trim)',
               'inset 0 2px 10px rgba(0,0,0,0.6)',
               '0 4px 12px rgba(0,0,0,0.4)',
             ].join(', '),
@@ -415,7 +432,8 @@ export function BackgammonBoard({
         </div>
         <BearOffTray player={flip ? 'white' : 'black'} board={board}
           highlighted={toOptions.has('off')}
-          onClick={() => handleClick('off')} />
+          onClick={() => handleClick('off')}
+          onDoubleClick={() => handleDoubleClick('off')} />
       </div>
     </div>
   )
@@ -424,7 +442,7 @@ export function BackgammonBoard({
 // ─── Board row (6 points | bar | 6 points) ─────────────────────────────────
 
 function BoardRow({
-  order, rowPosition, board, selected, fromOptions, toOptions, onClick, hidePoint,
+  order, rowPosition, board, selected, fromOptions, toOptions, onClick, onDoubleClick, hidePoint,
   suggestFromPoint, suggestToPoint,
 }: {
   order: (number | 'bar')[]
@@ -434,6 +452,7 @@ function BoardRow({
   fromOptions: Set<Highlight>
   toOptions: Map<Highlight, Move>
   onClick: (target: Highlight) => void
+  onDoubleClick: (target: Highlight) => void
   hidePoint: number | null
   suggestFromPoint: number | null
   suggestToPoint: number | null
@@ -450,6 +469,7 @@ function BoardRow({
               selected={selected}
               highlighted={fromOptions.has('bar') || toOptions.has('bar')}
               onClick={() => onClick('bar')}
+              onDoubleClick={() => onDoubleClick('bar')}
             />
           )
         }
@@ -466,6 +486,7 @@ function BoardRow({
             isSource={fromOptions.has(entry)}
             isTarget={toOptions.has(entry)}
             onClick={() => onClick(entry)}
+            onDoubleClick={() => onDoubleClick(entry)}
             hideTop={hidePoint === entry}
             suggestFrom={suggestFromPoint === entry}
             suggestTo={suggestToPoint === entry}
@@ -479,7 +500,7 @@ function BoardRow({
 // ─── A single triangular point ─────────────────────────────────────────────
 
 function PointCell({
-  index, rowPosition, count, player, selected, isSource, isTarget, onClick, hideTop,
+  index, rowPosition, count, player, selected, isSource, isTarget, onClick, onDoubleClick, hideTop,
   suggestFrom, suggestTo,
 }: {
   index: number
@@ -490,6 +511,7 @@ function PointCell({
   isSource: boolean
   isTarget: boolean
   onClick: () => void
+  onDoubleClick?: () => void
   hideTop?: boolean
   suggestFrom?: boolean
   suggestTo?: boolean
@@ -517,19 +539,19 @@ function PointCell({
       type="button"
       data-cell={index}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       aria-label={`Point ${index + 1}${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'}` : ', empty'}`}
+      style={{ touchAction: 'manipulation' }}
       className={cn(
-        'relative flex h-24 sm:h-28 md:h-32 lg:h-36 flex-col items-center gap-0.5 px-0.5 outline-none',
+        'relative flex h-24 sm:h-28 md:h-32 lg:h-36 [@media(max-height:500px)]:h-16 flex-col items-center gap-0.5 px-0.5 outline-none',
         rowPosition === 'top' ? 'justify-start pt-1.5' : 'flex-col-reverse justify-start pb-1.5',
         interactive ? 'cursor-pointer' : 'cursor-default',
       )}
     >
-      {/* Triangle base shape */}
+      {/* Triangle base shape — always shows its own colour; highlight is an overlay on top */}
       <div
         className="absolute inset-0"
-        style={{ clipPath, backgroundImage: goldFill ? undefined : `${gloss}, ${gradient}`,
-          backgroundColor: goldFill ? undefined : 'transparent',
-        }}
+        style={{ clipPath, backgroundImage: `${gloss}, ${gradient}` }}
       />
       {/* Interactive / suggestion gold overlay (same clip) */}
       {goldFill && (
@@ -585,13 +607,14 @@ function PointCell({
 // ─── Bar cell ────────────────────────────────────────────────────────────────
 
 function BarCell({
-  rowPosition, board, selected, highlighted, onClick,
+  rowPosition, board, selected, highlighted, onClick, onDoubleClick,
 }: {
   rowPosition: 'top' | 'bottom'
   board: Board
   selected: Highlight | null
   highlighted: boolean
   onClick: () => void
+  onDoubleClick?: () => void
 }) {
   // White's bar checkers shown in the top half, black's in the bottom half.
   const player: Player = rowPosition === 'top' ? 'white' : 'black'
@@ -602,17 +625,21 @@ function BarCell({
       type="button"
       data-cell={`bar-${player}`}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       aria-label={`Bar${count ? `, ${count} ${player} checker${count === 1 ? '' : 's'} waiting to enter` : ''}`}
+      style={{
+        touchAction: 'manipulation',
+        ...(highlighted || selected === 'bar' ? undefined : {
+          backgroundColor: 'var(--bg-rail)',
+          boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.4), inset -1px 0 2px rgba(0,0,0,0.4)',
+        }),
+      }}
       className={cn(
-        'relative flex h-28 sm:h-36 flex-col items-center gap-0.5 rounded-md px-0.5',
+        'relative flex h-28 sm:h-36 [@media(max-height:500px)]:h-16 flex-col items-center gap-0.5 rounded-md px-0.5',
         rowPosition === 'top' ? 'justify-start pt-1' : 'flex-col-reverse justify-start pb-1',
         highlighted && 'cursor-pointer bg-gold/20',
         selected === 'bar' && 'bg-gold/35',
       )}
-      style={highlighted || selected === 'bar' ? undefined : {
-        backgroundColor: 'var(--bg-rail)',
-        boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.4), inset -1px 0 2px rgba(0,0,0,0.4)',
-      }}
     >
       {Array.from({ length: Math.min(count, MAX_STACK) }).map((_, i) => (
         <Checker key={i} player={player} overflowCount={i === MAX_STACK - 1 && count > MAX_STACK ? count : undefined} />
@@ -624,12 +651,13 @@ function BarCell({
 // ─── Bear-off tray ───────────────────────────────────────────────────────────
 
 function BearOffTray({
-  player, board, highlighted, onClick,
+  player, board, highlighted, onClick, onDoubleClick,
 }: {
   player: Player
   board: Board
   highlighted: boolean
   onClick: () => void
+  onDoubleClick?: () => void
 }) {
   const count = board.borneOff[player]
   const pct = count / CHECKERS_PER_PLAYER
@@ -638,6 +666,7 @@ function BearOffTray({
       type="button"
       data-cell={`off-${player}`}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       aria-label={`${player} borne off: ${count} of ${CHECKERS_PER_PLAYER}`}
       className={cn(
         'flex flex-1 flex-col items-center justify-center gap-1.5 rounded-xl p-2 sm:p-3 transition-all duration-200 overflow-hidden relative',
@@ -645,16 +674,18 @@ function BearOffTray({
       )}
       style={highlighted
         ? {
+          touchAction: 'manipulation',
           backgroundColor: 'hsl(40 62% 40% / 0.18)',
           border: '4px solid hsl(40 72% 55% / 0.7)',
           boxShadow: '0 0 16px hsl(40 72% 55% / 0.25), inset 0 0 0 1px hsl(40 72% 55% / 0.2)',
         }
         : {
+          touchAction: 'manipulation',
           backgroundColor: 'var(--bg-rail)',
           backgroundImage: 'linear-gradient(160deg, rgba(255,255,255,0.05) 0%, transparent 50%, rgba(0,0,0,0.12) 100%)',
           border: '4px solid rgba(0,0,0,0.3)',
           boxShadow: [
-            'inset 0 0 0 1px hsl(35 50% 28% / 0.4)',
+            'inset 0 0 0 1px var(--bg-trim)',
             'inset 0 2px 8px rgba(0,0,0,0.55)',
             '0 3px 8px rgba(0,0,0,0.35)',
           ].join(', '),
@@ -727,7 +758,7 @@ function Checker({ player, overflowCount, small, glow }: { player: Player; overf
       data-checker=""
       className={cn(
         'relative shrink-0 rounded-full border',
-        small ? 'h-5 w-5' : 'h-[22px] w-[22px] sm:h-7 sm:w-7',
+        small ? 'h-5 w-5' : 'h-[22px] w-[22px] sm:h-7 sm:w-7 [@media(max-height:500px)]:h-4 [@media(max-height:500px)]:w-4',
       )}
       style={style}
     >
@@ -763,7 +794,7 @@ function Die({ value, used, delay = 0 }: { value: number; used: boolean; delay?:
   return (
     <div
       className={cn(
-        'grid h-10 w-10 grid-cols-3 grid-rows-3 gap-[2px] rounded-[28%] border p-[5px] animate-dice-in',
+        'grid h-10 w-10 [@media(max-height:500px)]:h-7 [@media(max-height:500px)]:w-7 grid-cols-3 grid-rows-3 gap-[2px] rounded-[28%] border p-[5px] animate-dice-in',
         used ? 'opacity-30' : '',
       )}
       style={used ? {

@@ -17,12 +17,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Gold fill — primary action
+        // Gold fill — primary action, gentle gradient + lifted glow for depth
         default: [
-          'bg-gold border-gold text-surface-canvas',
-          'hover:bg-gold-bright hover:border-gold-bright',
+          'bg-gradient-to-b from-gold-bright to-gold border-gold-dim/60 text-surface-canvas',
+          'shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.25),0_2px_10px_-2px_hsl(var(--gold)/0.5)]',
+          'hover:to-gold-bright hover:shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.3),0_4px_16px_-2px_hsl(var(--gold)/0.65)]',
           'active:scale-[0.98]',
-          'shadow-sm',
         ],
         // Dark with gold border — secondary action
         secondary: [

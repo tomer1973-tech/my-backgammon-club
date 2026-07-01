@@ -13,7 +13,8 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Undo2, Trophy, Wifi, WifiOff } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft, Undo2, Trophy, Wifi, WifiOff, X } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -138,7 +139,7 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
     const winnerName = game.winner === 'white' ? whiteName : blackName
 
     return (
-      <div className="flex flex-col gap-4 animate-fade-in">
+      <FullscreenMatchShell match={match}>
         <BackLink match={match} />
         <div className={cn(
           'rounded-2xl border p-8 text-center space-y-3',
@@ -169,12 +170,12 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
             <Button size="lg" className="w-full">View match result</Button>
           </Link>
         )}
-      </div>
+      </FullscreenMatchShell>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in">
+    <FullscreenMatchShell match={match} connected={connected}>
       <div className="flex items-center justify-between gap-2">
         <BackLink match={match} connected={connected} />
         <BoardCustomizeButton
@@ -290,15 +291,59 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
           </>
         )}
       </Dialog>
-    </div>
+    </FullscreenMatchShell>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * FullscreenMatchShell — on mobile, takes over the whole viewport (above the
+ * app's top bar and bottom nav) so the board gets maximum space and feels
+ * like a real game screen rather than a page in a list of pages. Desktop is
+ * unaffected — the match just renders inline as before.
+ */
+function FullscreenMatchShell({
+  match, connected, children,
+}: { match: Match; connected?: boolean; children: React.ReactNode }) {
+  const router = useRouter()
+
+  function close() {
+    router.push(`/tournaments/${match.tournamentId}/matches/${match.id}`)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[45] flex flex-col overflow-y-auto bg-surface-base px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:static md:inset-auto md:z-auto md:flex-none md:overflow-visible md:px-0 md:pb-0 md:pt-0">
+      {/* Mobile-only close bar — replaces the app's hidden top bar / bottom nav while in-game */}
+      <div className="mb-3 flex items-center justify-between gap-2 md:hidden">
+        {connected !== undefined ? (
+          <span className={cn(
+            'inline-flex items-center gap-1.5 text-xs font-medium',
+            connected ? 'text-win' : 'text-ink-subtle',
+          )}>
+            {connected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+            {connected ? 'Live' : 'Connecting…'}
+          </span>
+        ) : <span />}
+        <button
+          onClick={close}
+          className="flex items-center gap-1.5 rounded-full border border-line bg-surface-raised px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+        >
+          <X className="h-3.5 w-3.5" />
+          Close
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-4 animate-fade-in">
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function BackLink({ match, connected }: { match: Match; connected?: boolean }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="hidden items-center justify-between md:flex">
       <Link
         href={`/tournaments/${match.tournamentId}/matches/${match.id}`}
         className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink transition-colors"

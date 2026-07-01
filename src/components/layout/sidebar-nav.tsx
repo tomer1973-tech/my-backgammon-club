@@ -4,7 +4,7 @@ import Link              from 'next/link'
 import { usePathname }   from 'next/navigation'
 import {
   Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock,
-  ShieldCheck, Zap, Medal, Dices, BookOpen, Bot, GraduationCap, Rss,
+  ShieldCheck, Zap, Medal, Dices, BookOpen, Bot, GraduationCap, Rss, Globe, MessageCircle,
   type LucideIcon,
 } from 'lucide-react'
 import { cn }            from '@/lib/utils'
@@ -12,11 +12,12 @@ import { NAV_ITEMS }     from './nav-items'
 import { Avatar }        from '@/components/ui/avatar'
 import { Badge }         from '@/components/ui/badge'
 import { ThemeToggle }   from '@/components/ui/theme-toggle'
+import { useUnreadMessages } from '@/components/messages/unread-messages-provider'
 import type { SessionUser } from '@/types'
 
 const ICONS: Record<string, LucideIcon> = {
   Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock,
-  ShieldCheck, Zap, Medal, Dices, BookOpen, Bot, GraduationCap, Rss,
+  ShieldCheck, Zap, Medal, Dices, BookOpen, Bot, GraduationCap, Rss, Globe, MessageCircle,
 }
 
 const ROLE_VARIANT = {
@@ -29,13 +30,14 @@ const ROLE_VARIANT = {
 const NAV_GROUPS = [
   { label: 'Play',    hrefs: ['/', '/quick-game', '/play', '/practice', '/lessons'] },
   { label: 'Club',    hrefs: ['/feed', '/players', '/groups', '/leaderboard', '/tournaments'] },
-  { label: 'Account', hrefs: ['/stats', '/schedule', '/settings', '/admin'] },
+  { label: 'Account', hrefs: ['/messages', '/stats', '/schedule', '/settings', '/admin'] },
 ]
 
 interface SidebarNavProps { user: SessionUser }
 
 export function SidebarNav({ user }: SidebarNavProps) {
   const pathname = usePathname()
+  const unreadMessages = useUnreadMessages()
 
   const allItems = NAV_ITEMS.filter(i => !i.adminOnly || user.role === 'ADMIN')
 
@@ -49,8 +51,8 @@ export function SidebarNav({ user }: SidebarNavProps) {
 
   return (
     <aside className="hidden md:flex flex-col w-[220px] flex-shrink-0 h-dvh sticky top-0 overflow-hidden">
-      {/* Walnut-gradient left panel */}
-      <div className="flex flex-col h-full bg-surface-canvas border-r border-line/60">
+      {/* Left panel — glossy vertical depth gradient, lit from the top */}
+      <div className="glossy flex flex-col h-full border-r border-line/60 bg-gradient-to-b from-surface-elevated via-surface-base to-surface-canvas">
 
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 pt-6 pb-5">
@@ -89,29 +91,33 @@ export function SidebarNav({ user }: SidebarNavProps) {
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          'group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium',
+                          'group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium',
                           'transition-all duration-150',
                           active
-                            ? 'bg-gold/12 text-gold'
+                            ? 'bg-gold text-surface-canvas shadow-gold'
                             : isZap
                             ? 'text-gold/80 hover:text-gold hover:bg-gold/8'
                             : 'text-ink-muted hover:text-ink hover:bg-surface-raised/60',
                         )}
                       >
-                        {/* Left accent bar */}
-                        {active && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-gold" />
-                        )}
                         {Icon && (
                           <Icon className={cn(
                             'h-4 w-4 flex-shrink-0 transition-colors',
-                            active ? 'text-gold' : isZap ? 'text-gold/70' : 'text-ink-subtle group-hover:text-ink-muted',
+                            active ? 'text-surface-canvas' : isZap ? 'text-gold/70' : 'text-ink-subtle group-hover:text-ink-muted',
                           )} />
                         )}
                         <span className="truncate">{item.label}</span>
                         {isZap && !active && (
-                          <span className="ml-auto text-[9px] font-bold uppercase tracking-wide text-gold/60 border border-gold/20 rounded px-1 py-0.5">
+                          <span className="ml-auto text-[9px] font-bold uppercase tracking-wide text-jade border border-jade/30 rounded px-1 py-0.5">
                             Free
+                          </span>
+                        )}
+                        {item.href === '/messages' && unreadMessages > 0 && (
+                          <span className={cn(
+                            'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold',
+                            active ? 'bg-surface-canvas/25 text-surface-canvas' : 'bg-gold text-surface-canvas',
+                          )}>
+                            {unreadMessages > 9 ? '9+' : unreadMessages}
                           </span>
                         )}
                       </Link>

@@ -265,3 +265,12 @@ export async function updateProfileDetails(
   revalidatePath(`/players/${user.id}`)
   return { success: true, data: { saved: true } }
 }
+
+// ── Appear offline (presence privacy) ────────────────────────────────────────
+
+export async function setAppearOffline(value: boolean): Promise<ActionResult<{ appearOffline: boolean }>> {
+  const user = await requireSessionUser()
+  await db.player.update({ where: { id: user.id }, data: { appearOffline: value } })
+  revalidatePath('/settings')
+  return { success: true, data: { appearOffline: value } }
+}

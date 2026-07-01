@@ -60,6 +60,7 @@ export async function getTournaments(): Promise<Tournament[]> {
   const rows = await db.tournament.findMany({
     where: {
       deletedAt: null,
+      isSystem:  false,
       OR: [
         { isPrivate: false },
         { createdById: user.id },

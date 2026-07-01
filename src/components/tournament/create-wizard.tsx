@@ -103,11 +103,13 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FORMAT_DESCRIPTION: Record<TournamentFormat, string> = {
-  ROUND_ROBIN:        'Every player plays every other player.',
-  SINGLE_ELIMINATION: 'Single bracket — one loss and you\'re out.',
-  DOUBLE_ELIMINATION: 'Two chances — eliminated after two losses.',
-  SWISS:              'Paired by score each round, no player sits out.',
+  ROUND_ROBIN:        'Every player plays every other player. Auto-schedule supported.',
+  SINGLE_ELIMINATION: 'Single bracket — one loss and you\'re out. Auto-bracket supported.',
+  DOUBLE_ELIMINATION: 'Two chances — eliminated after two losses. Add matches manually.',
+  SWISS:              'Paired by score each round, no player sits out. Add matches manually.',
 }
+
+const FORMAT_BETA: Set<TournamentFormat> = new Set(['DOUBLE_ELIMINATION', 'SWISS'])
 
 function FormatSelector({
   value,
@@ -137,7 +139,14 @@ function FormatSelector({
               : 'border-line bg-surface-raised hover:border-gold/40',
           )}
         >
-          <FormatBadge format={fmt} />
+          <div className="flex items-center gap-2">
+            <FormatBadge format={fmt} />
+            {FORMAT_BETA.has(fmt) && (
+              <span className="rounded-full border border-ink-subtle/30 bg-surface-elevated px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-ink-subtle">
+                Manual
+              </span>
+            )}
+          </div>
           <p className="text-xs text-ink-muted leading-relaxed">
             {FORMAT_DESCRIPTION[fmt]}
           </p>

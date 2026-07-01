@@ -21,7 +21,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link                            from 'next/link'
 import { useRouter }                   from 'next/navigation'
-import { ChevronLeft, Clock, Trash2, Dices } from 'lucide-react'
+import { ChevronLeft, Clock, Trash2, Dices, Pencil } from 'lucide-react'
 import { abandonMatch, cancelScheduledMatch } from '@/actions/match'
 import { Button }                      from '@/components/ui/button'
 import { ScoreBoard }                  from './score-board'
@@ -30,6 +30,8 @@ import { RecordGamePanel }             from './record-game-panel'
 import { GameLog }                     from './game-log'
 import { DoubleDialog }                from './double-dialog'
 import { MatchCompleteDialog }         from './match-complete-dialog'
+import { RematchButton }               from './rematch-button'
+import { EditMatchDialog }             from './edit-match-dialog'
 import { LikeButton }                  from '@/components/social/like-button'
 import { ShareButton }                 from '@/components/social/share-button'
 import type { Match, MatchGame, MatchStatus, OpeningType } from '@/types'
@@ -66,6 +68,7 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
   const router = useRouter()
   const [abandonPending, startAbandonTransition] = useTransition()
   const [confirmAbandon, setConfirmAbandon]      = useState(false)
+  const [editingMatch, setEditingMatch]          = useState(false)
 
   function handleAbandon() {
     startAbandonTransition(async () => {
@@ -175,7 +178,7 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
   }
 
   return (
-    <div className="flex flex-col gap-5 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in w-full max-w-xl mx-auto [@media(max-height:500px)]:max-w-none">
       {/* Back + match meta */}
       <div className="flex items-center justify-between">
         <Link
@@ -193,6 +196,17 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
             </>
           )}
           {isOver && <span className="text-gold font-medium">Completed</span>}
+
+          {/* Edit match — race length + guest renames, while not completed */}
+          {!isOver && !confirmAbandon && (
+            <button
+              onClick={() => setEditingMatch(true)}
+              className="flex items-center gap-1 rounded-lg border border-line text-ink-subtle text-xs px-2 py-1 hover:border-gold/40 hover:text-gold transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+          )}
 
           {/* Abandon / Cancel button for non-completed matches */}
           {!isOver && (
@@ -228,59 +242,68 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
         </div>
       </div>
 
-      {/* Score board */}
-      <ScoreBoard
-        player1Name={match.player1Name}
-        player2Name={match.player2Name}
-        player1Score={match.player1Score}
-        player2Score={match.player2Score}
-        targetScore={match.targetScore}
-        winnerId={match.winnerId}
-        player1Id={match.player1Id!}
-        player2Id={match.player2Id!}
-      />
-
-      {/* Play Live — online board for active matches */}
-      {isActive && (
-        <Link href={`/tournaments/${match.tournamentId}/matches/${match.id}/live`}>
-          <Button size="lg" className="w-full gap-2">
-            <Dices className="h-4 w-4" />
-            Play Live
-          </Button>
-        </Link>
-      )}
-
-      {/* Doubling cube — only show during active match */}
-      {isActive && (
-        <div className="rounded-xl border border-line bg-surface-raised p-5">
-          <h3 className="mb-4 text-center text-xs font-semibold uppercase tracking-wider text-ink-subtle">
-            Doubling Cube
-          </h3>
-          <DoublingCube
-            cubeValue={match.cubeValue}
-            cubeOwnerId={match.cubeOwnerId}
-            player1Id={match.player1Id!}
-            player2Id={match.player2Id!}
+      {/* Landscape (short viewport): score + cube form a left column, the
+          record-game panel takes the right column, so nothing requires
+          scrolling on a sideways phone. Portrait/desktop: simple stack. */}
+      <div className="flex flex-col gap-3 [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:items-start [@media(max-height:500px)]:gap-4">
+        <div className="flex flex-col gap-3 [@media(max-height:500px)]:w-[300px] [@media(max-height:500px)]:shrink-0">
+          {/* Score board */}
+          <ScoreBoard
             player1Name={match.player1Name}
             player2Name={match.player2Name}
-            onOfferDouble={handleOfferDouble}
-            disabled={isOver}
+            player1Score={match.player1Score}
+            player2Score={match.player2Score}
+            targetScore={match.targetScore}
+            winnerId={match.winnerId}
+            player1Id={match.player1Id!}
+            player2Id={match.player2Id!}
           />
-        </div>
-      )}
 
-      {/* Record game panel — only during active match */}
-      {isActive && (
-        <RecordGamePanel
-          matchId={match.id}
-          player1Id={match.player1Id!}
-          player2Id={match.player2Id!}
-          player1Name={match.player1Name}
-          player2Name={match.player2Name}
-          cubeValue={match.cubeValue}
-          onGameRecorded={handleGameRecorded}
-        />
-      )}
+          {/* Play Live — online board for active matches */}
+          {isActive && (
+            <Link href={`/tournaments/${match.tournamentId}/matches/${match.id}/live`}>
+              <Button className="w-full gap-2">
+                <Dices className="h-4 w-4" />
+                Play Live
+              </Button>
+            </Link>
+          )}
+
+          {/* Doubling cube — only show during active match */}
+          {isActive && (
+            <div className="rounded-xl border border-line bg-surface-raised p-4">
+              <h3 className="mb-3 text-center text-xs font-semibold uppercase tracking-wider text-ink-subtle">
+                Doubling Cube
+              </h3>
+              <DoublingCube
+                cubeValue={match.cubeValue}
+                cubeOwnerId={match.cubeOwnerId}
+                player1Id={match.player1Id!}
+                player2Id={match.player2Id!}
+                player1Name={match.player1Name}
+                player2Name={match.player2Name}
+                onOfferDouble={handleOfferDouble}
+                disabled={isOver}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 flex-1 min-w-0">
+          {/* Record game panel — only during active match */}
+          {isActive && (
+            <RecordGamePanel
+              matchId={match.id}
+              player1Id={match.player1Id!}
+              player2Id={match.player2Id!}
+              player1Name={match.player1Name}
+              player2Name={match.player2Name}
+              cubeValue={match.cubeValue}
+              onGameRecorded={handleGameRecorded}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Game log */}
       <GameLog
@@ -321,6 +344,15 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
         </div>
       )}
 
+      {/* Rematch — same two players, pick a fresh race-to length */}
+      {isOver && match.player1Id && match.player2Id && (
+        <RematchButton
+          matchId={match.id}
+          tournamentId={match.tournamentId}
+          defaultTargetScore={match.targetScore}
+        />
+      )}
+
       {/* Dialogs */}
       {doubleOffer && (
         <DoubleDialog
@@ -333,6 +365,22 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
           currentCubeValue={match.cubeValue}
           onClose={() => setDoubleOffer(null)}
           onResolved={handleDoubleResolved}
+        />
+      )}
+
+      {!isOver && match.player1Id && match.player2Id && (
+        <EditMatchDialog
+          open={editingMatch}
+          onClose={() => setEditingMatch(false)}
+          matchId={match.id}
+          targetScore={match.targetScore}
+          player1Id={match.player1Id}
+          player2Id={match.player2Id}
+          player1Name={match.player1Name}
+          player2Name={match.player2Name}
+          player1IsGuest={match.player1IsGuest}
+          player2IsGuest={match.player2IsGuest}
+          onSaved={next => setMatch(prev => ({ ...prev, ...next }))}
         />
       )}
 

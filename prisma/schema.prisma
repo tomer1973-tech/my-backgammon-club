@@ -59,6 +59,13 @@ enum FollowRequestStatus {
   DECLINED
 }
 
+enum ChallengeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
 enum MatchStatus {
   PENDING    // Scheduled, not yet started
   ACTIVE     // In progress
@@ -93,9 +100,12 @@ model Player {
   avatarUrl   String?  @map("avatar_url")
   bio         String?  @map("bio")
   isPrivate    Boolean  @default(false) @map("is_private")
+  appearOffline Boolean @default(false) @map("appear_offline")
   isSuspended  Boolean  @default(false) @map("is_suspended")
   quickWins    Int      @default(0)     @map("quick_wins")
   quickLosses  Int      @default(0)     @map("quick_losses")
+  rating       Int      @default(1500)  @map("rating")       // ELO-style skill rating, ranked 1-on-1 matches only
+  ratedGames   Int      @default(0)     @map("rated_games")  // count of completed ranked matches (provisional indicator)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt      @map("updated_at")
 
@@ -111,7 +121,13 @@ model Player {
   groupMemberships   FriendGroupMember[]
   followRequestsSent     FollowRequest[]  @relation("FollowRequestFrom")
   followRequestsReceived FollowRequest[]  @relation("FollowRequestTo")
+  challengesSent         Challenge[]      @relation("ChallengeFrom")
+  challengesReceived     Challenge[]      @relation("ChallengeTo")
+  matchmakingTicket      MatchmakingTicket?
+  messagesSent           Message[]        @relation("MessageFrom")
+  messagesReceived       Message[]        @relation("MessageTo")
 
+  @@index([rating])
   @@map("players")
 }
 
@@ -134,6 +150,7 @@ model Tournament {
   createdById  String           @map("created_by")
   groupId      String?          @map("group_id")
   isPrivate    Boolean          @default(false) @map("is_private")
+  isSystem     Boolean          @default(false) @map("is_system") // hidden singleton tournament backing 1-on-1 friendly challenges
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt      @map("updated_at")
   deletedAt    DateTime?        @map("deleted_at")
@@ -402,4 +419,73 @@ model FollowRequest {
   @@index([fromId])
   @@index([toId])
   @@map("follow_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHALLENGE — invite a mutual-follow ("friend") to a 1-on-1 live game.
+// On accept, a Match + LiveGame is created inside the hidden singleton
+// "Friendly Matches" system tournament, reusing all existing live-game infra.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Challenge {
+  id           String          @id @default(uuid())
+  fromId       String          @map("from_id")
+  toId         String          @map("to_id")
+  status       ChallengeStatus @default(PENDING)
+  tournamentId String?         @map("tournament_id")
+  matchId      String?         @map("match_id")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt      @map("updated_at")
+
+  from Player @relation("ChallengeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Player @relation("ChallengeTo",   fields: [toId],   references: [id], onDelete: Cascade)
+
+  @@index([toId, status])
+  @@index([fromId, status])
+  @@map("challenges")
+}
+
+model Message {
+  id        String    @id @default(uuid())
+  fromId    String    @map("from_id")
+  toId      String    @map("to_id")
+  body      String
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  from Player @relation("MessageFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Player @relation("MessageTo",   fields: [toId],   references: [id], onDelete: Cascade)
+
+  @@index([toId, createdAt])
+  @@index([fromId, toId, createdAt])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MATCHMAKING — rated 1-on-1 queue. Players queue with a rating snapshot;
+// any client's poll may pair two WAITING tickets within tolerance and create
+// the Match + LiveGame (same hidden "Friendly Matches" tournament as
+// Challenge). One ticket per player, enforced by the unique playerId.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum MatchmakingStatus {
+  WAITING
+  MATCHED
+  CANCELLED
+}
+
+model MatchmakingTicket {
+  id            String            @id @default(uuid())
+  playerId      String            @unique @map("player_id")
+  rating        Int                                          // snapshot at queue time
+  status        MatchmakingStatus @default(WAITING)
+  tournamentId  String?           @map("tournament_id")
+  matchId       String?           @map("match_id")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt      @map("updated_at")
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("matchmaking_tickets")
 }

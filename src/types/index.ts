@@ -87,8 +87,9 @@ export interface SessionUser {
   role:        UserRole
   avatarUrl?:   string | null
   bio?:         string | null
-  isPrivate?:   boolean
-  isSuspended?: boolean
+  isPrivate?:     boolean
+  appearOffline?: boolean
+  isSuspended?:   boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -397,6 +398,8 @@ export interface MatchRow {
 export interface Match extends MatchRow {
   player1Name:   string
   player2Name:   string
+  player1IsGuest: boolean
+  player2IsGuest: boolean
   winnerName:    string | null
   tournamentName?: string
   games:         MatchGame[]

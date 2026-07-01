@@ -9,7 +9,7 @@ import { useRouter }         from 'next/navigation'
 import { Users, Target, CalendarClock, Zap } from 'lucide-react'
 import { Avatar }            from '@/components/ui/avatar'
 import { Button }            from '@/components/ui/button'
-import { Select }            from '@/components/ui/select'
+import { Input }             from '@/components/ui/input'
 import { Badge }             from '@/components/ui/badge'
 import { createMatch }       from '@/actions/match'
 import { cn }                from '@/lib/utils'
@@ -20,16 +20,7 @@ interface MatchSetupProps {
   members:      Member[]
 }
 
-const TARGET_OPTIONS = [
-  { value: 1,  label: '1 point  (quick)' },
-  { value: 3,  label: '3 points' },
-  { value: 5,  label: '5 points' },
-  { value: 7,  label: '7 points  (standard)' },
-  { value: 9,  label: '9 points' },
-  { value: 11, label: '11 points (long)' },
-  { value: 13, label: '13 points' },
-  { value: 15, label: '15 points' },
-]
+const MAX_TARGET_SCORE = 25
 
 /** Return a datetime-local string value floored to the next 15-min slot */
 function defaultScheduledAt(): string {
@@ -44,11 +35,14 @@ export function MatchSetup({ tournamentId, members }: MatchSetupProps) {
 
   const [player1Id, setPlayer1Id]       = useState<string | null>(null)
   const [player2Id, setPlayer2Id]       = useState<string | null>(null)
-  const [targetScore, setTargetScore]   = useState(7)
+  const [scoreInput, setScoreInput]     = useState('7')
   const [scheduleMode, setScheduleMode] = useState(false)
   const [scheduledAt, setScheduledAt]   = useState(defaultScheduledAt)
   const [creating, setCreating]         = useState(false)
   const [error, setError]               = useState<string | null>(null)
+
+  const targetScore = parseInt(scoreInput, 10)
+  const scoreValid = Number.isInteger(targetScore) && targetScore >= 1 && targetScore <= MAX_TARGET_SCORE
 
   const p1 = members.find(m => m.id === player1Id)
   const p2 = members.find(m => m.id === player2Id)
@@ -64,6 +58,7 @@ export function MatchSetup({ tournamentId, members }: MatchSetupProps) {
 
   async function handleSubmit() {
     if (!player1Id || !player2Id) return
+    if (!scoreValid) { setError(`Race length must be between 1 and ${MAX_TARGET_SCORE}.`); return }
     setCreating(true)
     setError(null)
 
@@ -108,11 +103,15 @@ export function MatchSetup({ tournamentId, members }: MatchSetupProps) {
 
         {/* Target score */}
         <div className="mt-4">
-          <Select
-            label="Race to (match length)"
-            value={String(targetScore)}
-            onChange={e => setTargetScore(Number(e.target.value))}
-            options={TARGET_OPTIONS.map(o => ({ value: String(o.value), label: o.label }))}
+          <Input
+            label={`Race to (1–${MAX_TARGET_SCORE} points)`}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={MAX_TARGET_SCORE}
+            value={scoreInput}
+            onChange={e => setScoreInput(e.target.value)}
+            error={!scoreValid && scoreInput !== '' ? `Enter a number from 1 to ${MAX_TARGET_SCORE}.` : undefined}
           />
         </div>
       </div>
@@ -197,7 +196,7 @@ export function MatchSetup({ tournamentId, members }: MatchSetupProps) {
 
       <Button
         onClick={handleSubmit}
-        disabled={!player1Id || !player2Id}
+        disabled={!player1Id || !player2Id || !scoreValid}
         isLoading={creating}
         size="lg"
         className="w-full gap-2"

@@ -462,7 +462,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     <div className="animate-fade-in">
 
       {/* ── Mobile player strip (< lg) ── */}
-      <div className="mb-3 flex items-center gap-3 lg:hidden">
+      <div className="mb-3 [@media(max-height:500px)]:mb-1.5 flex items-center gap-3 lg:hidden">
         <Link
           href="/"
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-raised border border-line text-ink-muted hover:text-ink transition-colors"
@@ -579,7 +579,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
       </aside>
 
       {/* ── Board + controls ── */}
-      <div className="flex-1 min-w-0 flex flex-col gap-4">
+      <div className="flex-1 min-w-0 flex flex-col gap-4 [@media(max-height:500px)]:gap-1.5">
         <div className="relative">
           <BackgammonBoard
             board={liveBoard}

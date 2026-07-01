@@ -12,6 +12,9 @@ import { Avatar }           from '@/components/ui/avatar'
 import { Badge }            from '@/components/ui/badge'
 import { ProfileFollowButton } from '@/components/profile/profile-follow-button'
 import { FollowersModal }   from '@/components/profile/followers-modal'
+import { ChallengeButton }  from '@/components/social/challenge-button'
+import { MessageButton }    from '@/components/social/message-button'
+import { OnlineDot }        from '@/components/presence/online-dot'
 import { cn }               from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -70,23 +73,30 @@ export default async function PlayerProfilePage({ params }: Props) {
         <div className="px-5 pb-5">
           {/* Avatar — overlaps banner */}
           <div className="-mt-10 mb-3 flex items-end justify-between gap-4">
-            <Avatar
-              name={profile.name}
-              src={profile.avatarUrl}
-              size="xl"
-              className="border-4 border-surface-raised ring-0"
-              style={{
-                boxShadow: '0 0 0 2px rgba(255,255,255,0.08), 0 0 0 4px rgba(180,140,40,0.3)',
-              } as React.CSSProperties}
-            />
+            <div className="relative">
+              <Avatar
+                name={profile.name}
+                src={profile.avatarUrl}
+                size="xl"
+                className="border-4 border-surface-raised ring-0"
+                style={{
+                  boxShadow: '0 0 0 2px rgba(255,255,255,0.08), 0 0 0 4px rgba(180,140,40,0.3)',
+                } as React.CSSProperties}
+              />
+              <OnlineDot playerId={profile.id} className="absolute bottom-0 right-0 h-3 w-3" />
+            </div>
             <div className="pb-1 flex items-center gap-2">
               {!isOwnProfile && me && (
-                <ProfileFollowButton
-                  targetId={profile.id}
-                  initialFollowing={profile.isFollowing}
-                  initialRequested={profile.followRequestSent}
-                  isFriend={profile.isFriend}
-                />
+                <>
+                  <ChallengeButton targetPlayerId={profile.id} />
+                  <MessageButton targetPlayerId={profile.id} targetName={profile.name} />
+                  <ProfileFollowButton
+                    targetId={profile.id}
+                    initialFollowing={profile.isFollowing}
+                    initialRequested={profile.followRequestSent}
+                    isFriend={profile.isFriend}
+                  />
+                </>
               )}
               {isOwnProfile && (
                 <Link

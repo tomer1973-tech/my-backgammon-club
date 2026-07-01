@@ -7,6 +7,14 @@
  * avoids the native showModal() inertness mechanism that can permanently block
  * background interaction if the element is unmounted while open.
  *
+ * Rendered via a portal into document.body. This is required, not cosmetic:
+ * a `position: fixed` element only escapes z-index stacking comparisons up to
+ * the viewport if none of its ancestors form their own stacking context. Any
+ * ancestor with `position: sticky` (or `relative` + a z-index, or a
+ * transform/filter) traps the dialog's z-index inside that ancestor's local
+ * stacking context — so a later DOM sibling with z-index:auto can still paint
+ * on top of the "modal". This bit us with sidebars that use `sticky`.
+ *
  * Usage:
  *   const [open, setOpen] = useState(false)
  *   <Dialog open={open} onClose={() => setOpen(false)} title="My Dialog">
@@ -14,7 +22,8 @@
  *   </Dialog>
  */
 
-import { useEffect, useRef }  from 'react'
+import { useEffect, useRef, useState }  from 'react'
+import { createPortal }       from 'react-dom'
 import { X }                  from 'lucide-react'
 import { cn }                 from '@/lib/utils'
 
@@ -35,6 +44,10 @@ const sizeClasses = {
 
 export function Dialog({ open, onClose, title, children, className, size = 'md' }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+
+  // Portals can only target document.body once mounted on the client.
+  useEffect(() => { setMounted(true) }, [])
 
   // Close on Escape key
   useEffect(() => {
@@ -51,9 +64,18 @@ export function Dialog({ open, onClose, title, children, className, size = 'md' 
     if (open) panelRef.current?.focus()
   }, [open])
 
-  if (!open) return null
+  // Lock background scroll while open (restores the previous value on close,
+  // in case some other layer already set body overflow).
+  useEffect(() => {
+    if (!open) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prevOverflow }
+  }, [open])
 
-  return (
+  if (!open || !mounted) return null
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -95,7 +117,8 @@ export function Dialog({ open, onClose, title, children, className, size = 'md' 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

@@ -39,7 +39,7 @@ export function ScoreBoard({
   const isOver  = !!winnerId
 
   return (
-    <div className="rounded-2xl border border-line bg-surface-raised p-6">
+    <div className="rounded-2xl border border-line bg-surface-raised p-5">
       {/* Score row */}
       <div className="flex items-stretch gap-4">
         {/* Player 1 */}
@@ -54,11 +54,11 @@ export function ScoreBoard({
 
         {/* Center divider */}
         <div className="flex flex-col items-center justify-center gap-1 shrink-0">
-          <div className="h-10 w-px bg-line/60" />
+          <div className="h-6 w-px bg-line/60" />
           <span className="text-xs font-semibold uppercase tracking-widest text-ink-subtle">
             vs
           </span>
-          <div className="h-10 w-px bg-line/60" />
+          <div className="h-6 w-px bg-line/60" />
         </div>
 
         {/* Player 2 */}
@@ -146,7 +146,7 @@ function PlayerScore({ name, score, align, won, lost, leading }: PlayerScoreProp
         {name}
       </span>
       <span className={cn(
-        'font-mono text-5xl font-black leading-none tabular-nums transition-all',
+        'font-mono text-4xl font-black leading-none tabular-nums transition-all',
         won     ? 'text-win'        :
         lost    ? 'text-ink-subtle' :
         leading ? 'text-gold'       : 'text-ink',

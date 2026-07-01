@@ -6,13 +6,16 @@
 
 import type { Metadata }   from 'next'
 import { redirect }        from 'next/navigation'
-import { Settings, Lock, LogOut, ShieldCheck, ImageIcon, Palette } from 'lucide-react'
+import { Settings, Lock, LogOut, ShieldCheck, ImageIcon, Palette, EyeOff } from 'lucide-react'
 import { getSessionUser }  from '@/lib/session'
 import { ProfileForm }     from '@/components/settings/profile-form'
 import { PasswordSection } from '@/components/settings/password-section'
 import { LogoutButton }    from '@/components/settings/logout-button'
 import { AvatarPicker }    from '@/components/settings/avatar-picker'
 import { ThemeToggle }     from '@/components/ui/theme-toggle'
+import { AccentPicker }    from '@/components/settings/accent-picker'
+import { SkinPicker }      from '@/components/settings/skin-picker'
+import { AppearOfflineToggle } from '@/components/settings/appear-offline-toggle'
 
 export const metadata: Metadata = { title: 'Settings — My Backgammon Club' }
 export const dynamic = 'force-dynamic'
@@ -64,10 +67,20 @@ export default async function SettingsPage() {
       </div>
 
       {/* Appearance */}
-      <Section title="Appearance" description="Choose your preferred color theme" icon={Palette}>
-        <div className="flex flex-col gap-3">
-          <p className="text-xs text-ink-muted">Select Dark, Light, or Auto (follows your device setting).</p>
-          <ThemeToggle />
+      <Section title="Appearance" description="Make the club feel like yours" icon={Palette}>
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-ink-muted">Pick a full visual direction — surfaces, accents, and text all change together. Choose "Custom" to use the Theme and Accent pickers below instead.</p>
+            <SkinPicker />
+          </div>
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-ink-muted">Select Dark, Light, or Auto (follows your device setting). Only applies when your skin above is set to Custom.</p>
+            <ThemeToggle />
+          </div>
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-ink-muted">Pick an accent color — it carries through buttons, highlights, and the active page in your sidebar. Only applies when your skin above is set to Custom.</p>
+            <AccentPicker />
+          </div>
         </div>
       </Section>
 
@@ -87,6 +100,15 @@ export default async function SettingsPage() {
         icon={ShieldCheck}
       >
         <ProfileForm user={user} />
+      </Section>
+
+      {/* Privacy */}
+      <Section
+        title="Privacy"
+        description="Control what others can see"
+        icon={EyeOff}
+      >
+        <AppearOfflineToggle initialValue={user.appearOffline ?? false} />
       </Section>
 
       {/* Password */}

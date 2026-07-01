@@ -7,47 +7,15 @@
 
 import type { Metadata }     from 'next'
 import Link                  from 'next/link'
-import { BarChart2, Trophy, Swords, TrendingUp, Star, Flame, Target, Zap, Award } from 'lucide-react'
+import { BarChart2, Trophy, Flame, Target, Zap, Award } from 'lucide-react'
 import { getMyStats }        from '@/actions/stats'
 import { getSessionUser }    from '@/lib/session'
+import { StatsOverview }     from '@/components/stats/stats-overview'
 import { TOURNAMENT_FORMAT_LABEL, TOURNAMENT_STATUS_LABEL } from '@/types'
 import { cn }                from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'My Stats — My Backgammon Club' }
 export const dynamic = 'force-dynamic'
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-function StatCard({
-  label, value, sub, icon: Icon, accent,
-}: {
-  label:   string
-  value:   string | number
-  sub?:    string
-  icon:    React.ElementType
-  accent?: boolean
-}) {
-  return (
-    <div className={cn(
-      'rounded-xl border bg-surface-raised px-5 py-4 flex items-start gap-4',
-      accent ? 'border-line-gold/50 shadow-gold' : 'border-line',
-    )}>
-      <div className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-        accent ? 'bg-gold/10' : 'bg-surface-elevated',
-      )}>
-        <Icon className={cn('h-5 w-5', accent ? 'text-gold' : 'text-ink-muted')} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-ink-subtle">{label}</p>
-        <p className={cn('text-2xl font-bold mt-0.5', accent ? 'text-gold' : 'text-ink')}>
-          {value}
-        </p>
-        {sub && <p className="text-xs text-ink-muted mt-0.5">{sub}</p>}
-      </div>
-    </div>
-  )
-}
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -93,16 +61,18 @@ function ActivityChart({ history }: { history: Array<{ joinedAt: Date; wins: num
           const h = Math.max(4, (counts[i] / max) * 72)
           const isCurrent = i === currentMonth
           return (
-            <div key={m} className="flex-1 flex flex-col items-center gap-1">
+            <div key={m} className="group flex-1 flex flex-col items-center gap-1">
               <div
                 className={cn(
-                  'w-full rounded-sm transition-all',
-                  isCurrent ? 'bg-gold' : counts[i] > 0 ? 'bg-gold/40' : 'bg-surface-elevated',
+                  'w-full rounded-t-md transition-all group-hover:opacity-90',
+                  isCurrent
+                    ? 'bg-gradient-to-t from-gold/70 to-gold shadow-gold'
+                    : counts[i] > 0 ? 'bg-gradient-to-t from-gold/20 to-gold/45' : 'bg-surface-elevated',
                 )}
                 style={{ height: `${h}px` }}
                 title={`${counts[i]} match${counts[i] === 1 ? '' : 'es'}`}
               />
-              <span className={cn('text-[9px]', isCurrent ? 'text-gold' : 'text-ink-subtle')}>
+              <span className={cn('text-[9px]', isCurrent ? 'text-gold font-semibold' : 'text-ink-subtle')}>
                 {m}
               </span>
             </div>
@@ -216,50 +186,17 @@ export default async function StatsPage() {
         )}
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard
-          label="Win rate"
-          value={`${winRate}%`}
-          sub={`${totalWins}W – ${totalLosses}L`}
-          icon={TrendingUp}
-          accent
-        />
-        <StatCard
-          label="Total matches"
-          value={totalMatches}
-          sub={totalMatches === 0 ? 'No matches yet' : undefined}
-          icon={Swords}
-        />
-        <StatCard
-          label="Total points"
-          value={totalPoints}
-          icon={Star}
-        />
-        <StatCard
-          label="Tournaments"
-          value={totalTournaments}
-          icon={Trophy}
-        />
-      </div>
-
-      {/* Quick games row */}
-      {(quickWins + quickLosses) > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
-          <StatCard
-            label="Quick game wins"
-            value={quickWins}
-            sub={`${quickLosses} losses`}
-            icon={Zap}
-          />
-          <StatCard
-            label="Quick game rate"
-            value={quickWins + quickLosses > 0 ? `${Math.round((quickWins / (quickWins + quickLosses)) * 100)}%` : '—'}
-            sub={`${quickWins + quickLosses} casual games`}
-            icon={Target}
-          />
-        </div>
-      )}
+      {/* Summary cards — click any card for the full breakdown */}
+      <StatsOverview
+        winRate={winRate}
+        totalWins={totalWins}
+        totalLosses={totalLosses}
+        totalMatches={totalMatches}
+        totalPoints={totalPoints}
+        totalTournaments={totalTournaments}
+        quickWins={quickWins}
+        quickLosses={quickLosses}
+      />
 
       {/* Activity chart */}
       <ActivityChart history={tournamentHistory} />

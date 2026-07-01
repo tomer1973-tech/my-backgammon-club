@@ -4,11 +4,11 @@
  * DoublingCube — premium animated doubling cube component.
  *
  * Visual design:
- *  - Large square element, dark charcoal background with gold glow
- *  - Value displayed in large gold font at center
- *  - Ownership indicator below (CENTER / "Player owns")
- *  - Smooth scale + glow animation on value change
- *  - Pulsing offer button when a double can be offered
+ *  - Names flank the cube left/right, like players seated either side of a
+ *    real board — each side carries that player's own compact double button
+ *    directly beneath their name, instead of two full-width stacked buttons.
+ *  - Cube itself: dark charcoal face with gold glow, large value, smooth
+ *    scale + glow animation on value change.
  *
  * Cube rules:
  *  - cubeOwnerId === null → center, EITHER player may offer a double
@@ -68,121 +68,117 @@ export function DoublingCube({
     }
   }, [cubeValue, prevValue])
 
-  const isCenter          = cubeOwnerId === null
-  const p1CanDouble       = !disabled && cubeValue < 64 && (isCenter || cubeOwnerId === player1Id)
-  const p2CanDouble       = !disabled && cubeValue < 64 && (isCenter || cubeOwnerId === player2Id)
-  const ownerName         = cubeOwnerId === player1Id ? player1Name
-                          : cubeOwnerId === player2Id ? player2Name
-                          : null
-  const nextValue         = cubeValue * 2
+  const isCenter     = cubeOwnerId === null
+  const p1Owns       = cubeOwnerId === player1Id
+  const p2Owns       = cubeOwnerId === player2Id
+  const p1CanDouble  = !disabled && cubeValue < 64 && (isCenter || p1Owns)
+  const p2CanDouble  = !disabled && cubeValue < 64 && (isCenter || p2Owns)
+  const nextValue    = cubeValue * 2
+  const canOfferAtAll = !disabled && cubeValue < 64
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex items-center justify-between gap-3">
+      {/* Player 1 — name + their double button */}
+      <PlayerSide
+        name={player1Name}
+        owns={p1Owns}
+        canDouble={canOfferAtAll && (isCenter || p1Owns)}
+        active={p1CanDouble}
+        nextValue={nextValue}
+        onDouble={() => onOfferDouble(player1Id)}
+        align="left"
+      />
+
       {/* Cube face */}
-      <div
-        className={cn(
-          'relative flex h-24 w-24 items-center justify-center rounded-2xl',
-          'border-2 border-gold/60 bg-surface-canvas',
-          'shadow-[0_0_24px_rgba(201,168,76,0.25)] transition-all duration-300',
-          animating && 'scale-110 shadow-[0_0_40px_rgba(201,168,76,0.5)] border-gold',
-          cubeValue > 1 && !animating && 'shadow-[0_0_32px_rgba(201,168,76,0.35)]',
-        )}
-      >
-        {/* Number */}
-        <span
+      <div className="flex flex-col items-center gap-1.5 shrink-0">
+        <div
           className={cn(
-            'select-none font-mono font-black text-gold transition-all duration-300',
-            cubeValue >= 16 ? 'text-3xl' : 'text-4xl',
-            animating && 'scale-110',
+            'relative flex h-16 w-16 items-center justify-center rounded-xl',
+            'border-2 border-gold/60 bg-surface-canvas',
+            'shadow-[0_0_18px_rgba(201,168,76,0.22)] transition-all duration-300',
+            animating && 'scale-110 shadow-[0_0_32px_rgba(201,168,76,0.5)] border-gold',
+            cubeValue > 1 && !animating && 'shadow-[0_0_24px_rgba(201,168,76,0.3)]',
           )}
         >
-          {cubeValue}
-        </span>
-
-        {/* Subtle corner dots for low values */}
-        {cubeValue <= 8 && (
-          <div className="absolute inset-3 pointer-events-none">
-            {DOT_PATTERNS[cubeValue]?.map(([r, c], i) => (
-              <div
-                key={i}
-                className="absolute h-1.5 w-1.5 rounded-full bg-gold/30"
-                style={{
-                  top:  r === 0 ? '0%' : r === 1 ? '50%' : 'calc(100% - 6px)',
-                  left: c === 0 ? '0%' : c === 1 ? '50%' : 'calc(100% - 6px)',
-                  transform: 'translate(-50%, -50%)',
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Ownership label */}
-      <div className="text-center">
-        {isCenter ? (
-          <span className="text-xs font-semibold uppercase tracking-widest text-ink-subtle">
-            Center
+          <span
+            className={cn(
+              'select-none font-mono font-black text-gold transition-all duration-300',
+              cubeValue >= 16 ? 'text-2xl' : 'text-3xl',
+              animating && 'scale-110',
+            )}
+          >
+            {cubeValue}
           </span>
-        ) : (
-          <span className="text-xs text-ink-muted">
-            <span className="font-semibold text-gold">{ownerName}</span>{' '}
-            <span className="text-ink-subtle">owns</span>
-          </span>
-        )}
-        {cubeValue > 1 && (
-          <p className="mt-0.5 text-xs text-ink-subtle">
-            ×{cubeValue} stakes
-          </p>
-        )}
-      </div>
 
-      {/* Double offer buttons */}
-      {!disabled && cubeValue < 64 && (
-        <div className="flex flex-col items-center gap-2 w-full">
-          {(isCenter || cubeOwnerId === player1Id) && (
-            <OfferButton
-              label={`${isCenter ? player1Name : 'You'} double → ${nextValue}`}
-              active={p1CanDouble}
-              onClick={() => onOfferDouble(player1Id)}
-            />
-          )}
-          {(isCenter || cubeOwnerId === player2Id) && (
-            <OfferButton
-              label={`${isCenter ? player2Name : 'You'} double → ${nextValue}`}
-              active={p2CanDouble}
-              onClick={() => onOfferDouble(player2Id)}
-            />
+          {cubeValue <= 8 && (
+            <div className="absolute inset-2 pointer-events-none">
+              {DOT_PATTERNS[cubeValue]?.map(([r, c], i) => (
+                <div
+                  key={i}
+                  className="absolute h-1 w-1 rounded-full bg-gold/30"
+                  style={{
+                    top:  r === 0 ? '0%' : r === 1 ? '50%' : 'calc(100% - 4px)',
+                    left: c === 0 ? '0%' : c === 1 ? '50%' : 'calc(100% - 4px)',
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                />
+              ))}
+            </div>
           )}
         </div>
-      )}
-      {cubeValue >= 64 && (
-        <p className="text-xs text-ink-subtle">Cube at maximum (64)</p>
-      )}
+
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-subtle whitespace-nowrap">
+          {isCenter ? 'Center' : cubeValue >= 64 ? 'Maximum' : 'Owned'}
+        </span>
+      </div>
+
+      {/* Player 2 — name + their double button */}
+      <PlayerSide
+        name={player2Name}
+        owns={p2Owns}
+        canDouble={canOfferAtAll && (isCenter || p2Owns)}
+        active={p2CanDouble}
+        nextValue={nextValue}
+        onDouble={() => onOfferDouble(player2Id)}
+        align="right"
+      />
     </div>
   )
 }
 
-function OfferButton({
-  label,
-  active,
-  onClick,
+function PlayerSide({
+  name, owns, canDouble, active, nextValue, onDouble, align,
 }: {
-  label:   string
-  active:  boolean
-  onClick: () => void
+  name:      string
+  owns:      boolean
+  canDouble: boolean
+  active:    boolean
+  nextValue: number
+  onDouble:  () => void
+  align:     'left' | 'right'
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={!active}
-      className={cn(
-        'w-full rounded-lg border px-4 py-2 text-xs font-medium transition-all duration-200',
-        active
-          ? 'border-gold/50 bg-gold/10 text-gold hover:bg-gold/20 hover:border-gold active:scale-[0.98]'
-          : 'border-line bg-transparent text-ink-subtle opacity-40 cursor-not-allowed',
+    <div className={cn('flex flex-1 flex-col gap-1.5 min-w-0', align === 'right' ? 'items-end' : 'items-start')}>
+      <span className={cn(
+        'truncate text-sm font-medium',
+        owns ? 'text-gold' : 'text-ink-muted',
+      )}>
+        {name}
+      </span>
+      {canDouble && (
+        <button
+          onClick={onDouble}
+          disabled={!active}
+          className={cn(
+            'rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-200 whitespace-nowrap',
+            active
+              ? 'border-gold/50 bg-gold/10 text-gold hover:bg-gold/20 hover:border-gold active:scale-[0.98]'
+              : 'border-line bg-transparent text-ink-subtle opacity-40 cursor-not-allowed',
+          )}
+        >
+          Double → {nextValue}
+        </button>
       )}
-    >
-      {label}
-    </button>
+    </div>
   )
 }

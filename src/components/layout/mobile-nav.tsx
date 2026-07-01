@@ -4,20 +4,22 @@ import Link            from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock,
-  ShieldCheck, Zap, Medal, Dices, Rss, Bot, GraduationCap, type LucideIcon,
+  ShieldCheck, Zap, Medal, Dices, Rss, Bot, GraduationCap, MessageCircle, type LucideIcon,
 } from 'lucide-react'
 import { cn }          from '@/lib/utils'
 import { NAV_ITEMS }   from './nav-items'
+import { useUnreadMessages } from '@/components/messages/unread-messages-provider'
 
 const ICONS: Record<string, LucideIcon> = {
   Trophy, BarChart2, Users, Settings, UserPlus2, CalendarClock,
-  ShieldCheck, Zap, Medal, Dices, Rss, Bot, GraduationCap,
+  ShieldCheck, Zap, Medal, Dices, Rss, Bot, GraduationCap, MessageCircle,
 }
 
 interface MobileNavProps { userRole?: string }
 
 export function MobileNav({ userRole }: MobileNavProps) {
   const pathname = usePathname()
+  const unreadMessages = useUnreadMessages()
   const visibleItems = NAV_ITEMS
     .filter(i => !i.adminOnly || userRole === 'ADMIN')
     .filter(i => !i.hideOnMobile)
@@ -59,11 +61,18 @@ export function MobileNav({ userRole }: MobileNavProps) {
               )}
 
               {Icon && (
-                <Icon className={cn(
-                  'relative h-5 w-5 transition-all duration-150',
-                  active && 'drop-shadow-[0_0_6px_hsl(var(--gold)/0.6)]',
-                  isZap && !active && 'text-gold/60',
-                )} />
+                <span className="relative">
+                  <Icon className={cn(
+                    'relative h-5 w-5 transition-all duration-150',
+                    active && 'drop-shadow-[0_0_6px_hsl(var(--gold)/0.6)]',
+                    isZap && !active && 'text-gold/60',
+                  )} />
+                  {item.href === '/messages' && unreadMessages > 0 && (
+                    <span className="absolute -top-1 -right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-gold px-0.5 text-[8px] font-bold text-surface-canvas">
+                      {unreadMessages > 9 ? '9+' : unreadMessages}
+                    </span>
+                  )}
+                </span>
               )}
               <span className={cn(
                 'relative text-[10px] font-semibold leading-none',

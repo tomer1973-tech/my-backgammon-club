@@ -235,3 +235,22 @@ export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
       return { id: p.id, name: p.name, avatarUrl: p.avatarUrl, wins, losses, points, winRate }
     })
 }
+
+export interface RatedLeaderboardEntry {
+  id:         string
+  name:       string
+  avatarUrl:  string | null
+  rating:     number
+  ratedGames: number
+}
+
+/** Ranked 1-on-1 leaderboard — sourced from Player.rating (challenges + matchmaking). */
+export async function getRatedLeaderboard(limit = 10): Promise<RatedLeaderboardEntry[]> {
+  const players = await db.player.findMany({
+    where:   { ratedGames: { gt: 0 } },
+    orderBy: { rating: 'desc' },
+    take:    limit,
+    select:  { id: true, name: true, avatarUrl: true, rating: true, ratedGames: true },
+  })
+  return players
+}

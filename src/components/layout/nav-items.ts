@@ -18,14 +18,16 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Quick Game',  href: '/quick-game',   icon: 'Zap',           matchExact: true },
   { label: 'Practice',    href: '/practice',     icon: 'Bot',           matchExact: true },
   { label: 'Lessons',     href: '/lessons',      icon: 'GraduationCap', matchExact: true },
+  { label: 'Messages',    href: '/messages',     icon: 'MessageCircle' },
   { label: 'Settings',    href: '/settings',     icon: 'Settings' },
   // Desktop sidebar only:
   { label: 'Play',        href: '/play',         icon: 'Dices',         matchExact: true, hideOnMobile: true },
   { label: 'Feed',        href: '/feed',          icon: 'Rss',           matchExact: true, hideOnMobile: true },
+  { label: 'Players',     href: '/players',      icon: 'Users',                           hideOnMobile: true },
+  { label: 'Groups',      href: '/groups',       icon: 'UserPlus2',                       hideOnMobile: true },
   { label: 'Leaderboard', href: '/leaderboard',  icon: 'Medal',                           hideOnMobile: true },
   { label: 'Schedule',    href: '/schedule',     icon: 'CalendarClock',                   hideOnMobile: true },
   { label: 'My Stats',    href: '/stats',        icon: 'BarChart2',                        hideOnMobile: true },
   { label: 'Rules',       href: '/rules',        icon: 'BookOpen',                        hideOnMobile: true },
-  { label: 'Groups',      href: '/groups',       icon: 'UserPlus2',                       hideOnMobile: true },
   { label: 'Admin',       href: '/admin',        icon: 'ShieldCheck',   adminOnly: true,  hideOnMobile: true },
 ]

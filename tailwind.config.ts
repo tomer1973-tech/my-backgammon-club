@@ -34,6 +34,13 @@ const config: Config = {
           muted:   'hsl(var(--gold-muted) / <alpha-value>)',
         },
 
+        // Jade — secondary felt-green accent, used sparingly for variety
+        jade: {
+          DEFAULT: 'hsl(var(--jade)       / <alpha-value>)',
+          dim:     'hsl(var(--jade-dim)   / <alpha-value>)',
+          bright:  'hsl(var(--jade-bright)/ <alpha-value>)',
+        },
+
         // Ink — text hierarchy
         ink: {
           DEFAULT: 'hsl(var(--ink)       / <alpha-value>)',

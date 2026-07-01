@@ -36,7 +36,7 @@ export function TournamentCard({ tournament, onDelete, onArchive, onEnd }: Tourn
     <>
       <div
         className={cn(
-          'group relative flex flex-col rounded-xl border bg-surface-raised',
+          'glossy group relative flex flex-col rounded-xl border bg-surface-raised',
           'transition-all duration-200',
           t.status === 'ACTIVE'
             ? 'border-win/30 hover:border-win/60 hover:shadow-[0_0_0_1px_hsl(var(--win)/0.15),0_4px_20px_hsl(var(--win)/0.08)]'
@@ -108,14 +108,14 @@ export function TournamentCard({ tournament, onDelete, onArchive, onEnd }: Tourn
           <Button
             asChild
             size="default"
-            variant={t.isMember && t.status === 'ACTIVE' ? 'default' : 'secondary'}
+            variant={t.isMember && t.status === 'ACTIVE' ? 'default' : !t.isMember && !t.isOwner && t.status === 'ACTIVE' ? 'default' : 'secondary'}
             className={cn(
               'flex-1 gap-1.5',
-              t.isMember && t.status === 'ACTIVE' && 'shadow-gold',
+              (t.isMember || (!t.isMember && !t.isOwner)) && t.status === 'ACTIVE' && 'shadow-gold',
             )}
           >
             <Link href={`/tournaments/${t.id}`}>
-              {t.isMember ? 'Open' : 'View'}
+              {t.isMember ? 'Open' : !t.isOwner && t.status === 'ACTIVE' ? 'Join →' : 'View'}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

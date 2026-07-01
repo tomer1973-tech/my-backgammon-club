@@ -16,11 +16,11 @@
 import { useState, useTransition }                                       from 'react'
 import Link                                                               from 'next/link'
 import { useRouter }                                                      from 'next/navigation'
-import { Calendar, Clock, Trophy, Trash2, Play, Check, X, Pencil, UserPen } from 'lucide-react'
+import { Calendar, Clock, Trophy, Trash2, Play, Check, X, Pencil, UserPen, Swords } from 'lucide-react'
 import { Badge }                                                          from '@/components/ui/badge'
 import { OPENING_TYPE_LABEL }                                             from '@/types'
 import { cn }                                                             from '@/lib/utils'
-import { abandonMatch, cancelScheduledMatch, startScheduledMatch, setMatchScore, deleteMatch, updateGuestName } from '@/actions/match'
+import { abandonMatch, cancelScheduledMatch, startScheduledMatch, setMatchScore, deleteMatch, updateGuestName, rematchMatch } from '@/actions/match'
 import type { MatchSummary }                                              from '@/types'
 
 interface MatchCardProps {
@@ -51,6 +51,7 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
   const [p1Name,           setP1Name]            = useState(match.player1Name)
   const [p2Name,           setP2Name]            = useState(match.player2Name)
   const [nameError,        setNameError]         = useState('')
+  const [rematchError,     setRematchError]      = useState('')
 
   const isActive    = match.status === 'ACTIVE'
   const isPending   = match.status === 'PENDING'
@@ -108,6 +109,19 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
         router.refresh()
       } else {
         setScoreError(res.error ?? 'Failed to update score.')
+      }
+    })
+  }
+
+  function handleRematch(e: React.MouseEvent) {
+    block(e)
+    setRematchError('')
+    startTransition(async () => {
+      const res = await rematchMatch(match.id)
+      if (res.success) {
+        router.push(`/tournaments/${match.tournamentId}/matches/${res.data.id}`)
+      } else {
+        setRematchError(res.error ?? 'Failed to create rematch.')
       }
     })
   }
@@ -362,6 +376,19 @@ export function MatchCard({ match, canManage = false, canEditScore = false }: Ma
                 <Pencil className="h-3 w-3" />
                 Edit score
               </button>
+              {match.player1Id && match.player2Id && (
+                <button
+                  onClick={handleRematch}
+                  disabled={busy}
+                  className="flex items-center gap-1.5 text-xs text-ink-subtle hover:text-gold transition-colors disabled:opacity-50"
+                >
+                  <Swords className="h-3 w-3" />
+                  {busy ? 'Creating…' : 'Rematch'}
+                </button>
+              )}
+              {rematchError && (
+                <span className="text-xs text-loss">{rematchError}</span>
+              )}
               {canManage && (
                 <button
                   onClick={e => { block(e); setConfirmDelete(true) }}

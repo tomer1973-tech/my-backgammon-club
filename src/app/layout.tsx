@@ -22,8 +22,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
-        {/* Runs before paint to apply saved theme — prevents flash of wrong theme */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('pb_theme')||'auto';var d=t==='dark'||(t==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();` }} />
+        {/* Runs before paint to apply saved theme + accent — prevents flash of wrong colors */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('pb_theme')||'auto';var d=t==='dark'||(t==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','dark');}try{document.documentElement.setAttribute('data-accent',localStorage.getItem('pb_accent')||'copper');}catch(e){document.documentElement.setAttribute('data-accent','copper');}try{var s=localStorage.getItem('pb_skin');if(s&&s!=='none')document.documentElement.setAttribute('data-skin',s);}catch(e){}})();` }} />
       </head>
       <body className="antialiased">
         {children}

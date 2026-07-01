@@ -12,36 +12,45 @@
 /* ── Dark mode (default) ──────────────────────────────────────────────────── */
 :root,
 [data-theme="dark"] {
-  /* Surfaces — refined dark slate (bright enough to read, dark enough to feel premium) */
-  --surface-canvas:   220 16% 10%;   /* #151c28 — dark slate base        */
-  --surface-base:     218 15% 13%;   /* #1b2232 — page body              */
-  --surface-raised:   216 13% 18%;   /* #252e42 — card surface           */
-  --surface-elevated: 214 12% 24%;   /* #303c52 — input / elevated card  */
-  --surface-muted:    212 10% 30%;   /* #3d4a5e — section dividers       */
-  --surface-subtle:   210  9% 38%;   /* #4e5d72 — hover state            */
+  /* Surfaces — lifted a few steps lighter than pure obsidian, with a
+     glossy/satin character: each layer reads like polished lacquer rather
+     than flat matte black. */
+  --surface-canvas:   222 20% 11%;   /* #14171f — lifted base            */
+  --surface-base:     222 17% 14%;   /* #1a1e27 — page body              */
+  --surface-raised:   220 15% 20%;   /* #282e3d — card surface           */
+  --surface-elevated: 218 14% 26%;   /* #353c4f — input / elevated card  */
+  --surface-muted:    216 12% 33%;   /* #454f63 — section dividers       */
+  --surface-subtle:   214 11% 41%;   /* #586275 — hover state            */
 
-  /* Copper — rich metallic copper (from the checker pieces) */
-  --gold:        22 68% 54%;         /* #c87428 — copper primary         */
-  --gold-dim:    20 56% 30%;         /* #742f0e — dark copper            */
-  --gold-bright: 28 76% 66%;         /* #e09c58 — bright / hover         */
-  --gold-muted:  22 44% 40%;         /* #884e20 — subtle copper          */
+  /* Copper — vivid amber accent, pushed brighter for a fresher, more
+     contemporary punch against the deeper obsidian base */
+  --gold:        26 80% 56%;         /* #e08a35 — copper primary         */
+  --gold-dim:    22 60% 32%;         /* #7d4317 — dark copper            */
+  --gold-bright: 32 88% 66%;         /* #eeae5c — bright / hover         */
+  --gold-muted:  24 50% 42%;         /* #9c5f29 — subtle copper          */
+
+  /* Jade — secondary accent (felt-green counterpoint to the copper),
+     used sparingly for variety: free/secondary CTAs, alt highlights */
+  --jade:        158 42% 44%;        /* #3a9670 — jade primary           */
+  --jade-dim:    158 38% 24%;        /* #1c4332 — dark jade              */
+  --jade-bright: 156 48% 58%;        /* #58c79a — bright / hover         */
 
   /* Silver — secondary accent from the doubling cube / bar */
   --silver:      214 18% 68%;        /* #9aaec2 — steel blue-grey        */
   --silver-dim:  216 14% 44%;        /* #5e7488 — muted steel            */
 
-  /* Ink — cool blue-white text hierarchy */
-  --ink:         208 50% 94%;        /* #deedf8 — primary text           */
-  --ink-muted:   212 24% 64%;        /* #7e9eb8 — secondary text         */
-  --ink-subtle:  216 18% 44%;        /* #526e86 — placeholder / hint     */
+  /* Ink — crisper, cooler white for sharper legibility */
+  --ink:         210 40% 96%;        /* #eef1f5 — primary text           */
+  --ink-muted:   214 18% 60%;        /* #8893a3 — secondary text         */
+  --ink-subtle:  216 14% 42%;        /* #5b6573 — placeholder / hint     */
 
-  /* Lines — navy-tinted borders */
-  --line:        218 40% 18%;        /* #1b2e4a — default border         */
-  --line-gold:   22 50% 28%;         /* #6e3412 — copper border          */
+  /* Lines — quiet but visible against the deeper base */
+  --line:        220 24% 16%;        /* #1c2230 — default border         */
+  --line-gold:   26 55% 30%;         /* #7a4a1c — copper border          */
 
   /* Semantic */
-  --win:         152 40% 34%;        /* #2d7056 — positive               */
-  --loss:          0 44% 40%;        /* #8c2d2d — negative               */
+  --win:         150 45% 40%;        /* #338a5e — positive               */
+  --loss:           4 55% 48%;       /* #bd3a2e — negative               */
   --warning:      28 72% 50%;        /* #cb741a — amber / cube           */
 
   /* Typography */
@@ -50,48 +59,183 @@
   --font-mono:    'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
 
   /* Focus ring */
-  --ring: 22 68% 54%;
+  --ring: 26 80% 56%;
 }
 
 /* ── Light mode ───────────────────────────────────────────────────────────── */
 [data-theme="light"] {
-  /* Surfaces — warm cream progression (matches luxury board felt) */
-  --surface-canvas:   36 40% 97%;    /* #faf7f2 — near-white cream       */
-  --surface-base:     35 32% 93%;    /* #ede8df — page body              */
-  --surface-raised:   34 28% 88%;    /* #e0d8cb — card surface           */
-  --surface-elevated: 33 22% 82%;    /* #d2c8b8 — input / elevated card  */
-  --surface-muted:    32 18% 74%;    /* #beb2a0 — section dividers       */
-  --surface-subtle:   30 14% 65%;    /* #a89a87 — hover state            */
+  /* Surfaces — airier, crisper white with warm undertones (less heavy
+     beige-on-beige layering, more breathing room, modern SaaS clarity) */
+  --surface-canvas:   40 30% 98%;    /* #faf8f4 — near-white warm        */
+  --surface-base:     38 25% 96%;    /* #f5f1ea — page body              */
+  --surface-raised:    0  0% 100%;   /* #ffffff — crisp card surface     */
+  --surface-elevated: 36 20% 94%;    /* #efe9df — input / elevated card  */
+  --surface-muted:    34 16% 88%;    /* #e2d8c8 — section dividers       */
+  --surface-subtle:   32 14% 80%;    /* #cfc2ab — hover state            */
 
-  /* Copper — slightly deeper for light backgrounds */
-  --gold:        22 72% 40%;         /* #ad4a10 — copper primary         */
-  --gold-dim:    20 60% 24%;         /* #6b2a08 — dark copper            */
-  --gold-bright: 26 68% 50%;         /* #c47530 — bright / hover         */
-  --gold-muted:  22 45% 52%;         /* #b06c34 — subtle copper          */
+  /* Copper — deepened for contrast on white */
+  --gold:        24 78% 42%;         /* #bb540f — copper primary         */
+  --gold-dim:    20 65% 26%;         /* #702f09 — dark copper            */
+  --gold-bright: 28 72% 50%;         /* #c97328 — bright / hover         */
+  --gold-muted:  24 50% 56%;         /* #bd7a40 — subtle copper          */
+
+  /* Jade — secondary accent, deepened to match */
+  --jade:        158 48% 32%;        /* #1f6b4d — jade primary           */
+  --jade-dim:    158 42% 20%;        /* #143828 — dark jade              */
+  --jade-bright: 156 50% 40%;        /* #20925f — bright / hover         */
 
   /* Silver */
   --silver:      214 22% 42%;        /* #5a7490 — muted steel            */
   --silver-dim:  216 18% 32%;        /* #435a6e — dark steel             */
 
   /* Ink — dark navy on cream */
-  --ink:         220 52% 14%;        /* #111f38 — primary text           */
-  --ink-muted:   216 32% 36%;        /* #3d5878 — secondary text         */
-  --ink-subtle:  214 22% 54%;        /* #6882a0 — placeholder / hint     */
+  --ink:         222 45% 13%;        /* #121b30 — primary text           */
+  --ink-muted:   218 26% 34%;        /* #3a4a64 — secondary text         */
+  --ink-subtle:  216 18% 52%;        /* #7186a0 — placeholder / hint     */
 
   /* Lines */
-  --line:        30 20% 78%;         /* #ccc0ae — default border         */
-  --line-gold:   22 52% 58%;         /* #c07040 — copper border          */
+  --line:        30 18% 85%;         /* #dfd6c8 — default border         */
+  --line-gold:   24 50% 60%;         /* #c2824a — copper border          */
 
   /* Semantic */
-  --win:         152 45% 26%;        /* #23624a — positive               */
-  --loss:          0 48% 34%;        /* #842424 — negative               */
+  --win:         150 48% 30%;        /* #27684a — positive               */
+  --loss:           4 60% 42%;       /* #aa3322 — negative               */
   --warning:      28 70% 42%;        /* #b0601a — amber / cube           */
 
   --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Georgia', 'Times New Roman', serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
 
-  --ring: 22 72% 40%;
+  --ring: 24 78% 42%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ACCENT PALETTES
+   The primary accent ("gold") is user-selectable from Settings → Appearance.
+   Each preset overrides --gold/-dim/-bright/-muted plus --line-gold and --ring,
+   tuned separately per light/dark for contrast. "Copper" matches the base
+   defaults above, so leaving data-accent unset is identical to "copper".
+   ───────────────────────────────────────────────────────────────────────── */
+
+[data-theme="dark"][data-accent="copper"] {
+  --gold: 26 80% 56%; --gold-dim: 22 60% 32%; --gold-bright: 32 88% 66%; --gold-muted: 24 50% 42%;
+  --line-gold: 26 55% 30%; --ring: 26 80% 56%;
+}
+[data-theme="dark"][data-accent="jade"] {
+  --gold: 158 42% 46%; --gold-dim: 158 38% 24%; --gold-bright: 156 48% 60%; --gold-muted: 158 30% 36%;
+  --line-gold: 158 38% 28%; --ring: 158 42% 46%;
+}
+[data-theme="dark"][data-accent="sapphire"] {
+  --gold: 212 70% 58%; --gold-dim: 214 55% 32%; --gold-bright: 208 80% 68%; --gold-muted: 213 40% 44%;
+  --line-gold: 212 50% 32%; --ring: 212 70% 58%;
+}
+[data-theme="dark"][data-accent="crimson"] {
+  --gold: 352 62% 56%; --gold-dim: 352 48% 30%; --gold-bright: 350 72% 66%; --gold-muted: 352 40% 42%;
+  --line-gold: 352 48% 32%; --ring: 352 62% 56%;
+}
+
+[data-theme="light"][data-accent="copper"] {
+  --gold: 24 78% 42%; --gold-dim: 20 65% 26%; --gold-bright: 28 72% 50%; --gold-muted: 24 50% 56%;
+  --line-gold: 24 50% 60%; --ring: 24 78% 42%;
+}
+[data-theme="light"][data-accent="jade"] {
+  --gold: 158 48% 32%; --gold-dim: 158 42% 20%; --gold-bright: 156 50% 40%; --gold-muted: 158 32% 44%;
+  --line-gold: 158 40% 50%; --ring: 158 48% 32%;
+}
+[data-theme="light"][data-accent="sapphire"] {
+  --gold: 213 62% 40%; --gold-dim: 214 55% 24%; --gold-bright: 210 68% 48%; --gold-muted: 213 38% 50%;
+  --line-gold: 212 48% 56%; --ring: 213 62% 40%;
+}
+[data-theme="light"][data-accent="crimson"] {
+  --gold: 352 58% 42%; --gold-dim: 352 50% 26%; --gold-bright: 350 64% 50%; --gold-muted: 352 38% 52%;
+  --line-gold: 352 44% 58%; --ring: 352 58% 42%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SKINS
+   A skin is a complete, self-contained palette (surfaces + both accents + ink +
+   semantic colors) chosen from Settings → Appearance, independent of the
+   light/dark + single-accent system above. ":root[data-skin]" matches the same
+   specificity as the "[data-theme][data-accent]" blocks above, so source order
+   decides ties — these win because they come later. Unset (no data-skin attr)
+   falls back to whatever theme/accent the user picked.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root[data-skin="club-noir"] {
+  --surface-canvas: 222 20% 11%; --surface-base: 222 17% 14%; --surface-raised: 220 15% 20%;
+  --surface-elevated: 218 14% 26%; --surface-muted: 216 12% 33%; --surface-subtle: 214 11% 41%;
+  --gold: 26 80% 56%; --gold-dim: 22 60% 32%; --gold-bright: 32 88% 66%; --gold-muted: 24 50% 42%;
+  --jade: 158 42% 44%; --jade-dim: 158 38% 24%; --jade-bright: 156 48% 58%;
+  --silver: 214 18% 68%; --silver-dim: 216 14% 44%;
+  --ink: 210 40% 96%; --ink-muted: 214 18% 60%; --ink-subtle: 216 14% 42%;
+  --line: 220 24% 16%; --line-gold: 26 55% 30%;
+  --win: 150 45% 40%; --loss: 4 55% 48%; --warning: 28 72% 50%; --ring: 26 80% 56%;
+}
+
+:root[data-skin="luxury-wood"] {
+  --surface-canvas: 40 35% 97%; --surface-base: 38 30% 95%; --surface-raised: 36 40% 99%;
+  --surface-elevated: 34 28% 91%; --surface-muted: 30 20% 84%; --surface-subtle: 28 18% 76%;
+  --gold: 32 55% 38%; --gold-dim: 28 50% 24%; --gold-bright: 34 60% 48%; --gold-muted: 30 35% 52%;
+  --jade: 150 30% 30%; --jade-dim: 150 28% 18%; --jade-bright: 150 35% 40%;
+  --silver: 30 12% 55%; --silver-dim: 30 14% 38%;
+  --ink: 22 35% 16%; --ink-muted: 26 20% 38%; --ink-subtle: 28 15% 55%;
+  --line: 30 20% 82%; --line-gold: 30 40% 65%;
+  --win: 150 40% 32%; --loss: 4 55% 42%; --warning: 28 65% 45%; --ring: 32 55% 38%;
+}
+
+:root[data-skin="marquetry"] {
+  --surface-canvas: 10 35% 8%; --surface-base: 9 32% 11%; --surface-raised: 8 28% 15%;
+  --surface-elevated: 8 24% 20%; --surface-muted: 10 18% 28%; --surface-subtle: 12 14% 36%;
+  --gold: 42 55% 50%; --gold-dim: 38 45% 28%; --gold-bright: 44 65% 62%; --gold-muted: 40 40% 40%;
+  --jade: 152 45% 32%; --jade-dim: 152 40% 18%; --jade-bright: 152 50% 44%;
+  --silver: 30 10% 55%; --silver-dim: 30 12% 38%;
+  --ink: 32 45% 92%; --ink-muted: 28 22% 65%; --ink-subtle: 26 16% 48%;
+  --line: 12 30% 22%; --line-gold: 40 40% 35%;
+  --win: 152 45% 36%; --loss: 4 55% 48%; --warning: 38 60% 48%; --ring: 42 55% 50%;
+}
+
+:root[data-skin="royal-sapphire"] {
+  --surface-canvas: 222 45% 9%; --surface-base: 220 42% 12%; --surface-raised: 220 38% 17%;
+  --surface-elevated: 218 32% 23%; --surface-muted: 216 24% 30%; --surface-subtle: 214 18% 40%;
+  --gold: 42 60% 55%; --gold-dim: 38 50% 30%; --gold-bright: 44 70% 66%; --gold-muted: 40 42% 44%;
+  --jade: 190 40% 38%; --jade-dim: 190 36% 22%; --jade-bright: 190 46% 50%;
+  --silver: 214 20% 65%; --silver-dim: 214 16% 44%;
+  --ink: 218 45% 95%; --ink-muted: 214 24% 68%; --ink-subtle: 214 16% 48%;
+  --line: 220 35% 22%; --line-gold: 42 40% 38%;
+  --win: 152 40% 38%; --loss: 4 55% 48%; --warning: 38 65% 50%; --ring: 42 60% 55%;
+}
+
+:root[data-skin="emerald-modern"] {
+  --surface-canvas: 150 22% 8%; --surface-base: 148 20% 11%; --surface-raised: 146 18% 15%;
+  --surface-elevated: 144 16% 20%; --surface-muted: 142 14% 27%; --surface-subtle: 140 12% 35%;
+  --gold: 36 65% 56%; --gold-dim: 32 50% 32%; --gold-bright: 38 72% 66%; --gold-muted: 34 45% 44%;
+  --jade: 152 40% 42%; --jade-dim: 152 36% 24%; --jade-bright: 152 46% 54%;
+  --silver: 150 8% 55%; --silver-dim: 150 10% 38%;
+  --ink: 140 30% 94%; --ink-muted: 144 14% 64%; --ink-subtle: 144 10% 46%;
+  --line: 148 20% 18%; --line-gold: 36 40% 36%;
+  --win: 152 45% 40%; --loss: 4 55% 48%; --warning: 36 60% 50%; --ring: 36 65% 56%;
+}
+
+:root[data-skin="midnight-jade"] {
+  --surface-canvas: 200 18% 9%; --surface-base: 198 16% 12%; --surface-raised: 196 14% 17%;
+  --surface-elevated: 194 12% 23%; --surface-muted: 192 10% 30%; --surface-subtle: 190 9% 39%;
+  --gold: 178 45% 46%; --gold-dim: 178 40% 26%; --gold-bright: 178 52% 58%; --gold-muted: 178 32% 38%;
+  --jade: 178 45% 46%; --jade-dim: 178 40% 26%; --jade-bright: 178 52% 58%;
+  --silver: 200 14% 62%; --silver-dim: 200 12% 42%;
+  --ink: 196 30% 95%; --ink-muted: 198 16% 66%; --ink-subtle: 198 12% 46%;
+  --line: 198 20% 20%; --line-gold: 178 35% 32%;
+  --win: 152 42% 40%; --loss: 4 55% 48%; --warning: 38 60% 50%; --ring: 178 45% 46%;
+}
+
+:root[data-skin="champagne"] {
+  --surface-canvas: 28 45% 98%; --surface-base: 26 40% 96%; --surface-raised: 20 50% 99%;
+  --surface-elevated: 24 35% 93%; --surface-muted: 22 28% 87%; --surface-subtle: 20 22% 79%;
+  --gold: 14 55% 52%; --gold-dim: 12 48% 34%; --gold-bright: 16 60% 62%; --gold-muted: 14 38% 58%;
+  --jade: 160 30% 36%; --jade-dim: 160 28% 22%; --jade-bright: 160 35% 46%;
+  --silver: 20 12% 60%; --silver-dim: 20 14% 42%;
+  --ink: 18 30% 18%; --ink-muted: 20 18% 40%; --ink-subtle: 20 14% 56%;
+  --line: 22 25% 86%; --line-gold: 14 40% 68%;
+  --win: 152 40% 34%; --loss: 4 55% 44%; --warning: 28 65% 48%; --ring: 14 55% 52%;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -111,10 +255,13 @@
   body {
     @apply bg-surface-base text-ink font-sans;
     min-height: 100dvh;
-    /* Subtle navy noise texture — evokes premium felt */
+    /* Subtle accent-tinted wash + fine grain — ties the page's ambience to
+       whichever accent the player has chosen, instead of a fixed navy tint
+       that used to muddy light mode. */
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -10%, hsl(218 55% 14% / 0.6), transparent),
+      radial-gradient(ellipse 80% 50% at 50% -10%, hsl(var(--gold) / 0.10), transparent),
       url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    background-attachment: fixed;
   }
 
   h1, h2, h3 { @apply font-display tracking-tight; }
@@ -158,6 +305,24 @@
   /* Card — standard elevated surface */
   .card {
     @apply rounded-xl border border-line bg-surface-raised;
+  }
+
+  /* Glossy — a polished-lacquer sheen for raised dark surfaces: a soft
+     highlight along the top edge plus a faint diagonal sweep, so panels
+     read as lit/reflective rather than flat matte. Safe to layer onto any
+     bg-surface-raised/elevated element alongside its own classes. */
+  .glossy {
+    position: relative;
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.05) 0%, transparent 40%),
+      linear-gradient(115deg, transparent 35%, rgb(255 255 255 / 0.035) 50%, transparent 65%);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+  }
+  [data-theme="light"] .glossy {
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.5) 0%, transparent 45%),
+      linear-gradient(115deg, transparent 35%, rgb(255 255 255 / 0.3) 50%, transparent 65%);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.6);
   }
 }
 
