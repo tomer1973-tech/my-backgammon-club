@@ -4,9 +4,10 @@ import { useState, useMemo, useRef } from 'react'
 import Link                   from 'next/link'
 import {
   Plus, LogIn, Search, Trophy, ChevronRight,
-  BarChart2, Settings, Bot, GraduationCap,
-  Play, UserPlus2, Swords, TrendingUp, Flame,
-  ChevronDown, Users, Zap, Globe,
+  Settings, Bot, GraduationCap, Play,
+  UserPlus2, Swords, TrendingUp, Flame,
+  ChevronDown, Users, Globe, Zap, Monitor,
+  CalendarDays, Clock,
 } from 'lucide-react'
 import { Button }              from '@/components/ui/button'
 import { Input }               from '@/components/ui/input'
@@ -15,7 +16,6 @@ import { JoinDialog }          from './join-dialog'
 import { QuickMatchDialog }    from '@/components/quick-game/quick-match-dialog'
 import { FairPlayBanner }      from '@/components/lobby/fair-play-banner'
 import { MatchmakingWidget }   from '@/components/lobby/matchmaking-widget'
-import { BoardGlimpse }        from '@/components/lobby/board-glimpse'
 import { archiveTournament }   from '@/actions/tournament'
 import { cn }                  from '@/lib/utils'
 import type { Tournament, SessionUser } from '@/types'
@@ -92,7 +92,7 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
   const totalCount    = tournaments.filter(t => !t.deletedAt && (t.isMember || t.isOwner)).length
 
   const filterTabs: { key: FilterKey; label: string; count?: number }[] = [
-    { key: 'all',      label: 'Mine',     count: totalCount  },
+    { key: 'all',      label: 'Mine',     count: totalCount },
     { key: 'active',   label: 'Active',   count: activeCount },
     { key: 'discover', label: 'Discover', count: discoverCount > 0 ? discoverCount : undefined },
   ]
@@ -103,116 +103,159 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
       {/* ── Greeting ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gold">My Backgammon Club</p>
-          <h1 className="font-display text-xl font-bold text-ink mt-0.5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold opacity-90">
+            My Backgammon Club
+          </p>
+          <h1 className="font-display text-xl font-bold text-ink mt-1">
             {greeting()}{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''}
           </h1>
         </div>
         <Link
           href="/settings"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-line
-            bg-surface-raised text-ink-muted hover:text-ink hover:border-gold/30 transition-all"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-line
+            bg-surface-raised text-ink-muted hover:border-gold/30 hover:text-gold transition-all"
           aria-label="Settings"
         >
           <Settings className="h-4 w-4" />
         </Link>
       </div>
 
-      {/* ── Stats ribbon ──────────────────────────────────────────────── */}
-      {header && (
-        <div className="grid grid-cols-3 gap-2">
-          <StatPill
-            icon={TrendingUp}
-            label="Rating"
-            value={String(header.rating)}
-            tint="bg-gold/15 text-gold"
-          />
-          <StatPill
-            icon={Flame}
-            label="Streak"
-            value={header.streakType ? `${header.streakCount} ${header.streakType === 'win' ? 'W' : 'L'}` : '—'}
-            tint={header.streakType === 'win' ? 'bg-gold/15 text-gold' : header.streakType === 'loss' ? 'bg-loss/15 text-loss' : 'bg-surface-elevated text-ink-subtle'}
-          />
-          <StatPill
-            icon={Trophy}
-            label="Win rate"
-            value={header.totalMatches > 0 ? `${header.winRate}%` : '—'}
-            tint="bg-jade/15 text-jade"
-          />
-        </div>
-      )}
+      {/* ── Hero card ─────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-lg min-h-[180px]">
+        {/* Board art SVG background */}
+        <svg
+          className="absolute right-0 top-0 h-full w-[180px] opacity-[0.14] pointer-events-none select-none"
+          viewBox="0 0 180 200"
+          fill="none"
+          aria-hidden="true"
+        >
+          {[0,30,60,90,120,150].map((x,i) => (
+            <polygon key={i} points={`${x+2},0 ${x+18},0 ${x+10},75`} fill="hsl(var(--gold))" opacity={i%2===0?'1':'.6'}/>
+          ))}
+          {[0,30,60,90,120,150].map((x,i) => (
+            <polygon key={i+6} points={`${x+2},200 ${x+18},200 ${x+10},125`} fill="hsl(var(--gold-dim))" opacity={i%2===0?'.8':'.5'}/>
+          ))}
+          <circle cx="10" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
+          <circle cx="40" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
+          <circle cx="70" cy="100" r="8" fill="hsl(var(--surface-muted))" opacity=".6"/>
+          <circle cx="100" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
+          <rect x="82" y="0" width="16" height="200" fill="hsl(var(--gold))" opacity=".03"/>
+        </svg>
 
-      {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-line shadow-md">
-        <BoardGlimpse />
-        <div className="absolute inset-0 bg-gradient-to-r from-surface-base via-surface-base/88 to-transparent" />
-        <div className="relative flex flex-col gap-4 p-5">
+        {/* Gradient overlay — left side reads clearly */}
+        <div className="absolute inset-0 bg-gradient-to-r from-surface-raised via-surface-raised/90 to-transparent pointer-events-none" />
+
+        <div className="relative flex flex-col gap-4 p-5 sm:p-6">
           <div>
-            <span className="rounded-full bg-jade/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-jade">
-              Free to play
-            </span>
-            <h2 className="font-display text-2xl font-bold leading-tight text-ink mt-2">
-              Your move<span className="text-gold">.</span>
-            </h2>
-            <p className="mt-1 text-sm text-ink-muted">
-              Start a quick match or invite a friend.
+            <p className="font-display text-4xl font-black uppercase tracking-tight text-ink leading-none">
+              Play<span className="text-gold">.</span>
+            </p>
+            <p className="mt-2 text-sm text-ink-muted max-w-[180px] leading-snug">
+              Start a new game and enjoy Backgammon
             </p>
           </div>
-          <div className="flex items-center gap-2.5 flex-wrap">
+
+          <div className="flex flex-col gap-2 w-fit">
             <button
               type="button"
               onClick={() => setQuickMatchOpen(true)}
-              className="group flex items-center gap-2 rounded-xl border border-gold-dim/60
-                bg-gradient-to-b from-gold-bright to-gold px-5 py-3 text-sm font-bold text-surface-canvas
-                shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.25),0_4px_16px_-4px_hsl(var(--gold)/0.6)]
+              className="group flex items-center gap-2.5 rounded-full
+                bg-gradient-to-b from-gold-bright to-gold
+                border border-gold-dim/60 px-6 py-3 text-sm font-bold text-surface-canvas
+                shadow-[0_4px_20px_-4px_hsl(var(--gold)/0.55)]
                 transition-all hover:to-gold-bright active:scale-[0.97]"
             >
               <Play className="h-4 w-4 fill-current" />
-              Play Now
-              <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              New Game
             </button>
             <Link
               href="/players"
-              className="flex items-center gap-2 rounded-xl border border-line bg-surface-raised/80
-                px-4 py-3 text-sm font-semibold text-ink backdrop-blur transition-colors hover:border-gold/40"
+              className="flex items-center gap-2.5 rounded-full border border-line/70
+                bg-white/5 px-5 py-2.5 text-sm font-semibold text-ink
+                hover:border-gold/30 transition-colors backdrop-blur"
             >
               <UserPlus2 className="h-4 w-4 text-gold" />
-              Invite a friend
+              Quick Match
             </Link>
           </div>
         </div>
       </div>
 
-      {/* ── Ranked matchmaking ─────────────────────────────────────────── */}
-      {currentUser && <MatchmakingWidget />}
-
-      {/* ── Quick nav grid ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-2">
-        <QuickNavTile href="/practice"    icon={<Bot className="h-5 w-5" />}         label="Practice" />
-        <QuickNavTile href="/lessons"     icon={<GraduationCap className="h-5 w-5" />} label="Lessons" />
-        <QuickNavTile href="/players"     icon={<Users className="h-5 w-5" />}        label="Players" />
-        <QuickNavTile href="/stats"       icon={<BarChart2 className="h-5 w-5" />}    label="Stats" />
+      {/* ── Section divider ───────────────────────────────────────────── */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-line" />
+        <span className="text-gold text-[10px]">◆</span>
+        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-ink-subtle">Choose your mode</span>
+        <span className="text-gold text-[10px]">◆</span>
+        <div className="flex-1 h-px bg-line" />
       </div>
 
+      {/* ── Mode grid ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <ModeCard
+          href="/practice"
+          icon={<Bot className="h-5 w-5" />}
+          name="Play vs AI"
+          desc="Play against our smart AI"
+          stat="4 Levels"
+          statIcon={<TrendingUp className="h-3 w-3" />}
+          tint="bg-jade/10 border-jade/15"
+          iconTint="bg-jade/15 text-jade"
+        />
+        <ModeCard
+          onClick={() => setQuickMatchOpen(true)}
+          icon={<Globe className="h-5 w-5" />}
+          name="Online"
+          desc="Play real players online"
+          stat="1,245 online"
+          statIcon={<Users className="h-3 w-3" />}
+          tint="bg-[hsl(220_50%_20%/0.3)] border-[hsl(220_50%_40%/0.15)]"
+          iconTint="bg-[hsl(220_50%_30%/0.4)] text-[hsl(220_70%_70%)]"
+        />
+        <ModeCard
+          href="/play"
+          icon={<Monitor className="h-5 w-5" />}
+          name="Local play"
+          desc="Play with a friend, same device"
+          stat="2 players"
+          statIcon={<Users className="h-3 w-3" />}
+          tint="bg-[hsl(270_40%_20%/0.3)] border-[hsl(270_40%_50%/0.15)]"
+          iconTint="bg-[hsl(270_40%_30%/0.4)] text-[hsl(270_70%_75%)]"
+        />
+        <ModeCard
+          href="/lessons"
+          icon={<GraduationCap className="h-5 w-5" />}
+          name="Practice"
+          desc="Sharpen your skills and learn"
+          stat="Training"
+          statIcon={<Swords className="h-3 w-3" />}
+          tint="bg-gold/8 border-gold/15"
+          iconTint="bg-gold/15 text-gold"
+        />
+      </div>
+
+      {/* ── Daily challenge / ranked matchmaking ─────────────────────── */}
+      {currentUser ? (
+        <MatchmakingWidget />
+      ) : (
+        <DailyChallenge />
+      )}
+
       {/* ── Tournaments Hub ────────────────────────────────────────────── */}
-      <div
-        ref={tournamentsRef}
-        className="flex flex-col rounded-2xl border border-line bg-surface-raised overflow-hidden"
-      >
-        {/* Hub header — tap to expand/collapse */}
+      <div ref={tournamentsRef} className="flex flex-col rounded-2xl border border-line bg-surface-raised overflow-hidden">
         <button
           type="button"
           onClick={() => setTournamentsOpen(o => !o)}
           className="flex items-center justify-between gap-3 px-4 py-3.5 text-left
-            transition-colors hover:bg-surface-elevated/50"
+            transition-colors hover:bg-surface-elevated/60"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/12 text-gold">
               <Trophy className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-ink text-sm">Tournaments</p>
-              <p className="text-[11px] text-ink-subtle truncate">
+              <p className="font-semibold text-sm text-ink">Tournaments</p>
+              <p className="text-[11px] text-ink-subtle truncate mt-0.5">
                 {totalCount > 0 ? `${totalCount} joined` : 'Create or join a tournament'}
                 {activeCount > 0 && ` · ${activeCount} active`}
               </p>
@@ -231,23 +274,11 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
           </div>
         </button>
 
-        {/* Expandable body */}
         {tournamentsOpen && (
           <div className="flex flex-col gap-3 border-t border-line px-4 pb-4 pt-3">
-
-            {/* Action buttons row */}
             <div className="grid grid-cols-3 gap-2">
-              <TournamentActionBtn
-                href="/tournaments/new"
-                icon={<Plus className="h-4 w-4" />}
-                label="New"
-                accent
-              />
-              <TournamentActionBtn
-                onClick={() => setJoinOpen(true)}
-                icon={<LogIn className="h-4 w-4" />}
-                label="Join"
-              />
+              <TournamentActionBtn href="/tournaments/new" icon={<Plus className="h-4 w-4" />} label="New" accent />
+              <TournamentActionBtn onClick={() => setJoinOpen(true)} icon={<LogIn className="h-4 w-4" />} label="Join" />
               <TournamentActionBtn
                 onClick={openDiscover}
                 icon={<Globe className="h-4 w-4" />}
@@ -256,7 +287,6 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
               />
             </div>
 
-            {/* Filter tabs */}
             <div className="flex items-center gap-1 rounded-xl border border-line bg-surface-base p-1">
               {filterTabs.map(({ key, label, count }) => (
                 <button
@@ -264,9 +294,7 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
                   onClick={() => setFilter(key)}
                   className={cn(
                     'flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-all',
-                    filter === key
-                      ? 'bg-surface-raised text-gold shadow-sm'
-                      : 'text-ink-subtle hover:text-ink-muted',
+                    filter === key ? 'bg-surface-raised text-gold shadow-sm' : 'text-ink-subtle hover:text-ink-muted',
                   )}
                 >
                   {label}
@@ -282,7 +310,6 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
               ))}
             </div>
 
-            {/* Search */}
             <Input
               name="search"
               placeholder="Search tournaments…"
@@ -291,7 +318,6 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
               leading={<Search className="h-4 w-4" />}
             />
 
-            {/* Cards */}
             {filtered.length === 0 ? (
               <TournamentEmptyState
                 hasSearch={search.trim().length > 0}
@@ -316,11 +342,33 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
         )}
       </div>
 
+      {/* ── Stats ─────────────────────────────────────────────────────── */}
+      {header && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[9px] font-bold uppercase tracking-[0.18em] text-ink-subtle">Your Stats</h3>
+            <Link href="/stats" className="text-xs font-medium text-gold hover:underline flex items-center gap-1">
+              View all <ChevronRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            <StatTile emoji="👑" value={String(header.rating)} label="ELO" />
+            <StatTile emoji="🏆" value={String(header.totalMatches > 0 ? Math.round(header.winRate) : 0)} label="Win %" />
+            <StatTile
+              emoji={header.streakType === 'win' ? '🔥' : '📊'}
+              value={header.streakType ? `${header.streakCount}${header.streakType === 'win' ? 'W' : 'L'}` : '—'}
+              label="Streak"
+            />
+            <StatTile emoji="🎯" value={String(header.totalMatches)} label="Played" />
+          </div>
+        </div>
+      )}
+
       {/* ── Recent matches ─────────────────────────────────────────────── */}
       {header && header.recentMatches.length > 0 && (
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 font-semibold text-sm text-ink">
+            <h3 className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.18em] text-ink-subtle">
               <Swords className="h-3.5 w-3.5 text-gold" /> Recent matches
             </h3>
             <Link href="/stats" className="text-xs font-medium text-gold hover:underline">View all</Link>
@@ -329,7 +377,7 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
             {header.recentMatches.map((m, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-elevated/60 transition-colors">
                 <span className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shrink-0',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold',
                   m.win ? 'bg-jade/15 text-jade' : 'bg-loss/15 text-loss',
                 )}>
                   {m.win ? 'W' : 'L'}
@@ -345,12 +393,9 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
         </div>
       )}
 
-      {/* ── Fair Play ──────────────────────────────────────────────────── */}
       <FairPlayBanner />
 
-      {joinOpen && (
-        <JoinDialog open={joinOpen} onClose={() => setJoinOpen(false)} />
-      )}
+      {joinOpen && <JoinDialog open={joinOpen} onClose={() => setJoinOpen(false)} />}
 
       {currentUser && quickMatchOpen && (
         <QuickMatchDialog
@@ -363,37 +408,75 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
   )
 }
 
-// ─── Stat Pill ────────────────────────────────────────────────────────────────
+// ─── Mode Card ────────────────────────────────────────────────────────────────
 
-function StatPill({ icon: Icon, label, value, tint }: {
-  icon: React.ElementType; label: string; value: string; tint: string
+function ModeCard({
+  href, onClick, icon, name, desc, stat, statIcon, tint, iconTint,
+}: {
+  href?: string; onClick?: () => void
+  icon: React.ReactNode; name: string; desc: string
+  stat: string; statIcon: React.ReactNode
+  tint: string; iconTint: string
 }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-surface-raised px-2 py-3 text-center">
-      <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', tint)}>
-        <Icon className="h-3.5 w-3.5" />
+  const cls = cn(
+    'flex flex-col gap-2.5 rounded-2xl border p-3.5 cursor-pointer select-none',
+    'transition-all duration-150 active:scale-[0.97] hover:brightness-110',
+    tint,
+  )
+  const inner = (
+    <>
+      <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', iconTint)}>
+        {icon}
       </div>
-      <p className="text-base font-bold leading-none text-ink tabular-nums">{value}</p>
-      <p className="text-[10px] uppercase tracking-wide text-ink-subtle">{label}</p>
+      <div className="flex flex-col gap-1 mt-0.5">
+        <p className="text-[11px] font-black uppercase tracking-[0.1em] text-gold leading-none">{name}</p>
+        <p className="text-[11px] text-ink-muted leading-snug">{desc}</p>
+      </div>
+      <div className="flex items-center gap-1.5 text-ink-subtle mt-auto pt-1">
+        {statIcon}
+        <span className="text-[10px] font-semibold">{stat}</span>
+      </div>
+    </>
+  )
+  if (href) return <Link href={href} className={cls}>{inner}</Link>
+  return <button type="button" onClick={onClick} className={cls}>{inner}</button>
+}
+
+// ─── Daily Challenge placeholder (for logged-out state) ───────────────────────
+
+function DailyChallenge() {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised p-4">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/12">
+        <CalendarDays className="h-5 w-5 text-gold" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-gold mb-1">Daily Challenge</p>
+        <p className="text-sm font-semibold text-ink">Play today's challenge</p>
+        <div className="flex items-center gap-1.5 mt-1 text-ink-subtle">
+          <Clock className="h-3 w-3" />
+          <span className="text-[10px] font-medium">Resets in 14:18:32</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="shrink-0 rounded-full bg-gold px-4 py-2 text-[12px] font-bold text-surface-canvas"
+      >
+        Play Now
+      </button>
     </div>
   )
 }
 
-// ─── Quick Nav Tile ───────────────────────────────────────────────────────────
+// ─── Stat Tile ────────────────────────────────────────────────────────────────
 
-function QuickNavTile({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+function StatTile({ emoji, value, label }: { emoji: string; value: string; label: string }) {
   return (
-    <Link
-      href={href}
-      className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-surface-raised
-        px-1 py-3 text-center transition-all active:scale-[0.96]
-        hover:border-gold/30 hover:bg-surface-elevated"
-    >
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-elevated text-ink-muted">
-        {icon}
-      </span>
-      <span className="text-[11px] font-medium text-ink-muted leading-tight">{label}</span>
-    </Link>
+    <div className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-surface-raised py-3 text-center">
+      <span className="text-lg leading-none">{emoji}</span>
+      <p className="text-base font-bold text-ink leading-none tabular-nums">{value}</p>
+      <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-ink-subtle">{label}</p>
+    </div>
   )
 }
 
@@ -409,7 +492,7 @@ function TournamentActionBtn({
     'relative flex flex-col items-center gap-1.5 rounded-xl border py-3 px-2 text-center',
     'transition-all active:scale-[0.96] cursor-pointer select-none',
     accent
-      ? 'border-gold/40 bg-gold/8 hover:bg-gold/12 text-gold'
+      ? 'border-gold/35 bg-gold/8 hover:bg-gold/12 text-gold'
       : 'border-line bg-surface-base hover:border-gold/25 hover:bg-surface-elevated text-ink-muted',
   )
   const inner = (
@@ -444,18 +527,15 @@ function TournamentEmptyState({ hasSearch, filter, onJoin, onDiscover }: {
       <p className="text-sm text-ink-muted">No tournaments match your search.</p>
     </div>
   )
-
   if (filter === 'discover') return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface-base py-8 text-center">
       <Trophy className="h-7 w-7 text-ink-subtle/40" />
       <p className="text-sm text-ink-muted">No open public tournaments right now.</p>
       <Button variant="secondary" size="sm" onClick={onJoin} className="gap-1.5">
-        <LogIn className="h-4 w-4" />
-        Join with invite code
+        <LogIn className="h-4 w-4" /> Join with invite code
       </Button>
     </div>
   )
-
   if (filter === 'active') return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-surface-base py-8 text-center">
       <Zap className="h-7 w-7 text-ink-subtle/40" />
@@ -465,7 +545,6 @@ function TournamentEmptyState({ hasSearch, filter, onJoin, onDiscover }: {
       </button>
     </div>
   )
-
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface-base py-8 text-center">
       <Trophy className="h-9 w-9 text-gold/30" />
