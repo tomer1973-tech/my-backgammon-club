@@ -11,12 +11,49 @@ import { createMiddlewareClient }   from '@/lib/supabase/middleware'
  * All other routes redirect to /login when unauthenticated.
  * Auth pages redirect to / when already authenticated.
  */
+
+/** Hard ceiling (ms) for the outbound call to Supabase Auth from middleware. */
+const AUTH_CHECK_TIMEOUT_MS = 4000
+
+/**
+ * supabase.auth.getUser() makes a network round-trip to the Supabase Auth
+ * server on every request. If that server is slow, paused, or briefly
+ * unreachable, an un-timed-out await here hangs the middleware — which runs
+ * on nearly every route — until Vercel's hard ~25s ceiling, producing a
+ * site-wide 504 MIDDLEWARE_INVOCATION_TIMEOUT instead of a normal, isolated
+ * auth failure. Racing it against a short timeout converts that outage mode
+ * into a fast, safe "treat as unauthenticated" fallback: unauthenticated and
+ * public routes keep working immediately, and protected routes redirect to
+ * /login (same as an expired session) instead of hanging the whole site.
+ */
+async function getUserSafe(
+  supabase: ReturnType<typeof createMiddlewareClient>['supabase'],
+) {
+  const timeout = new Promise<{ data: { user: null }; timedOut: true }>((resolve) => {
+    setTimeout(() => resolve({ data: { user: null }, timedOut: true }), AUTH_CHECK_TIMEOUT_MS)
+  })
+
+  try {
+    const result = await Promise.race([
+      supabase.auth.getUser().then((r) => ({ ...r, timedOut: false as const })),
+      timeout,
+    ])
+    if (result.timedOut) {
+      console.error('[middleware] supabase.auth.getUser() timed out after', AUTH_CHECK_TIMEOUT_MS, 'ms')
+    }
+    return result
+  } catch (err) {
+    console.error('[middleware] supabase.auth.getUser() error:', err)
+    return { data: { user: null }, timedOut: false as const }
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createMiddlewareClient(request)
   const { pathname }           = request.nextUrl
 
   // Supabase refreshes the session token on every middleware call.
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await getUserSafe(supabase)
   const isAuthed = !!user
 
   // Auth-only pages: redirect to / when already signed in

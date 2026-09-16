@@ -176,10 +176,10 @@ export default async function StatsPage() {
           </p>
         </div>
         {streak > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-orange-700/30 bg-orange-900/10 px-4 py-2">
-            <Flame className="h-5 w-5 text-orange-400" />
+          <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2">
+            <Flame className="h-5 w-5 text-warning" />
             <div>
-              <p className="text-base font-bold text-orange-400 leading-none">{streak}</p>
+              <p className="text-base font-bold text-warning leading-none">{streak}</p>
               <p className="text-[10px] text-ink-muted">win streak</p>
             </div>
           </div>

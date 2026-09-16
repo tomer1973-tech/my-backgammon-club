@@ -25,7 +25,7 @@ export function TopBar({ user }: TopBarProps) {
 
   return (
     <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-16
-      bg-surface-canvas/88 backdrop-blur-xl border-b border-white/5">
+      bg-surface-canvas/88 backdrop-blur-xl border-b border-line">
 
       {/* Copper top-line accent */}
       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
@@ -45,7 +45,7 @@ export function TopBar({ user }: TopBarProps) {
       {/* Right: theme toggle + user pill + logout */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <ThemeToggle compact />
-        <div className="flex items-center gap-2 rounded-full border border-white/8 bg-surface-raised/60 pl-2 pr-3 py-1.5">
+        <div className="flex items-center gap-2 rounded-full border border-line bg-surface-raised/60 pl-2 pr-3 py-1.5">
           <Avatar name={user.name} src={user.avatarUrl} size="sm"
             className="ring-1 ring-gold/25 ring-offset-1 ring-offset-surface-canvas" />
           <span className="text-[13px] font-semibold text-ink hidden xs:block">{firstName}</span>
@@ -54,7 +54,7 @@ export function TopBar({ user }: TopBarProps) {
           onClick={handleLogout}
           disabled={isPending}
           aria-label="Sign out"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-line
             bg-surface-raised/60 text-ink-subtle hover:text-loss hover:border-loss/30 transition-all"
         >
           <LogOut className="h-3.5 w-3.5" />

@@ -14,16 +14,16 @@ function applyTheme(choice: ThemeChoice) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<ThemeChoice>('auto')
+  const [theme, setThemeState] = useState<ThemeChoice>('light')
 
   useEffect(() => {
-    const saved = (localStorage.getItem(KEY) as ThemeChoice) || 'auto'
+    const saved = (localStorage.getItem(KEY) as ThemeChoice) || 'light'
     setThemeState(saved)
 
     // Keep in sync when system preference changes (only matters in auto mode)
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = () => {
-      const current = (localStorage.getItem(KEY) as ThemeChoice) || 'auto'
+      const current = (localStorage.getItem(KEY) as ThemeChoice) || 'light'
       if (current === 'auto') applyTheme('auto')
     }
     mq.addEventListener('change', handler)

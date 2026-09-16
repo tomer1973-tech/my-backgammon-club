@@ -400,6 +400,13 @@ export interface Match extends MatchRow {
   player2Name:   string
   player1IsGuest: boolean
   player2IsGuest: boolean
+  // Undefined/null for guests (no Player row to read from).
+  player1AvatarUrl?: string | null
+  player2AvatarUrl?: string | null
+  player1Rating?:    number
+  player2Rating?:    number
+  player1Wins?:      number
+  player2Wins?:      number
   winnerName:    string | null
   tournamentName?: string
   games:         MatchGame[]

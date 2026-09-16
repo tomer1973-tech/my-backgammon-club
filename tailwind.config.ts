@@ -55,8 +55,15 @@ const config: Config = {
         },
 
         // Semantic
-        win:  'hsl(var(--win)  / <alpha-value>)',
-        loss: 'hsl(var(--loss) / <alpha-value>)',
+        win:     'hsl(var(--win)     / <alpha-value>)',
+        loss:    'hsl(var(--loss)    / <alpha-value>)',
+        warning: 'hsl(var(--warning) / <alpha-value>)',
+
+        // Silver — steel-blue secondary accent (doubling cube / info)
+        silver: {
+          DEFAULT: 'hsl(var(--silver)     / <alpha-value>)',
+          dim:     'hsl(var(--silver-dim) / <alpha-value>)',
+        },
       },
 
       // ── Typography ────────────────────────────────────────────────────────

@@ -9,8 +9,7 @@
    Palette: deep navy playing surface + rich copper accents + walnut wood.
    ───────────────────────────────────────────────────────────────────────── */
 
-/* ── Dark mode (default) ──────────────────────────────────────────────────── */
-:root,
+/* ── Dark mode (opt-in via Settings → Appearance) ─────────────────────────── */
 [data-theme="dark"] {
   /* Surfaces — lifted a few steps lighter than pure obsidian, with a
      glossy/satin character: each layer reads like polished lacquer rather
@@ -62,51 +61,62 @@
   --ring: 26 80% 56%;
 }
 
-/* ── Light mode ───────────────────────────────────────────────────────────── */
+/* ── Light mode — "Quick Play" palette (default) ──────────────────────────
+   Warm cream club room: parchment surfaces, antique-gold accent, walnut-ink
+   text. Values taken directly from the Post Sign-In Options design handoff
+   (screen bg #F7F0E4, ink #453C30, gold #A98A5E, line #E2D6BC, highlight
+   row #FBF0DC), extended to the rest of the token set in the same key. */
+:root,
 [data-theme="light"] {
-  /* Surfaces — airier, crisper white with warm undertones (less heavy
-     beige-on-beige layering, more breathing room, modern SaaS clarity) */
-  --surface-canvas:   40 30% 98%;    /* #faf8f4 — near-white warm        */
-  --surface-base:     38 25% 96%;    /* #f5f1ea — page body              */
-  --surface-raised:    0  0% 100%;   /* #ffffff — crisp card surface     */
-  --surface-elevated: 36 20% 94%;    /* #efe9df — input / elevated card  */
-  --surface-muted:    34 16% 88%;    /* #e2d8c8 — section dividers       */
-  --surface-subtle:   32 14% 80%;    /* #cfc2ab — hover state            */
+  --surface-canvas:   42 25% 90%;    /* #ebe7de — outer chrome / scroll bg */
+  --surface-base:     38 54% 93%;    /* #f7f0e4 — page body               */
+  --surface-raised:    0  0% 100%;   /* #ffffff — card surface            */
+  --surface-elevated: 39 80% 92%;    /* #fbf0dc — input / highlighted row */
+  --surface-muted:    38 30% 87%;    /* #e9decb — section dividers        */
+  --surface-subtle:   36 22% 81%;    /* #d9cbb0 — hover state             */
 
-  /* Copper — deepened for contrast on white */
-  --gold:        24 78% 42%;         /* #bb540f — copper primary         */
-  --gold-dim:    20 65% 26%;         /* #702f09 — dark copper            */
-  --gold-bright: 28 72% 50%;         /* #c97328 — bright / hover         */
-  --gold-muted:  24 50% 56%;         /* #bd7a40 — subtle copper          */
+  /* Antique gold — warm, muted, never neon */
+  --gold:        35 30% 52%;         /* #a98a5e — gold primary            */
+  --gold-dim:    34 32% 42%;         /* #8c6f49 — dark gold (gloss edge)  */
+  --gold-bright: 36 40% 65%;         /* #c9ad82 — bright / hover          */
+  --gold-muted:  35 25% 60%;         /* #bb9d73 — subtle gold             */
 
-  /* Jade — secondary accent, deepened to match */
-  --jade:        158 48% 32%;        /* #1f6b4d — jade primary           */
-  --jade-dim:    158 42% 20%;        /* #143828 — dark jade              */
-  --jade-bright: 156 50% 40%;        /* #20925f — bright / hover         */
+  /* Jade — secondary accent, deepened to sit on cream */
+  --jade:        158 48% 32%;        /* #1f6b4d — jade primary            */
+  --jade-dim:    158 42% 20%;        /* #143828 — dark jade               */
+  --jade-bright: 156 50% 40%;        /* #20925f — bright / hover          */
 
   /* Silver */
-  --silver:      214 22% 42%;        /* #5a7490 — muted steel            */
-  --silver-dim:  216 18% 32%;        /* #435a6e — dark steel             */
+  --silver:      214 22% 42%;        /* #5a7490 — muted steel             */
+  --silver-dim:  216 18% 32%;        /* #435a6e — dark steel              */
 
-  /* Ink — dark navy on cream */
-  --ink:         222 45% 13%;        /* #121b30 — primary text           */
-  --ink-muted:   218 26% 34%;        /* #3a4a64 — secondary text         */
-  --ink-subtle:  216 18% 52%;        /* #7186a0 — placeholder / hint     */
+  /* Ink — warm walnut-brown on cream */
+  --ink:         34 18% 23%;         /* #453c30 — primary text            */
+  --ink-muted:   37 10% 49%;         /* #8a8070 — secondary text          */
+  --ink-subtle:  35 12% 64%;         /* #b6a98f — placeholder / hint      */
 
   /* Lines */
-  --line:        30 18% 85%;         /* #dfd6c8 — default border         */
-  --line-gold:   24 50% 60%;         /* #c2824a — copper border          */
+  --line:        41 40% 81%;         /* #e2d6bc — default border          */
+  --line-gold:   35 35% 60%;         /* #bb9d73 — gold border             */
 
   /* Semantic */
-  --win:         150 48% 30%;        /* #27684a — positive               */
-  --loss:           4 60% 42%;       /* #aa3322 — negative               */
-  --warning:      28 70% 42%;        /* #b0601a — amber / cube           */
+  --win:         150 46% 32%;        /* #276b4b — positive                */
+  --loss:           4 58% 44%;       /* #af3320 — negative                */
+  --warning:      36 55% 46%;        /* #b3813a — amber / cube            */
 
   --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
-  --font-display: 'Georgia', 'Times New Roman', serif;
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
 
-  --ring: 24 78% 42%;
+  --ring: 35 30% 52%;
+}
+
+/* Gloss — the antique-gold panel treatment used for hero cards, primary
+   chips, and avatar frames. A fixed decorative gradient (not theme-swapped)
+   since it reads as "the club's gold," not a semantic surface. */
+.gloss {
+  background-image: linear-gradient(160deg, #e8dcc4 0%, #c9ad82 45%, #a98a5e 75%, #8c6f49 100%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.5), 0 6px 16px -6px rgba(120,96,64,.4);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -135,20 +145,20 @@
 }
 
 [data-theme="light"][data-accent="copper"] {
-  --gold: 24 78% 42%; --gold-dim: 20 65% 26%; --gold-bright: 28 72% 50%; --gold-muted: 24 50% 56%;
-  --line-gold: 24 50% 60%; --ring: 24 78% 42%;
+  --gold: 35 30% 52%; --gold-dim: 34 32% 42%; --gold-bright: 36 40% 65%; --gold-muted: 35 25% 60%;
+  --line-gold: 35 35% 60%; --ring: 35 30% 52%;
 }
 [data-theme="light"][data-accent="jade"] {
   --gold: 158 48% 32%; --gold-dim: 158 42% 20%; --gold-bright: 156 50% 40%; --gold-muted: 158 32% 44%;
   --line-gold: 158 40% 50%; --ring: 158 48% 32%;
 }
 [data-theme="light"][data-accent="sapphire"] {
-  --gold: 213 62% 40%; --gold-dim: 214 55% 24%; --gold-bright: 210 68% 48%; --gold-muted: 213 38% 50%;
-  --line-gold: 212 48% 56%; --ring: 213 62% 40%;
+  --gold: 213 55% 42%; --gold-dim: 214 50% 28%; --gold-bright: 210 62% 52%; --gold-muted: 213 35% 52%;
+  --line-gold: 212 42% 58%; --ring: 213 55% 42%;
 }
 [data-theme="light"][data-accent="crimson"] {
-  --gold: 352 58% 42%; --gold-dim: 352 50% 26%; --gold-bright: 350 64% 50%; --gold-muted: 352 38% 52%;
-  --line-gold: 352 44% 58%; --ring: 352 58% 42%;
+  --gold: 352 50% 46%; --gold-dim: 352 45% 30%; --gold-bright: 350 58% 54%; --gold-muted: 352 34% 54%;
+  --line-gold: 352 40% 60%; --ring: 352 50% 46%;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

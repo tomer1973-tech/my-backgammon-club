@@ -155,8 +155,8 @@ export async function getMyDetailedStats(): Promise<MyDetailedStats> {
       ],
     },
     include: {
-      player1: { select: { player: { select: { name: true } }, guestName: true } },
-      player2: { select: { player: { select: { name: true } }, guestName: true } },
+      player1: { select: { playerId: true, player: { select: { name: true } }, guestName: true } },
+      player2: { select: { playerId: true, player: { select: { name: true } }, guestName: true } },
     },
     orderBy: { createdAt: 'asc' },
   })
@@ -174,6 +174,11 @@ export async function getMyDetailedStats(): Promise<MyDetailedStats> {
     player2Id:    relabel(m.player2Id)!,
     player1Name:  m.player1?.player?.name ?? m.player1?.guestName ?? 'Unknown',
     player2Name:  m.player2?.player?.name ?? m.player2?.guestName ?? 'Unknown',
+    // The real Player row behind each side, when there is one — a guest
+    // slot (no account) is null. Lets "Rematch" build a correct Quick Game
+    // roster entry instead of guessing.
+    player1PlayerId: m.player1?.playerId ?? null,
+    player2PlayerId: m.player2?.playerId ?? null,
     player1Score: m.player1Score,
     player2Score: m.player2Score,
     targetScore:  m.targetScore,
@@ -207,6 +212,7 @@ export async function getMyDetailedStats(): Promise<MyDetailedStats> {
 
 export interface LobbyRecentMatch {
   opponentName: string
+  opponentPlayerId: string | null
   win:          boolean
   score:        string   // "7–4"
   date:         string   // "Jan 5"
@@ -214,12 +220,15 @@ export interface LobbyRecentMatch {
 
 export interface LobbyHeader {
   rating:        number
+  rank:          number | null   // club-wide rank by rating; null if unrated
   ratedGames:    number
   winRate:       number   // 0–100
   totalMatches:  number
   streakCount:   number
   streakType:    'win' | 'loss' | null
   recentMatches: LobbyRecentMatch[]
+  /** Last ~10 results, chronological (oldest first) — win/loss "form" for a sparkline. */
+  recentForm:    boolean[]
 }
 
 export async function getLobbyHeader(): Promise<LobbyHeader> {
@@ -230,12 +239,22 @@ export async function getLobbyHeader(): Promise<LobbyHeader> {
     getMyDetailedStats(),
   ])
 
+  // Real club-wide rank by rating (only counts players with a rated game on
+  // record, same population the rated leaderboard draws from) — not shown
+  // at all for a player with no rated games yet, rather than a fake #1.
+  const rank = (player?.ratedGames ?? 0) > 0 && player
+    ? await db.player.count({
+        where: { ratedGames: { gt: 0 }, rating: { gt: player.rating } },
+      }).then(n => n + 1)
+    : null
+
   const a = detailed.analytics
   const recentMatches: LobbyRecentMatch[] = [...a.timeline]
     .reverse()
     .slice(0, 4)
     .map(t => ({
       opponentName: t.opponentName,
+      opponentPlayerId: t.opponentPlayerId,
       win:          t.win,
       score:        t.score,
       date:         t.date,
@@ -243,12 +262,14 @@ export async function getLobbyHeader(): Promise<LobbyHeader> {
 
   return {
     rating:        player?.rating ?? 1500,
+    rank,
     ratedGames:    player?.ratedGames ?? 0,
     winRate:       a.winRate,
     totalMatches:  a.totalMatches,
     streakCount:   a.currentStreak.count,
     streakType:    a.currentStreak.type,
     recentMatches,
+    recentForm:    a.timeline.slice(-10).map(t => t.win),
   }
 }
 

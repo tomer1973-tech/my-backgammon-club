@@ -420,14 +420,14 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
               <div className="flex gap-2">
                 <button
                   onClick={shareWin}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-green-700/40 bg-green-900/20 px-3 py-2 text-sm font-medium text-green-400 transition-colors hover:bg-green-900/35"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-green-600/30 bg-green-500/10 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-500/20"
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
                 </button>
                 <button
                   onClick={shareTwitter}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-sky-700/40 bg-sky-900/20 px-3 py-2 text-sm font-medium text-sky-400 transition-colors hover:bg-sky-900/35"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-sky-600/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-500/20"
                 >
                   <Share2 className="h-4 w-4" />
                   Twitter / X

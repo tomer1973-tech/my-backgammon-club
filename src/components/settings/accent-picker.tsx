@@ -10,11 +10,14 @@ import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAccent, type AccentChoice } from '@/hooks/use-accent'
 
+// Hex values match the light theme's accent tones (the app's default) so
+// what you tap is what you get — these intentionally don't read from
+// --gold like the rest of the UI, since all four need to show at once.
 const SWATCHES: { value: AccentChoice; label: string; hex: string }[] = [
-  { value: 'copper',   label: 'Copper',   hex: '#e08a35' },
-  { value: 'jade',     label: 'Jade',     hex: '#3a9670' },
-  { value: 'sapphire', label: 'Sapphire', hex: '#3f8fd9' },
-  { value: 'crimson',  label: 'Crimson',  hex: '#d9495f' },
+  { value: 'copper',   label: 'Copper',   hex: '#a98a5e' },
+  { value: 'jade',     label: 'Jade',     hex: '#1f6b4d' },
+  { value: 'sapphire', label: 'Sapphire', hex: '#3065a6' },
+  { value: 'crimson',  label: 'Crimson',  hex: '#b03b4a' },
 ]
 
 export function AccentPicker() {

@@ -10,9 +10,9 @@ const PILLARS = [
     title: 'Fair Dice',
     badge: 'WBGF Certified',
     desc: 'Every roll uses a cryptographically verified RNG — the same standard used at World Backgammon Federation events. Fully audited and tamper-proof.',
-    color: 'from-blue-900/40 to-blue-950/20',
-    border: 'border-blue-700/30',
-    iconBg: 'bg-blue-900/50 text-blue-300',
+    color: 'from-silver/15 to-silver/5',
+    border: 'border-silver/30',
+    iconBg: 'bg-silver/15 text-silver',
   },
   {
     icon: Users,
@@ -45,8 +45,8 @@ export function FairPlayBanner() {
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-elevated/50 transition-colors"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-900/40 border border-blue-700/30 flex-shrink-0">
-          <ShieldCheck className="h-4 w-4 text-blue-300" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-silver/15 border border-silver/30 flex-shrink-0">
+          <ShieldCheck className="h-4 w-4 text-silver" />
         </div>
         <div className="flex-1 text-left min-w-0">
           <p className="text-[13px] font-bold text-ink">Our Commitment to Fair Play</p>
@@ -67,7 +67,7 @@ export function FairPlayBanner() {
         <div className="border-t border-line">
           {/* Hero */}
           <div className="relative px-4 py-5 text-center overflow-hidden">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_0%,hsl(220_60%_30%/0.25),transparent)]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_0%,hsl(var(--gold)/0.14),transparent)]" />
             <p className="relative text-lg font-display font-bold text-ink">
               Our Commitment to Fair Play
             </p>

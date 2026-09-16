@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
+import { useRouter }           from 'next/navigation'
 import Link                   from 'next/link'
 import {
   Plus, LogIn, Search, Trophy, ChevronRight,
-  Settings, Bot, GraduationCap, Play,
-  UserPlus2, Swords, TrendingUp, Flame,
-  ChevronDown, Users, Globe, Zap, Monitor,
-  CalendarDays, Clock,
+  Settings, Bot, UserPlus2,
+  ChevronDown, Globe, Zap,
+  RotateCcw, Sparkles, CalendarDays, Clock,
 } from 'lucide-react'
 import { Button }              from '@/components/ui/button'
 import { Input }               from '@/components/ui/input'
+import { Avatar }              from '@/components/ui/avatar'
 import { TournamentCard }      from './tournament-card'
 import { JoinDialog }          from './join-dialog'
 import { QuickMatchDialog }    from '@/components/quick-game/quick-match-dialog'
@@ -19,9 +20,14 @@ import { MatchmakingWidget }   from '@/components/lobby/matchmaking-widget'
 import { archiveTournament }   from '@/actions/tournament'
 import { cn }                  from '@/lib/utils'
 import type { Tournament, SessionUser } from '@/types'
-import type { LobbyHeader }    from '@/actions/stats'
+import { TOURNAMENT_STATUS_LABEL } from '@/types'
+import type { LobbyHeader, LobbyRecentMatch } from '@/actions/stats'
 
 type FilterKey = 'all' | 'mine' | 'active' | 'discover'
+
+const QG_ROSTER_KEY  = 'qg_roster_v1'
+const QG_RACE_TO_KEY = 'qg_race_to_v1'
+const DEFAULT_RACE_TO = 5
 
 interface LobbyClientProps {
   initialTournaments: Tournament[]
@@ -29,21 +35,46 @@ interface LobbyClientProps {
   header?:            LobbyHeader | null
 }
 
-function greeting(): string {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
-}
-
 export function LobbyClient({ initialTournaments, currentUser, header }: LobbyClientProps) {
+  const router = useRouter()
   const [tournaments, setTournaments]       = useState<Tournament[]>(initialTournaments)
   const [search, setSearch]                 = useState('')
   const [filter, setFilter]                 = useState<FilterKey>('all')
   const [joinOpen, setJoinOpen]             = useState(false)
   const [quickMatchOpen, setQuickMatchOpen] = useState(false)
-  const [tournamentsOpen, setTournamentsOpen] = useState(true)
+  const [tournamentsOpen, setTournamentsOpen] = useState(false)
   const tournamentsRef = useRef<HTMLDivElement>(null)
+
+  // Start a Quick Game against a specific opponent — same localStorage
+  // contract the QuickMatchDialog uses, so /quick-game picks it up
+  // identically whether it came from a fresh pick or a rematch tap.
+  const startRematch = useCallback((opponent: LobbyRecentMatch) => {
+    if (!currentUser) return
+    const opponentId = opponent.opponentPlayerId ?? `guest:${Math.random().toString(36).slice(2, 10)}`
+    const roster = [
+      { id: currentUser.id, name: currentUser.name },
+      { id: opponentId,     name: opponent.opponentName },
+    ]
+    localStorage.setItem(QG_ROSTER_KEY,  JSON.stringify(roster))
+    localStorage.setItem(QG_RACE_TO_KEY, String(DEFAULT_RACE_TO))
+    router.push('/quick-game')
+  }, [currentUser, router])
+
+  // Recent matches, deduped to one row per opponent (most recent first) —
+  // "Played Recently" is a list of people, not a full match log.
+  const recentOpponents = useMemo(() => {
+    if (!header) return []
+    const seen = new Set<string>()
+    const out: LobbyRecentMatch[] = []
+    for (const m of header.recentMatches) {
+      const key = m.opponentPlayerId ?? m.opponentName
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(m)
+      if (out.length === 3) break
+    }
+    return out
+  }, [header])
 
   function handleDelete(id: string) {
     setTournaments(prev => prev.filter(t => t.id !== id))
@@ -106,133 +137,192 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold opacity-90">
             My Backgammon Club
           </p>
-          <h1 className="font-display text-xl font-bold text-ink mt-1">
-            {greeting()}{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''}
+          <h1 className="font-display text-2xl font-semibold text-ink mt-1">
+            Hi{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''}
           </h1>
         </div>
-        <Link
-          href="/settings"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line
-            bg-surface-raised text-ink-muted hover:border-gold/30 hover:text-gold transition-all"
-          aria-label="Settings"
-        >
-          <Settings className="h-4 w-4" />
-        </Link>
+        {currentUser ? (
+          <Link href="/settings" aria-label="Settings" className="shrink-0">
+            <Avatar name={currentUser.name} src={currentUser.avatarUrl} size="md" />
+          </Link>
+        ) : (
+          <Link
+            href="/settings"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-line
+              bg-surface-raised text-ink-muted hover:border-gold/30 hover:text-gold transition-all"
+            aria-label="Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </Link>
+        )}
       </div>
 
-      {/* ── Hero card ─────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-lg min-h-[180px]">
-        {/* Board art SVG background */}
-        <svg
-          className="absolute right-0 top-0 h-full w-[180px] opacity-[0.14] pointer-events-none select-none"
-          viewBox="0 0 180 200"
-          fill="none"
-          aria-hidden="true"
-        >
-          {[0,30,60,90,120,150].map((x,i) => (
-            <polygon key={i} points={`${x+2},0 ${x+18},0 ${x+10},75`} fill="hsl(var(--gold))" opacity={i%2===0?'1':'.6'}/>
-          ))}
-          {[0,30,60,90,120,150].map((x,i) => (
-            <polygon key={i+6} points={`${x+2},200 ${x+18},200 ${x+10},125`} fill="hsl(var(--gold-dim))" opacity={i%2===0?'.8':'.5'}/>
-          ))}
-          <circle cx="10" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
-          <circle cx="40" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
-          <circle cx="70" cy="100" r="8" fill="hsl(var(--surface-muted))" opacity=".6"/>
-          <circle cx="100" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
-          <rect x="82" y="0" width="16" height="200" fill="hsl(var(--gold))" opacity=".03"/>
-        </svg>
-
-        {/* Gradient overlay — left side reads clearly */}
-        <div className="absolute inset-0 bg-gradient-to-r from-surface-raised via-surface-raised/90 to-transparent pointer-events-none" />
-
-        <div className="relative flex flex-col gap-4 p-5 sm:p-6">
-          <div>
-            <p className="font-display text-4xl font-black uppercase tracking-tight text-ink leading-none">
-              Play<span className="text-gold">.</span>
-            </p>
-            <p className="mt-2 text-sm text-ink-muted max-w-[180px] leading-snug">
-              Start a new game and enjoy Backgammon
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2 w-fit">
+      {/* ── Hero: Ready to play?  +  Your Standing (desktop) ────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
+        <div className="gloss rounded-2xl p-6 text-center lg:text-left lg:flex lg:flex-col lg:justify-center lg:px-8">
+          <p className="font-display text-xl font-semibold text-ink lg:text-2xl">Ready to play?</p>
+          <p className="mt-1 text-sm text-ink/80">Pick who's across the board</p>
+          <div className="lg:flex lg:gap-3">
             <button
               type="button"
               onClick={() => setQuickMatchOpen(true)}
-              className="group flex items-center gap-2.5 rounded-full
-                bg-gradient-to-b from-gold-bright to-gold
-                border border-gold-dim/60 px-6 py-3 text-sm font-bold text-surface-canvas
-                shadow-[0_4px_20px_-4px_hsl(var(--gold)/0.55)]
-                transition-all hover:to-gold-bright active:scale-[0.97]"
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl
+                bg-ink text-base font-bold text-surface-elevated
+                shadow-md transition-all hover:brightness-110 active:scale-[0.98]
+                lg:w-auto lg:px-7"
             >
-              <Play className="h-4 w-4 fill-current" />
-              New Game
+              <Sparkles className="h-4 w-4" />
+              Start a Game
             </button>
-            <Link
-              href="/players"
-              className="flex items-center gap-2.5 rounded-full border border-line/70
-                bg-white/5 px-5 py-2.5 text-sm font-semibold text-ink
-                hover:border-gold/30 transition-colors backdrop-blur"
-            >
-              <UserPlus2 className="h-4 w-4 text-gold" />
-              Quick Match
-            </Link>
           </div>
+          <p className="mt-2.5 text-xs text-ink/70">
+            Choose an opponent, set the race, and you're playing
+          </p>
+        </div>
+
+        {/* Your Standing — desktop only; needs real rated-game history to mean anything */}
+        {currentUser && header && header.ratedGames > 0 && (
+          <div className="hidden rounded-2xl border border-line bg-surface-raised p-6 lg:flex lg:flex-col lg:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-gold">Your Standing</p>
+              <p className="font-display text-3xl font-semibold text-ink mt-1.5">{header.rating}</p>
+              {header.rank && (
+                <p className="text-xs font-semibold text-win mt-0.5">Rank #{header.rank} in the club</p>
+              )}
+            </div>
+            {header.recentForm.length > 1 && (
+              <div className="mt-4 flex items-end gap-1 h-10">
+                {header.recentForm.map((won, i) => (
+                  <div
+                    key={i}
+                    className={cn('flex-1 rounded-sm', won ? 'bg-gold-bright h-full' : 'bg-line h-2/5')}
+                    title={won ? 'Win' : 'Loss'}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Played Recently ───────────────────────────────────────────── */}
+      {currentUser && recentOpponents.length > 0 && (
+        <div className="flex flex-col gap-2.5">
+          <SectionLabel>Played Recently</SectionLabel>
+          <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-2.5">
+            {recentOpponents.map((m, i) => (
+              <div
+                key={m.opponentPlayerId ?? `${m.opponentName}-${i}`}
+                className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised
+                  px-3.5 py-3 shadow-sm"
+              >
+                <Avatar name={m.opponentName} size="md" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-ink">{m.opponentName}</p>
+                  <p className="text-xs text-ink-subtle">
+                    {m.win ? 'You won last time' : 'They won last time'} · {m.date}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => startRematch(m)}
+                  className="gloss flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2
+                    text-xs font-bold text-ink transition-transform active:scale-95"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Rematch
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Other ways to play (mobile) / Choose your mode (desktop) ────── */}
+      <div className="flex flex-col gap-2.5 lg:hidden">
+        <SectionLabel>Other Ways to Play</SectionLabel>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => setQuickMatchOpen(true)}
+            className="flex flex-col items-center gap-1.5 rounded-2xl border border-line
+              bg-surface-raised py-4 text-center shadow-sm transition-all
+              active:scale-[0.97] hover:border-gold/30"
+          >
+            <UserPlus2 className="h-5 w-5 text-gold" />
+            <span className="font-display text-sm font-semibold text-ink">Someone New</span>
+          </button>
+          <Link
+            href="/practice"
+            className="flex flex-col items-center gap-1.5 rounded-2xl border border-line
+              bg-surface-raised py-4 text-center shadow-sm transition-all
+              active:scale-[0.97] hover:border-gold/30"
+          >
+            <Bot className="h-5 w-5 text-jade" />
+            <span className="font-display text-sm font-semibold text-ink">vs AI</span>
+          </Link>
         </div>
       </div>
 
-      {/* ── Section divider ───────────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-line" />
-        <span className="text-gold text-[10px]">◆</span>
-        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-ink-subtle">Choose your mode</span>
-        <span className="text-gold text-[10px]">◆</span>
-        <div className="flex-1 h-px bg-line" />
+      {/* Desktop mode grid — same destinations, richer real estate to use */}
+      <div className="hidden flex-col gap-2.5 lg:flex">
+        <div className="flex items-baseline justify-between">
+          <SectionLabel>Choose your mode</SectionLabel>
+        </div>
+        <div className="grid grid-cols-4 gap-3.5">
+          <ModeTile
+            onClick={() => router.push('/practice')}
+            label="Play vs AI" desc="Four difficulty levels" meta="4 levels"
+            bg="bg-jade/12" fg="text-jade" icon={<Bot className="h-[18px] w-[18px]" />}
+          />
+          <ModeTile
+            onClick={() => setQuickMatchOpen(true)}
+            label="Online" desc="Play someone from the club" meta="Pick an opponent"
+            bg="bg-silver/12" fg="text-silver" icon={<Globe className="h-[18px] w-[18px]" />}
+          />
+          <ModeTile
+            onClick={() => router.push('/play')}
+            label="Local Play" desc="Pass & play, same device" meta="2 players"
+            bg="bg-gold/12" fg="text-gold" icon={<UserPlus2 className="h-[18px] w-[18px]" />}
+          />
+          <ModeTile
+            onClick={() => router.push('/lessons')}
+            label="Practice" desc="Sharpen your skills" meta="Training"
+            bg="bg-warning/12" fg="text-warning" icon={<Zap className="h-[18px] w-[18px]" />}
+          />
+        </div>
       </div>
 
-      {/* ── Mode grid ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <ModeCard
-          href="/practice"
-          icon={<Bot className="h-5 w-5" />}
-          name="Play vs AI"
-          desc="Play against our smart AI"
-          stat="4 Levels"
-          statIcon={<TrendingUp className="h-3 w-3" />}
-          tint="bg-jade/10 border-jade/15"
-          iconTint="bg-jade/15 text-jade"
-        />
-        <ModeCard
-          onClick={() => setQuickMatchOpen(true)}
-          icon={<Globe className="h-5 w-5" />}
-          name="Online"
-          desc="Play real players online"
-          stat="1,245 online"
-          statIcon={<Users className="h-3 w-3" />}
-          tint="bg-[hsl(220_50%_20%/0.3)] border-[hsl(220_50%_40%/0.15)]"
-          iconTint="bg-[hsl(220_50%_30%/0.4)] text-[hsl(220_70%_70%)]"
-        />
-        <ModeCard
-          href="/play"
-          icon={<Monitor className="h-5 w-5" />}
-          name="Local play"
-          desc="Play with a friend, same device"
-          stat="2 players"
-          statIcon={<Users className="h-3 w-3" />}
-          tint="bg-[hsl(270_40%_20%/0.3)] border-[hsl(270_40%_50%/0.15)]"
-          iconTint="bg-[hsl(270_40%_30%/0.4)] text-[hsl(270_70%_75%)]"
-        />
-        <ModeCard
-          href="/lessons"
-          icon={<GraduationCap className="h-5 w-5" />}
-          name="Practice"
-          desc="Sharpen your skills and learn"
-          stat="Training"
-          statIcon={<Swords className="h-3 w-3" />}
-          tint="bg-gold/8 border-gold/15"
-          iconTint="bg-gold/15 text-gold"
-        />
-      </div>
+      {/* Desktop tournaments snapshot */}
+      {tournaments.length > 0 && (
+        <div className="hidden rounded-2xl border border-line bg-surface-raised p-6 lg:block">
+          <div className="flex items-center justify-between">
+            <p className="font-display text-base font-semibold text-ink">Tournaments</p>
+            <span className="text-xs text-ink-subtle">{tournaments.length} joined</span>
+          </div>
+          <div className="mt-3.5 flex flex-col divide-y divide-line overflow-hidden rounded-xl border border-line">
+            {tournaments.slice(0, 3).map(t => (
+              <Link
+                key={t.id}
+                href={`/tournaments/${t.id}`}
+                className="flex items-center justify-between bg-surface-canvas px-3.5 py-2.5 text-sm hover:bg-surface-elevated/60 transition-colors"
+              >
+                <span className="truncate font-medium text-ink">{t.name}</span>
+                <span className={cn(
+                  'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                  t.status === 'ACTIVE' ? 'bg-win/15 text-win'
+                  : t.status === 'DRAFT' ? 'bg-silver/15 text-silver'
+                  : 'bg-surface-muted text-ink-subtle',
+                )}>
+                  {t.status === 'ACTIVE' ? 'Live' : t.status === 'DRAFT' ? 'Draft' : TOURNAMENT_STATUS_LABEL[t.status]}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+
 
       {/* ── Daily challenge / ranked matchmaking ─────────────────────── */}
       {currentUser ? (
@@ -364,35 +454,6 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
         </div>
       )}
 
-      {/* ── Recent matches ─────────────────────────────────────────────── */}
-      {header && header.recentMatches.length > 0 && (
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.18em] text-ink-subtle">
-              <Swords className="h-3.5 w-3.5 text-gold" /> Recent matches
-            </h3>
-            <Link href="/stats" className="text-xs font-medium text-gold hover:underline">View all</Link>
-          </div>
-          <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface-raised">
-            {header.recentMatches.map((m, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-elevated/60 transition-colors">
-                <span className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                  m.win ? 'bg-jade/15 text-jade' : 'bg-loss/15 text-loss',
-                )}>
-                  {m.win ? 'W' : 'L'}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">vs {m.opponentName}</p>
-                  <p className="text-xs text-ink-subtle">{m.date}</p>
-                </div>
-                <span className="font-mono text-sm font-bold tabular-nums text-ink shrink-0">{m.score}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <FairPlayBanner />
 
       {joinOpen && <JoinDialog open={joinOpen} onClose={() => setJoinOpen(false)} />}
@@ -408,34 +469,39 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
   )
 }
 
-// ─── Mode Card ────────────────────────────────────────────────────────────────
+// ─── Section Label ──────────────────────────────────────────────────────────
 
-function ModeCard({
-  href, onClick, icon, name, desc, stat, statIcon, tint, iconTint,
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="h-px flex-1 bg-line" />
+      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-subtle">
+        {children}
+      </span>
+      <div className="h-px flex-1 bg-line" />
+    </div>
+  )
+}
+
+// ─── Mode Tile (desktop "Choose your mode" grid) ──────────────────────────────
+
+function ModeTile({
+  href, onClick, icon, label, desc, meta, bg, fg,
 }: {
   href?: string; onClick?: () => void
-  icon: React.ReactNode; name: string; desc: string
-  stat: string; statIcon: React.ReactNode
-  tint: string; iconTint: string
+  icon: React.ReactNode; label: string; desc: string; meta: string
+  bg: string; fg: string
 }) {
-  const cls = cn(
-    'flex flex-col gap-2.5 rounded-2xl border p-3.5 cursor-pointer select-none',
-    'transition-all duration-150 active:scale-[0.97] hover:brightness-110',
-    tint,
-  )
+  const cls = 'flex flex-col rounded-2xl border border-line bg-surface-raised p-5 text-left ' +
+    'transition-all hover:border-gold/30 hover:shadow-sm cursor-pointer'
   const inner = (
     <>
-      <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', iconTint)}>
+      <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', bg, fg)}>
         {icon}
       </div>
-      <div className="flex flex-col gap-1 mt-0.5">
-        <p className="text-[11px] font-black uppercase tracking-[0.1em] text-gold leading-none">{name}</p>
-        <p className="text-[11px] text-ink-muted leading-snug">{desc}</p>
-      </div>
-      <div className="flex items-center gap-1.5 text-ink-subtle mt-auto pt-1">
-        {statIcon}
-        <span className="text-[10px] font-semibold">{stat}</span>
-      </div>
+      <p className="mt-3.5 text-sm font-semibold text-ink">{label}</p>
+      <p className="mt-0.5 text-xs leading-snug text-ink-subtle">{desc}</p>
+      <p className={cn('mt-2.5 text-[11px] font-bold', fg)}>{meta}</p>
     </>
   )
   if (href) return <Link href={href} className={cls}>{inner}</Link>

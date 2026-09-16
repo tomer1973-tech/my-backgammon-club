@@ -89,7 +89,7 @@ function shapeMatchGame(g: PrismaMatchGame): MatchGame {
 const memberSelect = {
   id:       true,
   guestName: true,
-  player: { select: { name: true } },
+  player: { select: { name: true, avatarUrl: true, rating: true, quickWins: true } },
 } as const
 
 const matchInclude = {
@@ -126,6 +126,12 @@ export async function getMatch(matchId: string): Promise<Match> {
     player2Name:  resolveName(m.player2),
     player1IsGuest: m.player1 ? m.player1.player === null : false,
     player2IsGuest: m.player2 ? m.player2.player === null : false,
+    player1AvatarUrl: m.player1?.player?.avatarUrl ?? null,
+    player2AvatarUrl: m.player2?.player?.avatarUrl ?? null,
+    player1Rating:    m.player1?.player?.rating,
+    player2Rating:    m.player2?.player?.rating,
+    player1Wins:      m.player1?.player?.quickWins,
+    player2Wins:      m.player2?.player?.quickWins,
     winnerName:   m.winner ? resolveName(m.winner) : null,
     targetScore:  m.targetScore,
     player1Score: m.player1Score,

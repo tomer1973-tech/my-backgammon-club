@@ -25,6 +25,11 @@ export interface AnalyticsMatch {
   player2Id:    string
   player1Name:  string
   player2Name:  string
+  // The real Player row behind each side, when there is one (null for a
+  // guest slot). Optional so existing call sites that don't have it yet
+  // still type-check.
+  player1PlayerId?: string | null
+  player2PlayerId?: string | null
   player1Score: number
   player2Score: number
   targetScore:  number
@@ -103,6 +108,9 @@ export interface PlayerAnalytics {
     date:           string   // "Jan 5"
     win:            boolean
     opponentName:   string
+    // Real Player id for the opponent, when they have an account — lets
+    // callers offer a genuine rematch instead of a name-only display.
+    opponentPlayerId: string | null
     score:          string   // "7–4"
     cumulativeWins: number
   }[]
@@ -280,6 +288,7 @@ export function computePlayerAnalytics(
     if (win) cumWins++
     const isP1       = m.player1Id === memberId
     const opponentName = isP1 ? m.player2Name : m.player1Name
+    const opponentPlayerId = (isP1 ? m.player2PlayerId : m.player1PlayerId) ?? null
     const myScore    = isP1 ? m.player1Score : m.player2Score
     const oppScore   = isP1 ? m.player2Score : m.player1Score
     return {
@@ -287,6 +296,7 @@ export function computePlayerAnalytics(
       date:           formatMatchDate(m.createdAt),
       win,
       opponentName,
+      opponentPlayerId,
       score:          `${myScore}–${oppScore}`,
       cumulativeWins: cumWins,
     }

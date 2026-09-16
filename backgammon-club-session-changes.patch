@@ -1,0 +1,1587 @@
+diff --git a/src/actions/match.ts b/src/actions/match.ts
+index 90c6e70..ba20a90 100644
+--- a/src/actions/match.ts
++++ b/src/actions/match.ts
+@@ -89,7 +89,7 @@ function shapeMatchGame(g: PrismaMatchGame): MatchGame {
+ const memberSelect = {
+   id:       true,
+   guestName: true,
+-  player: { select: { name: true } },
++  player: { select: { name: true, avatarUrl: true, rating: true, quickWins: true } },
+ } as const
+ 
+ const matchInclude = {
+@@ -126,6 +126,12 @@ export async function getMatch(matchId: string): Promise<Match> {
+     player2Name:  resolveName(m.player2),
+     player1IsGuest: m.player1 ? m.player1.player === null : false,
+     player2IsGuest: m.player2 ? m.player2.player === null : false,
++    player1AvatarUrl: m.player1?.player?.avatarUrl ?? null,
++    player2AvatarUrl: m.player2?.player?.avatarUrl ?? null,
++    player1Rating:    m.player1?.player?.rating,
++    player2Rating:    m.player2?.player?.rating,
++    player1Wins:      m.player1?.player?.quickWins,
++    player2Wins:      m.player2?.player?.quickWins,
+     winnerName:   m.winner ? resolveName(m.winner) : null,
+     targetScore:  m.targetScore,
+     player1Score: m.player1Score,
+diff --git a/src/actions/stats.ts b/src/actions/stats.ts
+index 838b5c1..c7c31c9 100644
+--- a/src/actions/stats.ts
++++ b/src/actions/stats.ts
+@@ -155,8 +155,8 @@ export async function getMyDetailedStats(): Promise<MyDetailedStats> {
+       ],
+     },
+     include: {
+-      player1: { select: { player: { select: { name: true } }, guestName: true } },
+-      player2: { select: { player: { select: { name: true } }, guestName: true } },
++      player1: { select: { playerId: true, player: { select: { name: true } }, guestName: true } },
++      player2: { select: { playerId: true, player: { select: { name: true } }, guestName: true } },
+     },
+     orderBy: { createdAt: 'asc' },
+   })
+@@ -174,6 +174,11 @@ export async function getMyDetailedStats(): Promise<MyDetailedStats> {
+     player2Id:    relabel(m.player2Id)!,
+     player1Name:  m.player1?.player?.name ?? m.player1?.guestName ?? 'Unknown',
+     player2Name:  m.player2?.player?.name ?? m.player2?.guestName ?? 'Unknown',
++    // The real Player row behind each side, when there is one — a guest
++    // slot (no account) is null. Lets "Rematch" build a correct Quick Game
++    // roster entry instead of guessing.
++    player1PlayerId: m.player1?.playerId ?? null,
++    player2PlayerId: m.player2?.playerId ?? null,
+     player1Score: m.player1Score,
+     player2Score: m.player2Score,
+     targetScore:  m.targetScore,
+@@ -207,6 +212,7 @@ export async function getMyDetailedStats(): Promise<MyDetailedStats> {
+ 
+ export interface LobbyRecentMatch {
+   opponentName: string
++  opponentPlayerId: string | null
+   win:          boolean
+   score:        string   // "7–4"
+   date:         string   // "Jan 5"
+@@ -214,12 +220,15 @@ export interface LobbyRecentMatch {
+ 
+ export interface LobbyHeader {
+   rating:        number
++  rank:          number | null   // club-wide rank by rating; null if unrated
+   ratedGames:    number
+   winRate:       number   // 0–100
+   totalMatches:  number
+   streakCount:   number
+   streakType:    'win' | 'loss' | null
+   recentMatches: LobbyRecentMatch[]
++  /** Last ~10 results, chronological (oldest first) — win/loss "form" for a sparkline. */
++  recentForm:    boolean[]
+ }
+ 
+ export async function getLobbyHeader(): Promise<LobbyHeader> {
+@@ -230,12 +239,22 @@ export async function getLobbyHeader(): Promise<LobbyHeader> {
+     getMyDetailedStats(),
+   ])
+ 
++  // Real club-wide rank by rating (only counts players with a rated game on
++  // record, same population the rated leaderboard draws from) — not shown
++  // at all for a player with no rated games yet, rather than a fake #1.
++  const rank = (player?.ratedGames ?? 0) > 0 && player
++    ? await db.player.count({
++        where: { ratedGames: { gt: 0 }, rating: { gt: player.rating } },
++      }).then(n => n + 1)
++    : null
++
+   const a = detailed.analytics
+   const recentMatches: LobbyRecentMatch[] = [...a.timeline]
+     .reverse()
+     .slice(0, 4)
+     .map(t => ({
+       opponentName: t.opponentName,
++      opponentPlayerId: t.opponentPlayerId,
+       win:          t.win,
+       score:        t.score,
+       date:         t.date,
+@@ -243,12 +262,14 @@ export async function getLobbyHeader(): Promise<LobbyHeader> {
+ 
+   return {
+     rating:        player?.rating ?? 1500,
++    rank,
+     ratedGames:    player?.ratedGames ?? 0,
+     winRate:       a.winRate,
+     totalMatches:  a.totalMatches,
+     streakCount:   a.currentStreak.count,
+     streakType:    a.currentStreak.type,
+     recentMatches,
++    recentForm:    a.timeline.slice(-10).map(t => t.win),
+   }
+ }
+ 
+diff --git a/src/app/(dashboard)/stats/page.tsx b/src/app/(dashboard)/stats/page.tsx
+index d0c9abb..e76b7ca 100644
+--- a/src/app/(dashboard)/stats/page.tsx
++++ b/src/app/(dashboard)/stats/page.tsx
+@@ -176,10 +176,10 @@ export default async function StatsPage() {
+           </p>
+         </div>
+         {streak > 0 && (
+-          <div className="flex items-center gap-2 rounded-xl border border-orange-700/30 bg-orange-900/10 px-4 py-2">
+-            <Flame className="h-5 w-5 text-orange-400" />
++          <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2">
++            <Flame className="h-5 w-5 text-warning" />
+             <div>
+-              <p className="text-base font-bold text-orange-400 leading-none">{streak}</p>
++              <p className="text-base font-bold text-warning leading-none">{streak}</p>
+               <p className="text-[10px] text-ink-muted">win streak</p>
+             </div>
+           </div>
+diff --git a/src/app/error.tsx b/src/app/error.tsx
+index 5735f8f..eb78701 100644
+--- a/src/app/error.tsx
++++ b/src/app/error.tsx
+@@ -10,37 +10,41 @@ import { useEffect } from 'react'
+ import Link from 'next/link'
+ import { AlertTriangle, RotateCcw, Home } from 'lucide-react'
+ 
+-// Hardcoded colors (not CSS vars) — this can render before the theme
+-// bootstrap script has run, so it can't depend on --gold/--surface-* etc.
++// Uses the design-token classes (bg-surface-canvas, text-gold, etc.) rather
++// than component state. This can render before the theme bootstrap script
++// in the root layout has set data-theme on <html> — but the bare :root
++// block in globals.css now resolves to the same light palette by default,
++// so these tokens are safe here without waiting on that script, and they
++// still correctly switch to dark if data-theme="dark" is already set.
+ export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+   useEffect(() => {
+     console.error('Unhandled app error:', error)
+   }, [error])
+ 
+   return (
+-    <div className="flex min-h-dvh items-center justify-center bg-[#14171f] px-4 py-10">
+-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1e27] p-6 text-center">
+-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#e08a35]/15 text-[#e08a35]">
++    <div className="flex min-h-dvh items-center justify-center bg-surface-canvas px-4 py-10">
++      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface-raised p-6 text-center">
++        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gold/15 text-gold">
+           <AlertTriangle className="h-6 w-6" />
+         </span>
+-        <h1 className="mt-4 text-lg font-bold text-[#eef1f5]">Something went wrong</h1>
+-        <p className="mt-1.5 text-sm text-[#8893a3]">
++        <h1 className="mt-4 text-lg font-bold text-ink">Something went wrong</h1>
++        <p className="mt-1.5 text-sm text-ink-muted">
+           That didn't load right. Give it another try — your progress is saved.
+         </p>
+         {error.digest && (
+-          <p className="mt-2 text-[10px] text-[#5b6573]">Reference: {error.digest}</p>
++          <p className="mt-2 text-[10px] text-ink-subtle">Reference: {error.digest}</p>
+         )}
+         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+           <button
+             onClick={reset}
+-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#e08a35] px-4 py-2.5 text-sm font-semibold text-[#14171f] transition-opacity hover:opacity-90"
++            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gold px-4 py-2.5 text-sm font-semibold text-surface-canvas transition-opacity hover:opacity-90"
+           >
+             <RotateCcw className="h-4 w-4" />
+             Try again
+           </button>
+           <Link
+             href="/"
+-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-[#eef1f5] transition-colors hover:bg-white/5"
++            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-surface-elevated"
+           >
+             <Home className="h-4 w-4" />
+             Go home
+diff --git a/src/app/globals.css b/src/app/globals.css
+index a360899..2fc44bb 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -9,8 +9,7 @@
+    Palette: deep navy playing surface + rich copper accents + walnut wood.
+    ───────────────────────────────────────────────────────────────────────── */
+ 
+-/* ── Dark mode (default) ──────────────────────────────────────────────────── */
+-:root,
++/* ── Dark mode (opt-in via Settings → Appearance) ─────────────────────────── */
+ [data-theme="dark"] {
+   /* Surfaces — lifted a few steps lighter than pure obsidian, with a
+      glossy/satin character: each layer reads like polished lacquer rather
+@@ -62,51 +61,62 @@
+   --ring: 26 80% 56%;
+ }
+ 
+-/* ── Light mode ───────────────────────────────────────────────────────────── */
++/* ── Light mode — "Quick Play" palette (default) ──────────────────────────
++   Warm cream club room: parchment surfaces, antique-gold accent, walnut-ink
++   text. Values taken directly from the Post Sign-In Options design handoff
++   (screen bg #F7F0E4, ink #453C30, gold #A98A5E, line #E2D6BC, highlight
++   row #FBF0DC), extended to the rest of the token set in the same key. */
++:root,
+ [data-theme="light"] {
+-  /* Surfaces — airier, crisper white with warm undertones (less heavy
+-     beige-on-beige layering, more breathing room, modern SaaS clarity) */
+-  --surface-canvas:   40 30% 98%;    /* #faf8f4 — near-white warm        */
+-  --surface-base:     38 25% 96%;    /* #f5f1ea — page body              */
+-  --surface-raised:    0  0% 100%;   /* #ffffff — crisp card surface     */
+-  --surface-elevated: 36 20% 94%;    /* #efe9df — input / elevated card  */
+-  --surface-muted:    34 16% 88%;    /* #e2d8c8 — section dividers       */
+-  --surface-subtle:   32 14% 80%;    /* #cfc2ab — hover state            */
+-
+-  /* Copper — deepened for contrast on white */
+-  --gold:        24 78% 42%;         /* #bb540f — copper primary         */
+-  --gold-dim:    20 65% 26%;         /* #702f09 — dark copper            */
+-  --gold-bright: 28 72% 50%;         /* #c97328 — bright / hover         */
+-  --gold-muted:  24 50% 56%;         /* #bd7a40 — subtle copper          */
+-
+-  /* Jade — secondary accent, deepened to match */
+-  --jade:        158 48% 32%;        /* #1f6b4d — jade primary           */
+-  --jade-dim:    158 42% 20%;        /* #143828 — dark jade              */
+-  --jade-bright: 156 50% 40%;        /* #20925f — bright / hover         */
++  --surface-canvas:   42 25% 90%;    /* #ebe7de — outer chrome / scroll bg */
++  --surface-base:     38 54% 93%;    /* #f7f0e4 — page body               */
++  --surface-raised:    0  0% 100%;   /* #ffffff — card surface            */
++  --surface-elevated: 39 80% 92%;    /* #fbf0dc — input / highlighted row */
++  --surface-muted:    38 30% 87%;    /* #e9decb — section dividers        */
++  --surface-subtle:   36 22% 81%;    /* #d9cbb0 — hover state             */
++
++  /* Antique gold — warm, muted, never neon */
++  --gold:        35 30% 52%;         /* #a98a5e — gold primary            */
++  --gold-dim:    34 32% 42%;         /* #8c6f49 — dark gold (gloss edge)  */
++  --gold-bright: 36 40% 65%;         /* #c9ad82 — bright / hover          */
++  --gold-muted:  35 25% 60%;         /* #bb9d73 — subtle gold             */
++
++  /* Jade — secondary accent, deepened to sit on cream */
++  --jade:        158 48% 32%;        /* #1f6b4d — jade primary            */
++  --jade-dim:    158 42% 20%;        /* #143828 — dark jade               */
++  --jade-bright: 156 50% 40%;        /* #20925f — bright / hover          */
+ 
+   /* Silver */
+-  --silver:      214 22% 42%;        /* #5a7490 — muted steel            */
+-  --silver-dim:  216 18% 32%;        /* #435a6e — dark steel             */
++  --silver:      214 22% 42%;        /* #5a7490 — muted steel             */
++  --silver-dim:  216 18% 32%;        /* #435a6e — dark steel              */
+ 
+-  /* Ink — dark navy on cream */
+-  --ink:         222 45% 13%;        /* #121b30 — primary text           */
+-  --ink-muted:   218 26% 34%;        /* #3a4a64 — secondary text         */
+-  --ink-subtle:  216 18% 52%;        /* #7186a0 — placeholder / hint     */
++  /* Ink — warm walnut-brown on cream */
++  --ink:         34 18% 23%;         /* #453c30 — primary text            */
++  --ink-muted:   37 10% 49%;         /* #8a8070 — secondary text          */
++  --ink-subtle:  35 12% 64%;         /* #b6a98f — placeholder / hint      */
+ 
+   /* Lines */
+-  --line:        30 18% 85%;         /* #dfd6c8 — default border         */
+-  --line-gold:   24 50% 60%;         /* #c2824a — copper border          */
++  --line:        41 40% 81%;         /* #e2d6bc — default border          */
++  --line-gold:   35 35% 60%;         /* #bb9d73 — gold border             */
+ 
+   /* Semantic */
+-  --win:         150 48% 30%;        /* #27684a — positive               */
+-  --loss:           4 60% 42%;       /* #aa3322 — negative               */
+-  --warning:      28 70% 42%;        /* #b0601a — amber / cube           */
++  --win:         150 46% 32%;        /* #276b4b — positive                */
++  --loss:           4 58% 44%;       /* #af3320 — negative                */
++  --warning:      36 55% 46%;        /* #b3813a — amber / cube            */
+ 
+   --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
+-  --font-display: 'Georgia', 'Times New Roman', serif;
++  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+   --font-mono:    'JetBrains Mono', 'Fira Code', 'Menlo', monospace;
+ 
+-  --ring: 24 78% 42%;
++  --ring: 35 30% 52%;
++}
++
++/* Gloss — the antique-gold panel treatment used for hero cards, primary
++   chips, and avatar frames. A fixed decorative gradient (not theme-swapped)
++   since it reads as "the club's gold," not a semantic surface. */
++.gloss {
++  background-image: linear-gradient(160deg, #e8dcc4 0%, #c9ad82 45%, #a98a5e 75%, #8c6f49 100%);
++  box-shadow: inset 0 1px 1px rgba(255,255,255,.5), 0 6px 16px -6px rgba(120,96,64,.4);
+ }
+ 
+ /* ─────────────────────────────────────────────────────────────────────────────
+@@ -135,20 +145,20 @@
+ }
+ 
+ [data-theme="light"][data-accent="copper"] {
+-  --gold: 24 78% 42%; --gold-dim: 20 65% 26%; --gold-bright: 28 72% 50%; --gold-muted: 24 50% 56%;
+-  --line-gold: 24 50% 60%; --ring: 24 78% 42%;
++  --gold: 35 30% 52%; --gold-dim: 34 32% 42%; --gold-bright: 36 40% 65%; --gold-muted: 35 25% 60%;
++  --line-gold: 35 35% 60%; --ring: 35 30% 52%;
+ }
+ [data-theme="light"][data-accent="jade"] {
+   --gold: 158 48% 32%; --gold-dim: 158 42% 20%; --gold-bright: 156 50% 40%; --gold-muted: 158 32% 44%;
+   --line-gold: 158 40% 50%; --ring: 158 48% 32%;
+ }
+ [data-theme="light"][data-accent="sapphire"] {
+-  --gold: 213 62% 40%; --gold-dim: 214 55% 24%; --gold-bright: 210 68% 48%; --gold-muted: 213 38% 50%;
+-  --line-gold: 212 48% 56%; --ring: 213 62% 40%;
++  --gold: 213 55% 42%; --gold-dim: 214 50% 28%; --gold-bright: 210 62% 52%; --gold-muted: 213 35% 52%;
++  --line-gold: 212 42% 58%; --ring: 213 55% 42%;
+ }
+ [data-theme="light"][data-accent="crimson"] {
+-  --gold: 352 58% 42%; --gold-dim: 352 50% 26%; --gold-bright: 350 64% 50%; --gold-muted: 352 38% 52%;
+-  --line-gold: 352 44% 58%; --ring: 352 58% 42%;
++  --gold: 352 50% 46%; --gold-dim: 352 45% 30%; --gold-bright: 350 58% 54%; --gold-muted: 352 34% 54%;
++  --line-gold: 352 40% 60%; --ring: 352 50% 46%;
+ }
+ 
+ /* ─────────────────────────────────────────────────────────────────────────────
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index c0e2527..0901027 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -1,8 +1,14 @@
+ import type { Metadata, Viewport } from 'next'
+-import { Inter }                   from 'next/font/google'
++import { Inter, Cormorant_Garamond } from 'next/font/google'
+ import './globals.css'
+ 
+ const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' })
++const cormorant = Cormorant_Garamond({
++  subsets: ['latin'],
++  weight: ['500', '600', '700'],
++  display: 'swap',
++  variable: '--font-display',
++})
+ 
+ export const metadata: Metadata = {
+   title: { default: 'Backgammon Club', template: '%s · Backgammon Club' },
+@@ -13,17 +19,19 @@ export const metadata: Metadata = {
+ export const viewport: Viewport = {
+   width: 'device-width', initialScale: 1, maximumScale: 1,
+   themeColor: [
+-    { media: '(prefers-color-scheme: dark)',  color: '#050b18' },
+-    { media: '(prefers-color-scheme: light)', color: '#f5f0e8' },
++    { media: '(prefers-color-scheme: light)', color: '#f7f0e4' },
++    { media: '(prefers-color-scheme: dark)',  color: '#14171f' },
+   ],
+ }
+ 
+ export default function RootLayout({ children }: { children: React.ReactNode }) {
+   return (
+-    <html lang="en" className={inter.variable} suppressHydrationWarning>
++    <html lang="en" className={`${inter.variable} ${cormorant.variable}`} suppressHydrationWarning>
+       <head>
+-        {/* Runs before paint to apply saved theme + accent — prevents flash of wrong colors */}
+-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('pb_theme')||'auto';var d=t==='dark'||(t==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','dark');}try{document.documentElement.setAttribute('data-accent',localStorage.getItem('pb_accent')||'copper');}catch(e){document.documentElement.setAttribute('data-accent','copper');}try{var s=localStorage.getItem('pb_skin');if(s&&s!=='none')document.documentElement.setAttribute('data-skin',s);}catch(e){}})();` }} />
++        {/* Runs before paint to apply saved theme + accent — prevents flash of wrong colors.
++            Default is now "light" (the club's cream/gold look) unless the person has
++            explicitly chosen dark or asked to follow their system setting. */}
++        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('pb_theme')||'light';var d=t==='dark'||(t==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}try{document.documentElement.setAttribute('data-accent',localStorage.getItem('pb_accent')||'copper');}catch(e){document.documentElement.setAttribute('data-accent','copper');}try{var s=localStorage.getItem('pb_skin');if(s&&s!=='none')document.documentElement.setAttribute('data-skin',s);}catch(e){}})();` }} />
+       </head>
+       <body className="antialiased">
+         {children}
+diff --git a/src/components/layout/sidebar-nav.tsx b/src/components/layout/sidebar-nav.tsx
+index bd0be1b..4c819b4 100644
+--- a/src/components/layout/sidebar-nav.tsx
++++ b/src/components/layout/sidebar-nav.tsx
+@@ -7,7 +7,6 @@ import {
+   ShieldCheck, Zap, Medal, Dices, BookOpen, Bot, GraduationCap, Rss, Globe, MessageCircle,
+   type LucideIcon,
+ } from 'lucide-react'
+-import { cn }            from '@/lib/utils'
+ import { NAV_ITEMS }     from './nav-items'
+ import { Avatar }        from '@/components/ui/avatar'
+ import { Badge }         from '@/components/ui/badge'
+@@ -35,6 +34,14 @@ const NAV_GROUPS = [
+ 
+ interface SidebarNavProps { user: SessionUser }
+ 
++/**
++ * The sidebar is a fixed "club room" — a warm, dark walnut-paneled rail
++ * that stays the same regardless of whether the person has the app's
++ * content area set to light or dark. Deliberately scoped, not read from
++ * the shared surface, ink, or gold tokens: those follow the person's
++ * theme choice, and this panel intentionally doesn't. Values match the
++ * "Backgammon Club Desktop — Luxury v2" design handoff.
++ */
+ export function SidebarNav({ user }: SidebarNavProps) {
+   const pathname = usePathname()
+   const unreadMessages = useUnreadMessages()
+@@ -51,25 +58,23 @@ export function SidebarNav({ user }: SidebarNavProps) {
+ 
+   return (
+     <aside className="hidden md:flex flex-col w-[220px] flex-shrink-0 h-dvh sticky top-0 overflow-hidden">
+-      {/* Left panel — glossy vertical depth gradient, lit from the top */}
+-      <div className="glossy flex flex-col h-full border-r border-line/60 bg-gradient-to-b from-surface-elevated via-surface-base to-surface-canvas">
++      <div className="flex flex-col h-full" style={{ background: '#2B241A', color: '#EDE4D2' }}>
+ 
+         {/* Logo */}
+         <div className="flex items-center gap-3 px-5 pt-6 pb-5">
+-          <div className="flex h-9 w-9 items-center justify-center rounded-xl
+-            bg-gradient-to-br from-gold to-gold-dim shadow-[0_2px_12px_hsl(var(--gold)/0.35)]">
++          <div className="gloss flex h-9 w-9 items-center justify-center rounded-xl">
+             <span className="text-lg leading-none">🎲</span>
+           </div>
+           <div>
+-            <p className="font-display font-bold text-ink text-[15px] leading-tight tracking-tight">
++            <p className="font-display font-bold text-[15px] leading-tight tracking-tight" style={{ color: '#F4EEE2' }}>
+               Backgammon
+             </p>
+-            <p className="text-[10px] text-ink-subtle tracking-widest uppercase">Club</p>
++            <p className="text-[10px] tracking-widest uppercase font-bold" style={{ color: '#B9A272' }}>Club</p>
+           </div>
+         </div>
+ 
+         {/* Divider */}
+-        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-line to-transparent mb-3" />
++        <div className="mx-4 h-px mb-3" style={{ background: 'rgba(255,255,255,.08)' }} />
+ 
+         {/* Nav groups */}
+         <nav className="flex-1 px-3 space-y-5 overflow-y-auto no-scrollbar py-1">
+@@ -78,7 +83,7 @@ export function SidebarNav({ user }: SidebarNavProps) {
+             if (items.length === 0) return null
+             return (
+               <div key={group.label}>
+-                <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-subtle/70">
++                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#7C7259' }}>
+                   {group.label}
+                 </p>
+                 <div className="space-y-0.5">
+@@ -90,33 +95,21 @@ export function SidebarNav({ user }: SidebarNavProps) {
+                       <Link
+                         key={item.href}
+                         href={item.href}
+-                        className={cn(
+-                          'group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium',
+-                          'transition-all duration-150',
+-                          active
+-                            ? 'bg-gold text-surface-canvas shadow-gold'
+-                            : isZap
+-                            ? 'text-gold/80 hover:text-gold hover:bg-gold/8'
+-                            : 'text-ink-muted hover:text-ink hover:bg-surface-raised/60',
+-                        )}
++                        className="group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13.5px] font-medium transition-all duration-150"
++                        style={{
++                          background: active ? 'rgba(210,184,137,.16)' : 'transparent',
++                          color: active ? '#D2B889' : isZap ? '#D2B889cc' : '#BDB29B',
++                        }}
+                       >
+-                        {Icon && (
+-                          <Icon className={cn(
+-                            'h-4 w-4 flex-shrink-0 transition-colors',
+-                            active ? 'text-surface-canvas' : isZap ? 'text-gold/70' : 'text-ink-subtle group-hover:text-ink-muted',
+-                          )} />
+-                        )}
++                        {Icon && <Icon className="h-4 w-4 flex-shrink-0" style={{ color: active ? '#D2B889' : '#BDB29B' }} />}
+                         <span className="truncate">{item.label}</span>
+                         {isZap && !active && (
+-                          <span className="ml-auto text-[9px] font-bold uppercase tracking-wide text-jade border border-jade/30 rounded px-1 py-0.5">
++                          <span className="ml-auto text-[9px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5" style={{ background: '#3E5D45', color: '#B7D9BC' }}>
+                             Free
+                           </span>
+                         )}
+                         {item.href === '/messages' && unreadMessages > 0 && (
+-                          <span className={cn(
+-                            'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold',
+-                            active ? 'bg-surface-canvas/25 text-surface-canvas' : 'bg-gold text-surface-canvas',
+-                          )}>
++                          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold" style={{ background: '#D2B889', color: '#3A3226' }}>
+                             {unreadMessages > 9 ? '9+' : unreadMessages}
+                           </span>
+                         )}
+@@ -130,10 +123,11 @@ export function SidebarNav({ user }: SidebarNavProps) {
+         </nav>
+ 
+         {/* Divider */}
+-        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-line to-transparent mt-2" />
++        <div className="mx-4 h-px mt-2" style={{ background: 'rgba(255,255,255,.08)' }} />
+ 
+-        {/* Theme toggle */}
+-        <div className="px-3 pb-2">
++        {/* Theme toggle — scoped to dark tokens so it stays legible on this
++            fixed-dark panel regardless of the content area's own theme */}
++        <div className="px-3 pb-2" data-theme="dark">
+           <ThemeToggle />
+         </div>
+ 
+@@ -141,18 +135,13 @@ export function SidebarNav({ user }: SidebarNavProps) {
+         <div className="px-3 pb-4">
+           <Link
+             href="/settings"
+-            className="flex items-center gap-3 rounded-xl border border-line/50 bg-surface-raised/40 px-3 py-2.5
+-              hover:border-gold/20 hover:bg-surface-raised/70 transition-all duration-150 group"
++            className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-150 group"
++            style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}
+           >
+-            <Avatar
+-              name={user.name}
+-              src={user.avatarUrl}
+-              size="sm"
+-              className="ring-1 ring-gold/20 ring-offset-1 ring-offset-surface-canvas flex-shrink-0"
+-            />
++            <Avatar name={user.name} src={user.avatarUrl} size="sm" className="flex-shrink-0" />
+             <div className="min-w-0 flex-1">
+-              <p className="text-[13px] font-semibold text-ink truncate leading-tight">{user.name}</p>
+-              <p className="text-[10px] text-ink-subtle truncate mt-0.5">{user.email}</p>
++              <p className="text-[12.5px] font-semibold truncate leading-tight" style={{ color: '#F4EEE2' }}>{user.name}</p>
++              <p className="text-[10.5px] truncate mt-0.5" style={{ color: '#8A7F65' }}>{user.email}</p>
+             </div>
+             <Badge variant={ROLE_VARIANT[user.role]} className="flex-shrink-0 text-[9px]">
+               {user.role === 'TOURNAMENT_MANAGER' ? 'mgr' : user.role.toLowerCase()}
+diff --git a/src/components/layout/top-bar.tsx b/src/components/layout/top-bar.tsx
+index e66f7ef..0cc7d85 100644
+--- a/src/components/layout/top-bar.tsx
++++ b/src/components/layout/top-bar.tsx
+@@ -25,7 +25,7 @@ export function TopBar({ user }: TopBarProps) {
+ 
+   return (
+     <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-16
+-      bg-surface-canvas/88 backdrop-blur-xl border-b border-white/5">
++      bg-surface-canvas/88 backdrop-blur-xl border-b border-line">
+ 
+       {/* Copper top-line accent */}
+       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
+@@ -45,7 +45,7 @@ export function TopBar({ user }: TopBarProps) {
+       {/* Right: theme toggle + user pill + logout */}
+       <div className="flex items-center gap-2 flex-shrink-0">
+         <ThemeToggle compact />
+-        <div className="flex items-center gap-2 rounded-full border border-white/8 bg-surface-raised/60 pl-2 pr-3 py-1.5">
++        <div className="flex items-center gap-2 rounded-full border border-line bg-surface-raised/60 pl-2 pr-3 py-1.5">
+           <Avatar name={user.name} src={user.avatarUrl} size="sm"
+             className="ring-1 ring-gold/25 ring-offset-1 ring-offset-surface-canvas" />
+           <span className="text-[13px] font-semibold text-ink hidden xs:block">{firstName}</span>
+@@ -54,7 +54,7 @@ export function TopBar({ user }: TopBarProps) {
+           onClick={handleLogout}
+           disabled={isPending}
+           aria-label="Sign out"
+-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8
++          className="flex h-8 w-8 items-center justify-center rounded-full border border-line
+             bg-surface-raised/60 text-ink-subtle hover:text-loss hover:border-loss/30 transition-all"
+         >
+           <LogOut className="h-3.5 w-3.5" />
+diff --git a/src/components/lobby/fair-play-banner.tsx b/src/components/lobby/fair-play-banner.tsx
+index 40503e2..f2b47a9 100644
+--- a/src/components/lobby/fair-play-banner.tsx
++++ b/src/components/lobby/fair-play-banner.tsx
+@@ -10,9 +10,9 @@ const PILLARS = [
+     title: 'Fair Dice',
+     badge: 'WBGF Certified',
+     desc: 'Every roll uses a cryptographically verified RNG — the same standard used at World Backgammon Federation events. Fully audited and tamper-proof.',
+-    color: 'from-blue-900/40 to-blue-950/20',
+-    border: 'border-blue-700/30',
+-    iconBg: 'bg-blue-900/50 text-blue-300',
++    color: 'from-silver/15 to-silver/5',
++    border: 'border-silver/30',
++    iconBg: 'bg-silver/15 text-silver',
+   },
+   {
+     icon: Users,
+@@ -45,8 +45,8 @@ export function FairPlayBanner() {
+         onClick={() => setOpen(v => !v)}
+         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-elevated/50 transition-colors"
+       >
+-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-900/40 border border-blue-700/30 flex-shrink-0">
+-          <ShieldCheck className="h-4 w-4 text-blue-300" />
++        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-silver/15 border border-silver/30 flex-shrink-0">
++          <ShieldCheck className="h-4 w-4 text-silver" />
+         </div>
+         <div className="flex-1 text-left min-w-0">
+           <p className="text-[13px] font-bold text-ink">Our Commitment to Fair Play</p>
+@@ -67,7 +67,7 @@ export function FairPlayBanner() {
+         <div className="border-t border-line">
+           {/* Hero */}
+           <div className="relative px-4 py-5 text-center overflow-hidden">
+-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_0%,hsl(220_60%_30%/0.25),transparent)]" />
++            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_0%,hsl(var(--gold)/0.14),transparent)]" />
+             <p className="relative text-lg font-display font-bold text-ink">
+               Our Commitment to Fair Play
+             </p>
+diff --git a/src/components/match/live-match-client.tsx b/src/components/match/live-match-client.tsx
+index aa5b364..4171270 100644
+--- a/src/components/match/live-match-client.tsx
++++ b/src/components/match/live-match-client.tsx
+@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
+ import { Dialog, DialogFooter } from '@/components/ui/dialog'
+ import { BackgammonBoard } from '@/components/backgammon'
+ import { useBoardThemes, BoardCustomizeButton } from '@/components/backgammon/board-customizer'
++import { VersusIntro } from '@/components/match/versus-intro'
+ import { cn } from '@/lib/utils'
+ import {
+   applyLiveMove, endLiveTurn, undoLiveMove, offerLiveDouble, respondLiveDouble,
+@@ -58,6 +59,14 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
+   const [connected, setConnected] = useState(false)
+   const [pending, startTransition] = useTransition()
+ 
++  // Show the versus splash once, only for a brand-new match (game 1, nothing
++  // played yet) — reconnects and later games skip straight to the board.
++  const [showIntro, setShowIntro] = useState(
++    () => initialLiveGame.gameNumber === 1
++      && initialLiveGame.dice === null
++      && initialLiveGame.movesPlayed.length === 0,
++  )
++
+   const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
+ 
+   const channelRef = useRef<RealtimeChannel | null>(null)
+@@ -176,6 +185,25 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
+ 
+   return (
+     <FullscreenMatchShell match={match} connected={connected}>
++      {showIntro && (
++        <VersusIntro
++          player1={{
++            name: match.player1Name,
++            avatarUrl: match.player1AvatarUrl,
++            rating: match.player1Rating,
++            wins: match.player1Wins,
++          }}
++          player2={{
++            name: match.player2Name,
++            avatarUrl: match.player2AvatarUrl,
++            rating: match.player2Rating,
++            wins: match.player2Wins,
++          }}
++          targetScore={match.targetScore}
++          onDone={() => setShowIntro(false)}
++        />
++      )}
++
+       <div className="flex items-center justify-between gap-2">
+         <BackLink match={match} connected={connected} />
+         <BoardCustomizeButton
+diff --git a/src/components/match/versus-intro.tsx b/src/components/match/versus-intro.tsx
+new file mode 100644
+index 0000000..f3a6b89
+--- /dev/null
++++ b/src/components/match/versus-intro.tsx
+@@ -0,0 +1,210 @@
++'use client'
++
++/**
++ * VersusIntro — full-screen splash shown for a beat before a live match
++ * begins. Two players face off, a shared stake is named, and a short
++ * strategy tip fills the pause while the board sets up.
++ *
++ * Design intent: the app's existing gold/jade dual-accent carries the
++ * "counterpoint" idea already used elsewhere in the brand — two forces
++ * (players) advancing toward the same resolution (the match) from opposite
++ * sides. Nothing here is invented data: rating and win count come straight
++ * off the Player row, and the stake line is the tournament's own
++ * points-per-win / race-to-target — there's no in-app currency in this
++ * product, so we don't fake one.
++ */
++
++import { useEffect, useState } from 'react'
++import { Star, Trophy }        from 'lucide-react'
++import { Avatar }              from '@/components/ui/avatar'
++import { cn }                  from '@/lib/utils'
++
++export interface VersusPlayer {
++  name:      string
++  avatarUrl?: string | null
++  rating?:    number
++  wins?:      number
++}
++
++interface VersusIntroProps {
++  player1:      VersusPlayer
++  player2:      VersusPlayer
++  targetScore:  number
++  pointsPerWin?: number
++  /** Called once the intro has finished (progress bar reaches 100%). */
++  onDone?: () => void
++  /** Total time on screen before onDone fires. */
++  durationMs?: number
++  className?:  string
++}
++
++// Short, single-line strategy notes — a fresh pass over ideas already in
++// the app's rules content, trimmed to fit one calm sentence each.
++const TIPS = [
++  'Double while your opponent can still take — waiting risks losing the window.',
++  'A blot exposed to more than 11 dice combinations is usually too dangerous.',
++  'Early game favors flexibility: keep builders that can make more than one point.',
++  'When far behind in the race, look for a back game or a strong anchor.',
++  'A well-timed take is often correct even at only a quarter chance to win.',
++]
++
++export function VersusIntro({
++  player1,
++  player2,
++  targetScore,
++  pointsPerWin,
++  onDone,
++  durationMs = 2600,
++  className,
++}: VersusIntroProps) {
++  const [progress] = useState(() => Math.random()) // stable per-mount tip pick
++  const tip = TIPS[Math.floor(progress * TIPS.length)]
++
++  const [fill, setFill] = useState(0)
++
++  useEffect(() => {
++    const start = Date.now()
++    const raf = () => {
++      const elapsed = Date.now() - start
++      const pct = Math.min(100, Math.round((elapsed / durationMs) * 100))
++      setFill(pct)
++      if (pct < 100) {
++        requestAnimationFrame(raf)
++      } else {
++        onDone?.()
++      }
++    }
++    const id = requestAnimationFrame(raf)
++    return () => cancelAnimationFrame(id)
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [durationMs])
++
++  return (
++    <div
++      className={cn(
++        'fixed inset-0 z-50 flex flex-col items-center justify-center',
++        'bg-surface-canvas overflow-hidden animate-fade-in',
++        className,
++      )}
++      role="status"
++      aria-label={`${player1.name} versus ${player2.name}`}
++    >
++      {/* Two glows converging toward center — gold from the left, jade from the right */}
++      <div
++        className="pointer-events-none absolute inset-0"
++        style={{
++          background:
++            'radial-gradient(ellipse 60% 55% at 12% 30%, hsl(var(--gold) / 0.16), transparent 60%),' +
++            'radial-gradient(ellipse 60% 55% at 88% 30%, hsl(var(--jade) / 0.16), transparent 60%)',
++        }}
++      />
++
++      <div className="relative w-full max-w-2xl px-6 flex flex-col items-center">
++        {/* Players facing off */}
++        <div className="flex w-full items-start justify-between gap-4">
++          <PlayerColumn player={player1} accent="gold" />
++
++          {/* VS mark */}
++          <div className="flex shrink-0 flex-col items-center gap-1 pt-4">
++            <span
++              className="font-display text-5xl sm:text-6xl font-bold tracking-tight animate-dice-in"
++              style={{
++                backgroundImage: 'linear-gradient(135deg, hsl(var(--gold-bright)), hsl(var(--jade-bright)))',
++                WebkitBackgroundClip: 'text',
++                backgroundClip: 'text',
++                color: 'transparent',
++              }}
++            >
++              VS
++            </span>
++          </div>
++
++          <PlayerColumn player={player2} accent="jade" />
++        </div>
++
++        {/* Stake — real tournament data, not an invented currency */}
++        <div className="mt-8 flex flex-col items-center gap-1.5">
++          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-subtle">
++            Race to
++          </p>
++          <p className="font-display text-3xl font-bold text-ink">
++            {targetScore}
++            {pointsPerWin && pointsPerWin !== 1 && (
++              <span className="ml-2 align-middle text-sm font-medium text-ink-subtle">
++                · {pointsPerWin} pts / win
++              </span>
++            )}
++          </p>
++        </div>
++
++        {/* Tip */}
++        <p className="mt-6 max-w-md text-center text-sm text-ink-muted">
++          <span className="font-semibold text-gold">Tip </span>
++          {tip}
++        </p>
++
++        {/* Progress */}
++        <div className="mt-8 w-full max-w-xs">
++          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-elevated">
++            <div
++              className="h-full rounded-full transition-[width] duration-100 ease-linear"
++              style={{
++                width: `${fill}%`,
++                backgroundImage: 'linear-gradient(90deg, hsl(var(--gold)), hsl(var(--jade)))',
++              }}
++            />
++          </div>
++          <p className="mt-2 text-center text-xs text-ink-subtle">
++            {fill < 100 ? 'Setting the board…' : 'Ready'}
++          </p>
++        </div>
++      </div>
++    </div>
++  )
++}
++
++function PlayerColumn({
++  player,
++  accent,
++}: {
++  player: VersusPlayer
++  accent: 'gold' | 'jade'
++}) {
++  const ring =
++    accent === 'gold'
++      ? 'from-gold-dim via-gold to-gold-bright shadow-gold'
++      : 'from-jade-dim via-jade to-jade-bright'
++
++  return (
++    <div className="flex flex-1 flex-col items-center gap-2.5 text-center">
++      <div className={cn('relative rounded-full bg-gradient-to-br p-[3px]', ring)}>
++        <div className="rounded-full bg-surface-canvas p-1">
++          <Avatar name={player.name} src={player.avatarUrl} size="xl" />
++        </div>
++
++        {typeof player.rating === 'number' && (
++          <div
++            className={cn(
++              'absolute -bottom-1 -right-1 flex items-center gap-0.5 rounded-full',
++              'border-2 border-surface-canvas bg-surface-raised px-1.5 py-0.5',
++            )}
++          >
++            <Star className={cn('h-3 w-3', accent === 'gold' ? 'text-gold' : 'text-jade')} fill="currentColor" />
++            <span className="font-mono text-[11px] font-semibold text-ink">{player.rating}</span>
++          </div>
++        )}
++      </div>
++
++      <p className="max-w-[7rem] truncate font-display text-base font-semibold text-ink">
++        {player.name}
++      </p>
++
++      {typeof player.wins === 'number' && player.wins > 0 && (
++        <div className="flex items-center gap-1 text-xs text-ink-subtle">
++          <Trophy className="h-3 w-3" />
++          {player.wins} wins
++        </div>
++      )}
++    </div>
++  )
++}
+diff --git a/src/components/practice/practice-client.tsx b/src/components/practice/practice-client.tsx
+index fb032e6..d87ec7e 100644
+--- a/src/components/practice/practice-client.tsx
++++ b/src/components/practice/practice-client.tsx
+@@ -420,14 +420,14 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
+               <div className="flex gap-2">
+                 <button
+                   onClick={shareWin}
+-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-green-700/40 bg-green-900/20 px-3 py-2 text-sm font-medium text-green-400 transition-colors hover:bg-green-900/35"
++                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-green-600/30 bg-green-500/10 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-500/20"
+                 >
+                   <MessageCircle className="h-4 w-4" />
+                   WhatsApp
+                 </button>
+                 <button
+                   onClick={shareTwitter}
+-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-sky-700/40 bg-sky-900/20 px-3 py-2 text-sm font-medium text-sky-400 transition-colors hover:bg-sky-900/35"
++                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-sky-600/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-500/20"
+                 >
+                   <Share2 className="h-4 w-4" />
+                   Twitter / X
+diff --git a/src/components/settings/accent-picker.tsx b/src/components/settings/accent-picker.tsx
+index 00ebadf..13a9dd8 100644
+--- a/src/components/settings/accent-picker.tsx
++++ b/src/components/settings/accent-picker.tsx
+@@ -10,11 +10,14 @@ import { Check } from 'lucide-react'
+ import { cn } from '@/lib/utils'
+ import { useAccent, type AccentChoice } from '@/hooks/use-accent'
+ 
++// Hex values match the light theme's accent tones (the app's default) so
++// what you tap is what you get — these intentionally don't read from
++// --gold like the rest of the UI, since all four need to show at once.
+ const SWATCHES: { value: AccentChoice; label: string; hex: string }[] = [
+-  { value: 'copper',   label: 'Copper',   hex: '#e08a35' },
+-  { value: 'jade',     label: 'Jade',     hex: '#3a9670' },
+-  { value: 'sapphire', label: 'Sapphire', hex: '#3f8fd9' },
+-  { value: 'crimson',  label: 'Crimson',  hex: '#d9495f' },
++  { value: 'copper',   label: 'Copper',   hex: '#a98a5e' },
++  { value: 'jade',     label: 'Jade',     hex: '#1f6b4d' },
++  { value: 'sapphire', label: 'Sapphire', hex: '#3065a6' },
++  { value: 'crimson',  label: 'Crimson',  hex: '#b03b4a' },
+ ]
+ 
+ export function AccentPicker() {
+diff --git a/src/components/settings/skin-picker.tsx b/src/components/settings/skin-picker.tsx
+index f129ca4..8c79ea7 100644
+--- a/src/components/settings/skin-picker.tsx
++++ b/src/components/settings/skin-picker.tsx
+@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
+ import { useSkin, type SkinChoice } from '@/hooks/use-skin'
+ 
+ const SKINS: { value: SkinChoice; label: string; base: string; accent: string }[] = [
+-  { value: 'none',           label: 'Custom',         base: '#1a1e27', accent: '#e08a35' },
++  { value: 'none',           label: 'Custom',         base: '#f7f0e4', accent: '#a98a5e' },
+   { value: 'club-noir',      label: 'Club Noir',       base: '#1a1e27', accent: '#e08a35' },
+   { value: 'luxury-wood',    label: 'Luxury Wood',     base: '#f5f1ea', accent: '#8a5a2b' },
+   { value: 'marquetry',      label: 'Marquetry',       base: '#241412', accent: '#c9a23a' },
+diff --git a/src/components/tournament/lobby-client.tsx b/src/components/tournament/lobby-client.tsx
+index 830830c..430b603 100644
+--- a/src/components/tournament/lobby-client.tsx
++++ b/src/components/tournament/lobby-client.tsx
+@@ -1,16 +1,17 @@
+ 'use client'
+ 
+-import { useState, useMemo, useRef } from 'react'
++import { useState, useMemo, useRef, useCallback } from 'react'
++import { useRouter }           from 'next/navigation'
+ import Link                   from 'next/link'
+ import {
+   Plus, LogIn, Search, Trophy, ChevronRight,
+-  Settings, Bot, GraduationCap, Play,
+-  UserPlus2, Swords, TrendingUp, Flame,
+-  ChevronDown, Users, Globe, Zap, Monitor,
+-  CalendarDays, Clock,
++  Settings, Bot, UserPlus2,
++  ChevronDown, Globe, Zap,
++  RotateCcw, Sparkles, CalendarDays, Clock,
+ } from 'lucide-react'
+ import { Button }              from '@/components/ui/button'
+ import { Input }               from '@/components/ui/input'
++import { Avatar }              from '@/components/ui/avatar'
+ import { TournamentCard }      from './tournament-card'
+ import { JoinDialog }          from './join-dialog'
+ import { QuickMatchDialog }    from '@/components/quick-game/quick-match-dialog'
+@@ -19,32 +20,62 @@ import { MatchmakingWidget }   from '@/components/lobby/matchmaking-widget'
+ import { archiveTournament }   from '@/actions/tournament'
+ import { cn }                  from '@/lib/utils'
+ import type { Tournament, SessionUser } from '@/types'
+-import type { LobbyHeader }    from '@/actions/stats'
++import { TOURNAMENT_STATUS_LABEL } from '@/types'
++import type { LobbyHeader, LobbyRecentMatch } from '@/actions/stats'
+ 
+ type FilterKey = 'all' | 'mine' | 'active' | 'discover'
+ 
++const QG_ROSTER_KEY  = 'qg_roster_v1'
++const QG_RACE_TO_KEY = 'qg_race_to_v1'
++const DEFAULT_RACE_TO = 5
++
+ interface LobbyClientProps {
+   initialTournaments: Tournament[]
+   currentUser:        SessionUser | null
+   header?:            LobbyHeader | null
+ }
+ 
+-function greeting(): string {
+-  const h = new Date().getHours()
+-  if (h < 12) return 'Good morning'
+-  if (h < 18) return 'Good afternoon'
+-  return 'Good evening'
+-}
+-
+ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyClientProps) {
++  const router = useRouter()
+   const [tournaments, setTournaments]       = useState<Tournament[]>(initialTournaments)
+   const [search, setSearch]                 = useState('')
+   const [filter, setFilter]                 = useState<FilterKey>('all')
+   const [joinOpen, setJoinOpen]             = useState(false)
+   const [quickMatchOpen, setQuickMatchOpen] = useState(false)
+-  const [tournamentsOpen, setTournamentsOpen] = useState(true)
++  const [tournamentsOpen, setTournamentsOpen] = useState(false)
+   const tournamentsRef = useRef<HTMLDivElement>(null)
+ 
++  // Start a Quick Game against a specific opponent — same localStorage
++  // contract the QuickMatchDialog uses, so /quick-game picks it up
++  // identically whether it came from a fresh pick or a rematch tap.
++  const startRematch = useCallback((opponent: LobbyRecentMatch) => {
++    if (!currentUser) return
++    const opponentId = opponent.opponentPlayerId ?? `guest:${Math.random().toString(36).slice(2, 10)}`
++    const roster = [
++      { id: currentUser.id, name: currentUser.name },
++      { id: opponentId,     name: opponent.opponentName },
++    ]
++    localStorage.setItem(QG_ROSTER_KEY,  JSON.stringify(roster))
++    localStorage.setItem(QG_RACE_TO_KEY, String(DEFAULT_RACE_TO))
++    router.push('/quick-game')
++  }, [currentUser, router])
++
++  // Recent matches, deduped to one row per opponent (most recent first) —
++  // "Played Recently" is a list of people, not a full match log.
++  const recentOpponents = useMemo(() => {
++    if (!header) return []
++    const seen = new Set<string>()
++    const out: LobbyRecentMatch[] = []
++    for (const m of header.recentMatches) {
++      const key = m.opponentPlayerId ?? m.opponentName
++      if (seen.has(key)) continue
++      seen.add(key)
++      out.push(m)
++      if (out.length === 3) break
++    }
++    return out
++  }, [header])
++
+   function handleDelete(id: string) {
+     setTournaments(prev => prev.filter(t => t.id !== id))
+   }
+@@ -106,134 +137,193 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
+           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold opacity-90">
+             My Backgammon Club
+           </p>
+-          <h1 className="font-display text-xl font-bold text-ink mt-1">
+-            {greeting()}{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''}
++          <h1 className="font-display text-2xl font-semibold text-ink mt-1">
++            Hi{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''}
+           </h1>
+         </div>
+-        <Link
+-          href="/settings"
+-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line
+-            bg-surface-raised text-ink-muted hover:border-gold/30 hover:text-gold transition-all"
+-          aria-label="Settings"
+-        >
+-          <Settings className="h-4 w-4" />
+-        </Link>
++        {currentUser ? (
++          <Link href="/settings" aria-label="Settings" className="shrink-0">
++            <Avatar name={currentUser.name} src={currentUser.avatarUrl} size="md" />
++          </Link>
++        ) : (
++          <Link
++            href="/settings"
++            className="flex h-9 w-9 items-center justify-center rounded-full border border-line
++              bg-surface-raised text-ink-muted hover:border-gold/30 hover:text-gold transition-all"
++            aria-label="Settings"
++          >
++            <Settings className="h-4 w-4" />
++          </Link>
++        )}
+       </div>
+ 
+-      {/* ── Hero card ─────────────────────────────────────────────────── */}
+-      <div className="relative overflow-hidden rounded-2xl border border-line bg-surface-raised shadow-lg min-h-[180px]">
+-        {/* Board art SVG background */}
+-        <svg
+-          className="absolute right-0 top-0 h-full w-[180px] opacity-[0.14] pointer-events-none select-none"
+-          viewBox="0 0 180 200"
+-          fill="none"
+-          aria-hidden="true"
+-        >
+-          {[0,30,60,90,120,150].map((x,i) => (
+-            <polygon key={i} points={`${x+2},0 ${x+18},0 ${x+10},75`} fill="hsl(var(--gold))" opacity={i%2===0?'1':'.6'}/>
+-          ))}
+-          {[0,30,60,90,120,150].map((x,i) => (
+-            <polygon key={i+6} points={`${x+2},200 ${x+18},200 ${x+10},125`} fill="hsl(var(--gold-dim))" opacity={i%2===0?'.8':'.5'}/>
+-          ))}
+-          <circle cx="10" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
+-          <circle cx="40" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
+-          <circle cx="70" cy="100" r="8" fill="hsl(var(--surface-muted))" opacity=".6"/>
+-          <circle cx="100" cy="100" r="8" fill="hsl(var(--gold))" opacity=".4"/>
+-          <rect x="82" y="0" width="16" height="200" fill="hsl(var(--gold))" opacity=".03"/>
+-        </svg>
+-
+-        {/* Gradient overlay — left side reads clearly */}
+-        <div className="absolute inset-0 bg-gradient-to-r from-surface-raised via-surface-raised/90 to-transparent pointer-events-none" />
+-
+-        <div className="relative flex flex-col gap-4 p-5 sm:p-6">
+-          <div>
+-            <p className="font-display text-4xl font-black uppercase tracking-tight text-ink leading-none">
+-              Play<span className="text-gold">.</span>
+-            </p>
+-            <p className="mt-2 text-sm text-ink-muted max-w-[180px] leading-snug">
+-              Start a new game and enjoy Backgammon
+-            </p>
+-          </div>
+-
+-          <div className="flex flex-col gap-2 w-fit">
++      {/* ── Hero: Ready to play?  +  Your Standing (desktop) ────────────── */}
++      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
++        <div className="gloss rounded-2xl p-6 text-center lg:text-left lg:flex lg:flex-col lg:justify-center lg:px-8">
++          <p className="font-display text-xl font-semibold text-ink lg:text-2xl">Ready to play?</p>
++          <p className="mt-1 text-sm text-ink/80">Pick who's across the board</p>
++          <div className="lg:flex lg:gap-3">
+             <button
+               type="button"
+               onClick={() => setQuickMatchOpen(true)}
+-              className="group flex items-center gap-2.5 rounded-full
+-                bg-gradient-to-b from-gold-bright to-gold
+-                border border-gold-dim/60 px-6 py-3 text-sm font-bold text-surface-canvas
+-                shadow-[0_4px_20px_-4px_hsl(var(--gold)/0.55)]
+-                transition-all hover:to-gold-bright active:scale-[0.97]"
++              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl
++                bg-ink text-base font-bold text-surface-elevated
++                shadow-md transition-all hover:brightness-110 active:scale-[0.98]
++                lg:w-auto lg:px-7"
+             >
+-              <Play className="h-4 w-4 fill-current" />
+-              New Game
++              <Sparkles className="h-4 w-4" />
++              Start a Game
+             </button>
+-            <Link
+-              href="/players"
+-              className="flex items-center gap-2.5 rounded-full border border-line/70
+-                bg-white/5 px-5 py-2.5 text-sm font-semibold text-ink
+-                hover:border-gold/30 transition-colors backdrop-blur"
+-            >
+-              <UserPlus2 className="h-4 w-4 text-gold" />
+-              Quick Match
+-            </Link>
+           </div>
++          <p className="mt-2.5 text-xs text-ink/70">
++            Choose an opponent, set the race, and you're playing
++          </p>
+         </div>
++
++        {/* Your Standing — desktop only; needs real rated-game history to mean anything */}
++        {currentUser && header && header.ratedGames > 0 && (
++          <div className="hidden rounded-2xl border border-line bg-surface-raised p-6 lg:flex lg:flex-col lg:justify-between">
++            <div>
++              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-gold">Your Standing</p>
++              <p className="font-display text-3xl font-semibold text-ink mt-1.5">{header.rating}</p>
++              {header.rank && (
++                <p className="text-xs font-semibold text-win mt-0.5">Rank #{header.rank} in the club</p>
++              )}
++            </div>
++            {header.recentForm.length > 1 && (
++              <div className="mt-4 flex items-end gap-1 h-10">
++                {header.recentForm.map((won, i) => (
++                  <div
++                    key={i}
++                    className={cn('flex-1 rounded-sm', won ? 'bg-gold-bright h-full' : 'bg-line h-2/5')}
++                    title={won ? 'Win' : 'Loss'}
++                  />
++                ))}
++              </div>
++            )}
++          </div>
++        )}
+       </div>
+ 
+-      {/* ── Section divider ───────────────────────────────────────────── */}
+-      <div className="flex items-center gap-3">
+-        <div className="flex-1 h-px bg-line" />
+-        <span className="text-gold text-[10px]">◆</span>
+-        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-ink-subtle">Choose your mode</span>
+-        <span className="text-gold text-[10px]">◆</span>
+-        <div className="flex-1 h-px bg-line" />
++      {/* ── Played Recently ───────────────────────────────────────────── */}
++      {currentUser && recentOpponents.length > 0 && (
++        <div className="flex flex-col gap-2.5">
++          <SectionLabel>Played Recently</SectionLabel>
++          <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-2.5">
++            {recentOpponents.map((m, i) => (
++              <div
++                key={m.opponentPlayerId ?? `${m.opponentName}-${i}`}
++                className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised
++                  px-3.5 py-3 shadow-sm"
++              >
++                <Avatar name={m.opponentName} size="md" />
++                <div className="min-w-0 flex-1">
++                  <p className="truncate text-sm font-bold text-ink">{m.opponentName}</p>
++                  <p className="text-xs text-ink-subtle">
++                    {m.win ? 'You won last time' : 'They won last time'} · {m.date}
++                  </p>
++                </div>
++                <button
++                  type="button"
++                  onClick={() => startRematch(m)}
++                  className="gloss flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2
++                    text-xs font-bold text-ink transition-transform active:scale-95"
++                >
++                  <RotateCcw className="h-3.5 w-3.5" />
++                  Rematch
++                </button>
++              </div>
++            ))}
++          </div>
++        </div>
++      )}
++
++      {/* ── Other ways to play (mobile) / Choose your mode (desktop) ────── */}
++      <div className="flex flex-col gap-2.5 lg:hidden">
++        <SectionLabel>Other Ways to Play</SectionLabel>
++        <div className="grid grid-cols-2 gap-2.5">
++          <button
++            type="button"
++            onClick={() => setQuickMatchOpen(true)}
++            className="flex flex-col items-center gap-1.5 rounded-2xl border border-line
++              bg-surface-raised py-4 text-center shadow-sm transition-all
++              active:scale-[0.97] hover:border-gold/30"
++          >
++            <UserPlus2 className="h-5 w-5 text-gold" />
++            <span className="font-display text-sm font-semibold text-ink">Someone New</span>
++          </button>
++          <Link
++            href="/practice"
++            className="flex flex-col items-center gap-1.5 rounded-2xl border border-line
++              bg-surface-raised py-4 text-center shadow-sm transition-all
++              active:scale-[0.97] hover:border-gold/30"
++          >
++            <Bot className="h-5 w-5 text-jade" />
++            <span className="font-display text-sm font-semibold text-ink">vs AI</span>
++          </Link>
++        </div>
+       </div>
+ 
+-      {/* ── Mode grid ─────────────────────────────────────────────────── */}
+-      <div className="grid grid-cols-2 gap-2.5">
+-        <ModeCard
+-          href="/practice"
+-          icon={<Bot className="h-5 w-5" />}
+-          name="Play vs AI"
+-          desc="Play against our smart AI"
+-          stat="4 Levels"
+-          statIcon={<TrendingUp className="h-3 w-3" />}
+-          tint="bg-jade/10 border-jade/15"
+-          iconTint="bg-jade/15 text-jade"
+-        />
+-        <ModeCard
+-          onClick={() => setQuickMatchOpen(true)}
+-          icon={<Globe className="h-5 w-5" />}
+-          name="Online"
+-          desc="Play real players online"
+-          stat="1,245 online"
+-          statIcon={<Users className="h-3 w-3" />}
+-          tint="bg-[hsl(220_50%_20%/0.3)] border-[hsl(220_50%_40%/0.15)]"
+-          iconTint="bg-[hsl(220_50%_30%/0.4)] text-[hsl(220_70%_70%)]"
+-        />
+-        <ModeCard
+-          href="/play"
+-          icon={<Monitor className="h-5 w-5" />}
+-          name="Local play"
+-          desc="Play with a friend, same device"
+-          stat="2 players"
+-          statIcon={<Users className="h-3 w-3" />}
+-          tint="bg-[hsl(270_40%_20%/0.3)] border-[hsl(270_40%_50%/0.15)]"
+-          iconTint="bg-[hsl(270_40%_30%/0.4)] text-[hsl(270_70%_75%)]"
+-        />
+-        <ModeCard
+-          href="/lessons"
+-          icon={<GraduationCap className="h-5 w-5" />}
+-          name="Practice"
+-          desc="Sharpen your skills and learn"
+-          stat="Training"
+-          statIcon={<Swords className="h-3 w-3" />}
+-          tint="bg-gold/8 border-gold/15"
+-          iconTint="bg-gold/15 text-gold"
+-        />
++      {/* Desktop mode grid — same destinations, richer real estate to use */}
++      <div className="hidden flex-col gap-2.5 lg:flex">
++        <div className="flex items-baseline justify-between">
++          <SectionLabel>Choose your mode</SectionLabel>
++        </div>
++        <div className="grid grid-cols-4 gap-3.5">
++          <ModeTile
++            onClick={() => router.push('/practice')}
++            label="Play vs AI" desc="Four difficulty levels" meta="4 levels"
++            bg="bg-jade/12" fg="text-jade" icon={<Bot className="h-[18px] w-[18px]" />}
++          />
++          <ModeTile
++            onClick={() => setQuickMatchOpen(true)}
++            label="Online" desc="Play someone from the club" meta="Pick an opponent"
++            bg="bg-silver/12" fg="text-silver" icon={<Globe className="h-[18px] w-[18px]" />}
++          />
++          <ModeTile
++            onClick={() => router.push('/play')}
++            label="Local Play" desc="Pass & play, same device" meta="2 players"
++            bg="bg-gold/12" fg="text-gold" icon={<UserPlus2 className="h-[18px] w-[18px]" />}
++          />
++          <ModeTile
++            onClick={() => router.push('/lessons')}
++            label="Practice" desc="Sharpen your skills" meta="Training"
++            bg="bg-warning/12" fg="text-warning" icon={<Zap className="h-[18px] w-[18px]" />}
++          />
++        </div>
+       </div>
+ 
++      {/* Desktop tournaments snapshot */}
++      {tournaments.length > 0 && (
++        <div className="hidden rounded-2xl border border-line bg-surface-raised p-6 lg:block">
++          <div className="flex items-center justify-between">
++            <p className="font-display text-base font-semibold text-ink">Tournaments</p>
++            <span className="text-xs text-ink-subtle">{tournaments.length} joined</span>
++          </div>
++          <div className="mt-3.5 flex flex-col divide-y divide-line overflow-hidden rounded-xl border border-line">
++            {tournaments.slice(0, 3).map(t => (
++              <Link
++                key={t.id}
++                href={`/tournaments/${t.id}`}
++                className="flex items-center justify-between bg-surface-canvas px-3.5 py-2.5 text-sm hover:bg-surface-elevated/60 transition-colors"
++              >
++                <span className="truncate font-medium text-ink">{t.name}</span>
++                <span className={cn(
++                  'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
++                  t.status === 'ACTIVE' ? 'bg-win/15 text-win'
++                  : t.status === 'DRAFT' ? 'bg-silver/15 text-silver'
++                  : 'bg-surface-muted text-ink-subtle',
++                )}>
++                  {t.status === 'ACTIVE' ? 'Live' : t.status === 'DRAFT' ? 'Draft' : TOURNAMENT_STATUS_LABEL[t.status]}
++                </span>
++              </Link>
++            ))}
++          </div>
++        </div>
++      )}
++
++
++
+       {/* ── Daily challenge / ranked matchmaking ─────────────────────── */}
+       {currentUser ? (
+         <MatchmakingWidget />
+@@ -364,35 +454,6 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
+         </div>
+       )}
+ 
+-      {/* ── Recent matches ─────────────────────────────────────────────── */}
+-      {header && header.recentMatches.length > 0 && (
+-        <div className="flex flex-col gap-2.5">
+-          <div className="flex items-center justify-between">
+-            <h3 className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.18em] text-ink-subtle">
+-              <Swords className="h-3.5 w-3.5 text-gold" /> Recent matches
+-            </h3>
+-            <Link href="/stats" className="text-xs font-medium text-gold hover:underline">View all</Link>
+-          </div>
+-          <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface-raised">
+-            {header.recentMatches.map((m, i) => (
+-              <div key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-elevated/60 transition-colors">
+-                <span className={cn(
+-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+-                  m.win ? 'bg-jade/15 text-jade' : 'bg-loss/15 text-loss',
+-                )}>
+-                  {m.win ? 'W' : 'L'}
+-                </span>
+-                <div className="min-w-0 flex-1">
+-                  <p className="truncate text-sm font-medium text-ink">vs {m.opponentName}</p>
+-                  <p className="text-xs text-ink-subtle">{m.date}</p>
+-                </div>
+-                <span className="font-mono text-sm font-bold tabular-nums text-ink shrink-0">{m.score}</span>
+-              </div>
+-            ))}
+-          </div>
+-        </div>
+-      )}
+-
+       <FairPlayBanner />
+ 
+       {joinOpen && <JoinDialog open={joinOpen} onClose={() => setJoinOpen(false)} />}
+@@ -408,34 +469,39 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
+   )
+ }
+ 
+-// ─── Mode Card ────────────────────────────────────────────────────────────────
++// ─── Section Label ──────────────────────────────────────────────────────────
+ 
+-function ModeCard({
+-  href, onClick, icon, name, desc, stat, statIcon, tint, iconTint,
++function SectionLabel({ children }: { children: React.ReactNode }) {
++  return (
++    <div className="flex items-center gap-2.5">
++      <div className="h-px flex-1 bg-line" />
++      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-subtle">
++        {children}
++      </span>
++      <div className="h-px flex-1 bg-line" />
++    </div>
++  )
++}
++
++// ─── Mode Tile (desktop "Choose your mode" grid) ──────────────────────────────
++
++function ModeTile({
++  href, onClick, icon, label, desc, meta, bg, fg,
+ }: {
+   href?: string; onClick?: () => void
+-  icon: React.ReactNode; name: string; desc: string
+-  stat: string; statIcon: React.ReactNode
+-  tint: string; iconTint: string
++  icon: React.ReactNode; label: string; desc: string; meta: string
++  bg: string; fg: string
+ }) {
+-  const cls = cn(
+-    'flex flex-col gap-2.5 rounded-2xl border p-3.5 cursor-pointer select-none',
+-    'transition-all duration-150 active:scale-[0.97] hover:brightness-110',
+-    tint,
+-  )
++  const cls = 'flex flex-col rounded-2xl border border-line bg-surface-raised p-5 text-left ' +
++    'transition-all hover:border-gold/30 hover:shadow-sm cursor-pointer'
+   const inner = (
+     <>
+-      <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', iconTint)}>
++      <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', bg, fg)}>
+         {icon}
+       </div>
+-      <div className="flex flex-col gap-1 mt-0.5">
+-        <p className="text-[11px] font-black uppercase tracking-[0.1em] text-gold leading-none">{name}</p>
+-        <p className="text-[11px] text-ink-muted leading-snug">{desc}</p>
+-      </div>
+-      <div className="flex items-center gap-1.5 text-ink-subtle mt-auto pt-1">
+-        {statIcon}
+-        <span className="text-[10px] font-semibold">{stat}</span>
+-      </div>
++      <p className="mt-3.5 text-sm font-semibold text-ink">{label}</p>
++      <p className="mt-0.5 text-xs leading-snug text-ink-subtle">{desc}</p>
++      <p className={cn('mt-2.5 text-[11px] font-bold', fg)}>{meta}</p>
+     </>
+   )
+   if (href) return <Link href={href} className={cls}>{inner}</Link>
+diff --git a/src/components/tournament/tournament-overview.tsx b/src/components/tournament/tournament-overview.tsx
+index e3da123..8ac1133 100644
+--- a/src/components/tournament/tournament-overview.tsx
++++ b/src/components/tournament/tournament-overview.tsx
+@@ -123,7 +123,7 @@ export function TournamentOverview({ tournament: t }: TournamentOverviewProps) {
+                       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
+                     }}
+                     title="Share invite on WhatsApp"
+-                    className="inline-flex items-center gap-1 rounded-lg border border-green-700/40 bg-green-900/20 px-2 py-1 text-[10px] font-medium text-green-400 hover:bg-green-900/35 transition-colors"
++                    className="inline-flex items-center gap-1 rounded-lg border border-green-600/30 bg-green-500/10 px-2 py-1 text-[10px] font-medium text-green-700 hover:bg-green-500/20 transition-colors"
+                   >
+                     <MessageCircle className="h-3 w-3" />
+                     Invite
+diff --git a/src/hooks/use-theme.ts b/src/hooks/use-theme.ts
+index 7ec8ac3..4a26bcc 100644
+--- a/src/hooks/use-theme.ts
++++ b/src/hooks/use-theme.ts
+@@ -14,16 +14,16 @@ function applyTheme(choice: ThemeChoice) {
+ }
+ 
+ export function useTheme() {
+-  const [theme, setThemeState] = useState<ThemeChoice>('auto')
++  const [theme, setThemeState] = useState<ThemeChoice>('light')
+ 
+   useEffect(() => {
+-    const saved = (localStorage.getItem(KEY) as ThemeChoice) || 'auto'
++    const saved = (localStorage.getItem(KEY) as ThemeChoice) || 'light'
+     setThemeState(saved)
+ 
+     // Keep in sync when system preference changes (only matters in auto mode)
+     const mq = window.matchMedia('(prefers-color-scheme: dark)')
+     const handler = () => {
+-      const current = (localStorage.getItem(KEY) as ThemeChoice) || 'auto'
++      const current = (localStorage.getItem(KEY) as ThemeChoice) || 'light'
+       if (current === 'auto') applyTheme('auto')
+     }
+     mq.addEventListener('change', handler)
+diff --git a/src/lib/analytics.ts b/src/lib/analytics.ts
+index 05ac5e0..84f3693 100644
+--- a/src/lib/analytics.ts
++++ b/src/lib/analytics.ts
+@@ -25,6 +25,11 @@ export interface AnalyticsMatch {
+   player2Id:    string
+   player1Name:  string
+   player2Name:  string
++  // The real Player row behind each side, when there is one (null for a
++  // guest slot). Optional so existing call sites that don't have it yet
++  // still type-check.
++  player1PlayerId?: string | null
++  player2PlayerId?: string | null
+   player1Score: number
+   player2Score: number
+   targetScore:  number
+@@ -103,6 +108,9 @@ export interface PlayerAnalytics {
+     date:           string   // "Jan 5"
+     win:            boolean
+     opponentName:   string
++    // Real Player id for the opponent, when they have an account — lets
++    // callers offer a genuine rematch instead of a name-only display.
++    opponentPlayerId: string | null
+     score:          string   // "7–4"
+     cumulativeWins: number
+   }[]
+@@ -280,6 +288,7 @@ export function computePlayerAnalytics(
+     if (win) cumWins++
+     const isP1       = m.player1Id === memberId
+     const opponentName = isP1 ? m.player2Name : m.player1Name
++    const opponentPlayerId = (isP1 ? m.player2PlayerId : m.player1PlayerId) ?? null
+     const myScore    = isP1 ? m.player1Score : m.player2Score
+     const oppScore   = isP1 ? m.player2Score : m.player1Score
+     return {
+@@ -287,6 +296,7 @@ export function computePlayerAnalytics(
+       date:           formatMatchDate(m.createdAt),
+       win,
+       opponentName,
++      opponentPlayerId,
+       score:          `${myScore}–${oppScore}`,
+       cumulativeWins: cumWins,
+     }
+diff --git a/src/middleware.ts b/src/middleware.ts
+index 4342e25..37ab777 100644
+--- a/src/middleware.ts
++++ b/src/middleware.ts
+@@ -11,12 +11,49 @@ import { createMiddlewareClient }   from '@/lib/supabase/middleware'
+  * All other routes redirect to /login when unauthenticated.
+  * Auth pages redirect to / when already authenticated.
+  */
++
++/** Hard ceiling (ms) for the outbound call to Supabase Auth from middleware. */
++const AUTH_CHECK_TIMEOUT_MS = 4000
++
++/**
++ * supabase.auth.getUser() makes a network round-trip to the Supabase Auth
++ * server on every request. If that server is slow, paused, or briefly
++ * unreachable, an un-timed-out await here hangs the middleware — which runs
++ * on nearly every route — until Vercel's hard ~25s ceiling, producing a
++ * site-wide 504 MIDDLEWARE_INVOCATION_TIMEOUT instead of a normal, isolated
++ * auth failure. Racing it against a short timeout converts that outage mode
++ * into a fast, safe "treat as unauthenticated" fallback: unauthenticated and
++ * public routes keep working immediately, and protected routes redirect to
++ * /login (same as an expired session) instead of hanging the whole site.
++ */
++async function getUserSafe(
++  supabase: ReturnType<typeof createMiddlewareClient>['supabase'],
++) {
++  const timeout = new Promise<{ data: { user: null }; timedOut: true }>((resolve) => {
++    setTimeout(() => resolve({ data: { user: null }, timedOut: true }), AUTH_CHECK_TIMEOUT_MS)
++  })
++
++  try {
++    const result = await Promise.race([
++      supabase.auth.getUser().then((r) => ({ ...r, timedOut: false as const })),
++      timeout,
++    ])
++    if (result.timedOut) {
++      console.error('[middleware] supabase.auth.getUser() timed out after', AUTH_CHECK_TIMEOUT_MS, 'ms')
++    }
++    return result
++  } catch (err) {
++    console.error('[middleware] supabase.auth.getUser() error:', err)
++    return { data: { user: null }, timedOut: false as const }
++  }
++}
++
+ export async function middleware(request: NextRequest) {
+   const { supabase, response } = createMiddlewareClient(request)
+   const { pathname }           = request.nextUrl
+ 
+   // Supabase refreshes the session token on every middleware call.
+-  const { data: { user } } = await supabase.auth.getUser()
++  const { data: { user } } = await getUserSafe(supabase)
+   const isAuthed = !!user
+ 
+   // Auth-only pages: redirect to / when already signed in
+diff --git a/src/types/index.ts b/src/types/index.ts
+index 4910e89..daac319 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -400,6 +400,13 @@ export interface Match extends MatchRow {
+   player2Name:   string
+   player1IsGuest: boolean
+   player2IsGuest: boolean
++  // Undefined/null for guests (no Player row to read from).
++  player1AvatarUrl?: string | null
++  player2AvatarUrl?: string | null
++  player1Rating?:    number
++  player2Rating?:    number
++  player1Wins?:      number
++  player2Wins?:      number
+   winnerName:    string | null
+   tournamentName?: string
+   games:         MatchGame[]
+diff --git a/tailwind.config.ts b/tailwind.config.ts
+index 4b56570..bace66e 100644
+--- a/tailwind.config.ts
++++ b/tailwind.config.ts
+@@ -55,8 +55,15 @@ const config: Config = {
+         },
+ 
+         // Semantic
+-        win:  'hsl(var(--win)  / <alpha-value>)',
+-        loss: 'hsl(var(--loss) / <alpha-value>)',
++        win:     'hsl(var(--win)     / <alpha-value>)',
++        loss:    'hsl(var(--loss)    / <alpha-value>)',
++        warning: 'hsl(var(--warning) / <alpha-value>)',
++
++        // Silver — steel-blue secondary accent (doubling cube / info)
++        silver: {
++          DEFAULT: 'hsl(var(--silver)     / <alpha-value>)',
++          dim:     'hsl(var(--silver-dim) / <alpha-value>)',
++        },
+       },
+ 
+       // ── Typography ────────────────────────────────────────────────────────

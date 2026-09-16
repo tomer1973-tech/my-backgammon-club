@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { BackgammonBoard } from '@/components/backgammon'
 import { useBoardThemes, BoardCustomizeButton } from '@/components/backgammon/board-customizer'
+import { VersusIntro } from '@/components/match/versus-intro'
 import { cn } from '@/lib/utils'
 import {
   applyLiveMove, endLiveTurn, undoLiveMove, offerLiveDouble, respondLiveDouble,
@@ -57,6 +58,14 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [pending, startTransition] = useTransition()
+
+  // Show the versus splash once, only for a brand-new match (game 1, nothing
+  // played yet) — reconnects and later games skip straight to the board.
+  const [showIntro, setShowIntro] = useState(
+    () => initialLiveGame.gameNumber === 1
+      && initialLiveGame.dice === null
+      && initialLiveGame.movesPlayed.length === 0,
+  )
 
   const { boardThemeId, diceThemeId, boardTheme, diceTheme, chooseBoardTheme, chooseDiceTheme } = useBoardThemes()
 
@@ -176,6 +185,25 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
 
   return (
     <FullscreenMatchShell match={match} connected={connected}>
+      {showIntro && (
+        <VersusIntro
+          player1={{
+            name: match.player1Name,
+            avatarUrl: match.player1AvatarUrl,
+            rating: match.player1Rating,
+            wins: match.player1Wins,
+          }}
+          player2={{
+            name: match.player2Name,
+            avatarUrl: match.player2AvatarUrl,
+            rating: match.player2Rating,
+            wins: match.player2Wins,
+          }}
+          targetScore={match.targetScore}
+          onDone={() => setShowIntro(false)}
+        />
+      )}
+
       <div className="flex items-center justify-between gap-2">
         <BackLink match={match} connected={connected} />
         <BoardCustomizeButton

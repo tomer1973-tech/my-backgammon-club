@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import { useSkin, type SkinChoice } from '@/hooks/use-skin'
 
 const SKINS: { value: SkinChoice; label: string; base: string; accent: string }[] = [
-  { value: 'none',           label: 'Custom',         base: '#1a1e27', accent: '#e08a35' },
+  { value: 'none',           label: 'Custom',         base: '#f7f0e4', accent: '#a98a5e' },
   { value: 'club-noir',      label: 'Club Noir',       base: '#1a1e27', accent: '#e08a35' },
   { value: 'luxury-wood',    label: 'Luxury Wood',     base: '#f5f1ea', accent: '#8a5a2b' },
   { value: 'marquetry',      label: 'Marquetry',       base: '#241412', accent: '#c9a23a' },

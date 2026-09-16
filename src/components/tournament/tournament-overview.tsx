@@ -123,7 +123,7 @@ export function TournamentOverview({ tournament: t }: TournamentOverviewProps) {
                       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
                     }}
                     title="Share invite on WhatsApp"
-                    className="inline-flex items-center gap-1 rounded-lg border border-green-700/40 bg-green-900/20 px-2 py-1 text-[10px] font-medium text-green-400 hover:bg-green-900/35 transition-colors"
+                    className="inline-flex items-center gap-1 rounded-lg border border-green-600/30 bg-green-500/10 px-2 py-1 text-[10px] font-medium text-green-700 hover:bg-green-500/20 transition-colors"
                   >
                     <MessageCircle className="h-3 w-3" />
                     Invite
