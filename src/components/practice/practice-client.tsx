@@ -124,19 +124,33 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     if (game.currentPlayer !== aiPlayer || game.doubleOffer) return
 
     setAiThinking(true)
-    const timer = setTimeout(() => {
-      const seq = chooseAIMove(liveBoard, aiPlayer, game.dice!, difficulty)
+    const STEP_MS = 850
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const seq = chooseAIMove(liveBoard, aiPlayer, game.dice!, difficulty)
+    const cube = game.cube
+
+    // Pause so the player sees the AI's dice, then play one checker move at a time.
+    let t = 1000
+    let board = liveBoard
+    seq.moves.forEach((move, i) => {
+      board = applyMove(board, aiPlayer, move)
+      const stepBoard = board
+      const played = seq.moves.slice(0, i + 1)
+      timers.push(setTimeout(() => {
+        setGame(g => g && ({ ...g, boardHistory: [...g.boardHistory, stepBoard], movesPlayed: played }))
+      }, t))
+      t += STEP_MS
+    })
+
+    timers.push(setTimeout(() => {
       const finalBoard = seq.board
       const winner = isGameOver(finalBoard)
-
       if (winner) {
         setResult({ winner, type: getGameType(finalBoard, winner) })
-        setGame(g => g && ({ ...g, boardHistory: [...g.boardHistory, finalBoard], movesPlayed: seq.moves }))
         setPhase('gameover')
         setAiThinking(false)
         return
       }
-
       const nextDice = rollDice()
       setGame({
         boardHistory:   [finalBoard],
@@ -144,14 +158,13 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
         dice:           nextDice,
         legalSequences: getLegalSequences(finalBoard, humanPlayer, nextDice),
         movesPlayed:    [],
-        cube:           game.cube,
+        cube,
         doubleOffer:    null,
       })
       setAiThinking(false)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, 900)
+    }, t + 300))
 
-    return () => clearTimeout(timer)
+    return () => { timers.forEach(clearTimeout) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game?.currentPlayer, game?.dice, game?.doubleOffer])
 

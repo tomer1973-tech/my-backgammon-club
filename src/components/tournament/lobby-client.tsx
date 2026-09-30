@@ -272,7 +272,7 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
         <div className="grid grid-cols-4 gap-3.5">
           <ModeTile
             onClick={() => router.push('/practice')}
-            label="Play vs AI" desc="Four difficulty levels" meta="4 levels"
+            label="Play vs AI" desc="Easy, Medium or Hard" meta="Solo"
             bg="bg-jade/12" fg="text-jade" icon={<Bot className="h-[18px] w-[18px]" />}
           />
           <ModeTile
@@ -287,7 +287,7 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
           />
           <ModeTile
             onClick={() => router.push('/lessons')}
-            label="Practice" desc="Sharpen your skills" meta="Training"
+            label="Learn" desc="Lessons & strategy" meta="Lessons"
             bg="bg-warning/12" fg="text-warning" icon={<Zap className="h-[18px] w-[18px]" />}
           />
         </div>
@@ -325,11 +325,7 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
 
 
       {/* ── Daily challenge / ranked matchmaking ─────────────────────── */}
-      {currentUser ? (
-        <MatchmakingWidget />
-      ) : (
-        <DailyChallenge />
-      )}
+      {currentUser && <MatchmakingWidget />}
 
       {/* ── Tournaments Hub ────────────────────────────────────────────── */}
       <div ref={tournamentsRef} className="flex flex-col rounded-2xl border border-line bg-surface-raised overflow-hidden">
@@ -506,32 +502,6 @@ function ModeTile({
   )
   if (href) return <Link href={href} className={cls}>{inner}</Link>
   return <button type="button" onClick={onClick} className={cls}>{inner}</button>
-}
-
-// ─── Daily Challenge placeholder (for logged-out state) ───────────────────────
-
-function DailyChallenge() {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised p-4">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/12">
-        <CalendarDays className="h-5 w-5 text-gold" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-gold mb-1">Daily Challenge</p>
-        <p className="text-sm font-semibold text-ink">Play today's challenge</p>
-        <div className="flex items-center gap-1.5 mt-1 text-ink-subtle">
-          <Clock className="h-3 w-3" />
-          <span className="text-[10px] font-medium">Resets in 14:18:32</span>
-        </div>
-      </div>
-      <button
-        type="button"
-        className="shrink-0 rounded-full bg-gold px-4 py-2 text-[12px] font-bold text-surface-canvas"
-      >
-        Play Now
-      </button>
-    </div>
-  )
 }
 
 // ─── Stat Tile ────────────────────────────────────────────────────────────────
