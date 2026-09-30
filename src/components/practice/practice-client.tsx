@@ -35,9 +35,9 @@ const GAME_TYPE_LABEL: Record<GameType, string> = {
 const GAME_TYPE_POINTS: Record<GameType, number> = { NORMAL: 1, GAMMON: 2, BACKGAMMON: 3 }
 
 const SPEEDS = [
-  { value: 'slow',   label: 'Slow',   stepMs: 1300 },
-  { value: 'normal', label: 'Normal', stepMs: 850 },
-  { value: 'fast',   label: 'Fast',   stepMs: 400 },
+  { value: 'slow',   label: 'Slow',   stepMs: 2400 },
+  { value: 'normal', label: 'Normal', stepMs: 1600 },
+  { value: 'fast',   label: 'Fast',   stepMs: 900 },
 ] as const
 type Speed = typeof SPEEDS[number]['value']
 
@@ -107,6 +107,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   const [phase, setPhase] = useState<Phase>('setup')
   const [humanPlayer, setHumanPlayer] = useState<Player>('white')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
+  const [aiPreview, setAiPreview] = useState<Move | null>(null)
   const [speed, setSpeed] = useState<Speed>('normal')
   useEffect(() => {
     try {
@@ -163,9 +164,11 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
       board = applyMove(board, aiPlayer, move)
       const stepBoard = board
       const played = seq.moves.slice(0, i + 1)
+      timers.push(setTimeout(() => setAiPreview(move), t))
       timers.push(setTimeout(() => {
+        setAiPreview(null)
         setGame(g => g && ({ ...g, boardHistory: [...g.boardHistory, stepBoard], movesPlayed: played }))
-      }, t))
+      }, t + Math.round(STEP_MS * 0.6)))
       t += STEP_MS
     })
 
@@ -191,7 +194,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
       setAiThinking(false)
     }, t + 300))
 
-    return () => { timers.forEach(clearTimeout) }
+    return () => { timers.forEach(clearTimeout); setAiPreview(null) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game?.currentPlayer, game?.dice, game?.doubleOffer])
 
@@ -653,7 +656,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
             disabled={!isHumanTurn}
             boardTheme={boardTheme}
             diceTheme={diceTheme}
-            suggestion={hint?.move ?? null}
+            suggestion={hint?.move ?? aiPreview}
           />
 
           <button
