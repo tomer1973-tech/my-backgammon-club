@@ -8,8 +8,9 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { playSound, isMuted, setMuted } from '@/lib/sound'
 import Link from 'next/link'
-import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, ArrowRight, Lightbulb, MessageCircle, Share2 } from 'lucide-react'
+import { ChevronLeft, UserCircle2, Dices, Undo2, RotateCcw, Trophy, Bot, ArrowRight, Lightbulb, MessageCircle, Share2, Volume2, VolumeX } from 'lucide-react'
 import { Avatar }  from '@/components/ui/avatar'
 import { Button }  from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
@@ -32,6 +33,13 @@ const GAME_TYPE_LABEL: Record<GameType, string> = {
   NORMAL: 'Normal', GAMMON: 'Gammon', BACKGAMMON: 'Backgammon',
 }
 const GAME_TYPE_POINTS: Record<GameType, number> = { NORMAL: 1, GAMMON: 2, BACKGAMMON: 3 }
+
+const SPEEDS = [
+  { value: 'slow',   label: 'Slow',   stepMs: 1300 },
+  { value: 'normal', label: 'Normal', stepMs: 850 },
+  { value: 'fast',   label: 'Fast',   stepMs: 400 },
+] as const
+type Speed = typeof SPEEDS[number]['value']
 
 const DIFFICULTIES: { value: Difficulty; label: string; hint: string }[] = [
   { value: 'easy',   label: 'Easy',   hint: 'Mostly random moves' },
@@ -99,6 +107,17 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   const [phase, setPhase] = useState<Phase>('setup')
   const [humanPlayer, setHumanPlayer] = useState<Player>('white')
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
+  const [speed, setSpeed] = useState<Speed>('normal')
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('practice-ai-speed')
+      if (v === 'slow' || v === 'normal' || v === 'fast') setSpeed(v)
+    } catch {}
+  }, [])
+  function chooseSpeed(v: Speed) {
+    setSpeed(v)
+    try { localStorage.setItem('practice-ai-speed', v) } catch {}
+  }
   const [game, setGame] = useState<GameState | null>(null)
   const [result, setResult] = useState<{ winner: Player; type: GameType } | null>(null)
   const [aiThinking, setAiThinking] = useState(false)
@@ -108,6 +127,14 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   const [hint, setHint] = useState<Hint | null>(null)
 
   const aiPlayer = opponent(humanPlayer)
+  const [muted, setMutedState] = useState(false)
+  useEffect(() => { setMutedState(isMuted()) }, [])
+  function toggleMute() { setMuted(!muted); setMutedState(!muted) }
+  const boardSteps = game?.boardHistory.length ?? 0
+  const turnKey = `${game?.currentPlayer}-${game?.dice?.join('')}`
+  useEffect(() => { if (phase === 'playing' && boardSteps > 1) playSound('move') }, [boardSteps, phase])
+  useEffect(() => { if (phase === 'playing' && game?.dice) playSound('dice') }, [turnKey, phase]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (phase === 'gameover' && result) playSound(result.winner === humanPlayer ? 'win' : 'lose') }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function startGame(player: Player) {
     setHumanPlayer(player)
@@ -124,13 +151,13 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
     if (game.currentPlayer !== aiPlayer || game.doubleOffer) return
 
     setAiThinking(true)
-    const STEP_MS = 850
+    const STEP_MS = SPEEDS.find(x => x.value === speed)!.stepMs
     const timers: ReturnType<typeof setTimeout>[] = []
     const seq = chooseAIMove(liveBoard, aiPlayer, game.dice!, difficulty)
     const cube = game.cube
 
     // Pause so the player sees the AI's dice, then play one checker move at a time.
-    let t = 1000
+    let t = Math.round(STEP_MS * 1.2)
     let board = liveBoard
     seq.moves.forEach((move, i) => {
       board = applyMove(board, aiPlayer, move)
@@ -316,6 +343,26 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
                 >
                   <span className="block font-semibold">{d.label}</span>
                   <span className="mt-0.5 block text-[10px] opacity-70">{d.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-surface-raised p-5 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">AI speed</p>
+            <div className="grid grid-cols-3 gap-2">
+              {SPEEDS.map(sp => (
+                <button
+                  key={sp.value}
+                  onClick={() => chooseSpeed(sp.value)}
+                  className={cn(
+                    'rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all',
+                    speed === sp.value
+                      ? 'border-gold bg-gold/10 text-gold'
+                      : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/40',
+                  )}
+                >
+                  {sp.label}
                 </button>
               ))}
             </div>
@@ -608,6 +655,15 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
             diceTheme={diceTheme}
             suggestion={hint?.move ?? null}
           />
+
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
+            className="absolute right-2 top-2 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface-raised/90 text-ink-muted hover:text-gold"
+          >
+            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
 
           {/* "YOUR TURN!" pop-in overlay */}
           {showYourTurn && (

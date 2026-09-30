@@ -31,13 +31,12 @@ export default async function SchedulePage() {
           </p>
         </div>
 
-        {/* Quick link to schedule from a tournament */}
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 rounded-lg border border-line-gold/50 bg-surface-raised px-3 py-2 text-xs font-medium text-gold hover:bg-surface-elevated transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
-          New match
+          Pick a tournament
         </Link>
       </div>
 

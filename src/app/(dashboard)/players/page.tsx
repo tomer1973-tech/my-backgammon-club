@@ -3,7 +3,8 @@
  */
 
 import type { Metadata } from 'next'
-import { Users }         from 'lucide-react'
+import Link              from 'next/link'
+import { Users, Users2 } from 'lucide-react'
 import { getAllPlayers }  from '@/actions/stats'
 import { getSessionUser } from '@/lib/session'
 import { PlayersList }   from '@/components/players/players-list'
@@ -25,6 +26,10 @@ export default async function PlayersPage() {
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       <div>
+        <Link href="/groups" className="float-right inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-raised px-3 py-2 text-xs font-medium text-gold hover:bg-surface-elevated">
+          <Users2 className="h-3.5 w-3.5" />
+          My groups
+        </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold text-ink">
           <Users className="h-6 w-6 text-gold" />
           Players
