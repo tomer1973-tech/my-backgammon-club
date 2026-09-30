@@ -16,12 +16,12 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Home',        href: '/',             icon: 'Trophy',        matchExact: true },
   { label: 'Quick Game',  href: '/quick-game',   icon: 'Zap',           matchExact: true },
-  { label: 'Practice',    href: '/practice',     icon: 'Bot',           matchExact: true },
+  { label: 'vs AI',       href: '/practice',     icon: 'Bot',           matchExact: true },
   { label: 'Lessons',     href: '/lessons',      icon: 'GraduationCap', matchExact: true },
   { label: 'Messages',    href: '/messages',     icon: 'MessageCircle' },
   { label: 'Settings',    href: '/settings',     icon: 'Settings' },
   // Desktop sidebar only:
-  { label: 'Play',        href: '/play',         icon: 'Dices',         matchExact: true, hideOnMobile: true },
+  { label: 'Local Play',  href: '/play',         icon: 'Dices',         matchExact: true, hideOnMobile: true },
   { label: 'Feed',        href: '/feed',          icon: 'Rss',           matchExact: true, hideOnMobile: true },
   { label: 'Players',     href: '/players',      icon: 'Users',                           hideOnMobile: true },
   { label: 'Groups',      href: '/groups',       icon: 'UserPlus2',                       hideOnMobile: true },
