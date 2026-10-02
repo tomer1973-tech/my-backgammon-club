@@ -289,92 +289,92 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
   // ── Setup screen ─────────────────────────────────────────────────────────
 
   if (phase === 'setup') {
+    const diff = DIFFICULTIES.find(d => d.value === difficulty)!
     return (
       <div className="animate-fade-in">
         <CompactTopBar currentUser={currentUser} />
 
-        {/* Hero */}
-        <div className="mb-8 text-center">
-          <div className="mb-3 inline-flex h-16 w-16 items-center justify-center
-            rounded-2xl bg-surface-raised border border-line shadow-gold text-4xl">
-            🤖
-          </div>
-          <h1 className="font-display text-3xl font-bold text-ink tracking-tight">Practice vs AI</h1>
-          <p className="mt-1.5 text-sm text-ink-muted">Sharpen your game against a computer opponent</p>
-        </div>
+        <div className="mx-auto max-w-md">
+          <div className="relative overflow-hidden rounded-[28px] border border-line bg-surface-raised shadow-xl">
+            {/* Hero */}
+            <div className="relative px-6 pb-7 pt-8 text-center">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,hsl(var(--gold)/0.22),transparent_70%)]" />
+              <svg viewBox="0 0 240 60" className="pointer-events-none absolute inset-x-0 top-0 h-16 w-full opacity-[0.12]" preserveAspectRatio="none" aria-hidden>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <polygon key={i} points={`${i * 20},0 ${i * 20 + 20},0 ${i * 20 + 10},60`} fill={i % 2 ? 'hsl(var(--ink))' : 'hsl(var(--gold))'} />
+                ))}
+              </svg>
+              <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-gold to-gold/60 text-surface-canvas shadow-lg shadow-gold/30">
+                <Bot className="h-8 w-8" />
+              </div>
+              <h1 className="relative font-display text-3xl font-bold tracking-tight text-ink">Play vs AI</h1>
+              <p className="relative mt-1.5 text-sm text-ink-muted">Pick your side and challenge the computer</p>
+            </div>
 
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-line bg-surface-raised p-5 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">Play as</p>
-            <div className="grid grid-cols-2 gap-3">
-              {(['white', 'black'] as Player[]).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setHumanPlayer(p)}
-                  className={cn(
-                    'flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-all',
-                    humanPlayer === p
-                      ? 'border-gold bg-gold/10 text-gold'
-                      : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/40',
-                  )}
-                >
-                  <span className={cn(
-                    'h-5 w-5 rounded-full border-2',
-                    p === 'white'
-                      ? 'bg-[hsl(40,35%,94%)] border-[hsl(40,20%,75%)]'
-                      : 'bg-[hsl(25,20%,14%)] border-gold/60',
-                  )} />
-                  {p === 'white' ? 'White' : 'Black'}
-                </button>
-              ))}
+            <div className="space-y-6 border-t border-line bg-surface-canvas/40 px-5 py-6">
+              <SetupRow label="Your checkers">
+                <div className="grid grid-cols-2 gap-2">
+                  {(['white', 'black'] as Player[]).map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setHumanPlayer(p)}
+                      className={cn(
+                        'group flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all active:scale-[0.98]',
+                        humanPlayer === p
+                          ? 'border-gold bg-gold/10 ring-4 ring-gold/10'
+                          : 'border-line bg-surface-raised hover:border-gold/40',
+                      )}
+                    >
+                      <span className={cn(
+                        'h-8 w-8 shrink-0 rounded-full shadow-inner ring-2',
+                        p === 'white'
+                          ? 'bg-gradient-to-br from-white to-[hsl(40,25%,82%)] ring-[hsl(40,20%,70%)]'
+                          : 'bg-gradient-to-br from-[hsl(25,15%,28%)] to-[hsl(25,20%,8%)] ring-gold/50',
+                      )} />
+                      <span>
+                        <span className={cn('block text-sm font-semibold', humanPlayer === p ? 'text-gold' : 'text-ink')}>
+                          {p === 'white' ? 'White' : 'Black'}
+                        </span>
+                        <span className="block text-[11px] text-ink-subtle">{p === 'white' ? 'Classic light' : 'Classic dark'}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </SetupRow>
+
+              <SetupRow label="Difficulty" hint={diff.hint}>
+                <Segmented
+                  value={difficulty}
+                  onChange={v => setDifficulty(v as Difficulty)}
+                  options={DIFFICULTIES.map(d => ({ value: d.value, label: d.label }))}
+                />
+              </SetupRow>
+
+              <SetupRow label="AI move speed" hint="How long the AI pauses on each checker">
+                <Segmented
+                  value={speed}
+                  onChange={v => chooseSpeed(v as Speed)}
+                  options={SPEEDS.map(sp => ({ value: sp.value, label: sp.label }))}
+                />
+              </SetupRow>
+
+              <button
+                type="button"
+                onClick={() => startGame(humanPlayer)}
+                className="group flex w-full items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-gold to-gold/80 px-5 py-4 text-surface-canvas shadow-lg shadow-gold/25 transition-all hover:shadow-gold/40 active:scale-[0.99]"
+              >
+                <span className="flex items-center gap-3">
+                  <Dices className="h-5 w-5" />
+                  <span className="text-base font-bold">Start game</span>
+                </span>
+                <span className="flex items-center gap-2 text-xs font-semibold opacity-80">
+                  {diff.label} · {SPEEDS.find(x => x.value === speed)!.label}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </button>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-line bg-surface-raised p-5 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">Difficulty</p>
-            <div className="grid grid-cols-3 gap-2">
-              {DIFFICULTIES.map(d => (
-                <button
-                  key={d.value}
-                  onClick={() => setDifficulty(d.value)}
-                  className={cn(
-                    'rounded-lg border px-2 py-3 text-xs font-medium transition-all',
-                    difficulty === d.value
-                      ? 'border-gold bg-gold/10 text-gold'
-                      : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/40',
-                  )}
-                >
-                  <span className="block font-semibold">{d.label}</span>
-                  <span className="mt-0.5 block text-[10px] opacity-70">{d.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-line bg-surface-raised p-5 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">AI speed</p>
-            <div className="grid grid-cols-3 gap-2">
-              {SPEEDS.map(sp => (
-                <button
-                  key={sp.value}
-                  onClick={() => chooseSpeed(sp.value)}
-                  className={cn(
-                    'rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all',
-                    speed === sp.value
-                      ? 'border-gold bg-gold/10 text-gold'
-                      : 'border-line bg-surface-elevated text-ink-muted hover:border-gold/40',
-                  )}
-                >
-                  {sp.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <Button onClick={() => startGame(humanPlayer)} size="lg" className="w-full gap-2">
-            <Dices className="h-5 w-5" />
-            Start game
-          </Button>
         </div>
       </div>
     )
@@ -843,6 +843,40 @@ function CompactTopBar({ currentUser }: { currentUser: SessionUser | null }) {
           </Link>
         </div>
       )}
+    </div>
+  )
+}
+
+function SetupRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-subtle">{label}</p>
+        {hint && <p className="truncate text-[11px] text-ink-muted">{hint}</p>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function Segmented({ value, onChange, options }: {
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]
+}) {
+  return (
+    <div className="grid rounded-full border border-line bg-surface-raised p-1" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+      {options.map(o => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'rounded-full py-2 text-sm font-semibold transition-all',
+            value === o.value ? 'bg-gold text-surface-canvas shadow' : 'text-ink-muted hover:text-ink',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }
