@@ -351,7 +351,7 @@ export function PracticeClient({ currentUser }: { currentUser: SessionUser | nul
                 />
               </SetupRow>
 
-              <SetupRow label="AI move speed" hint="How long the AI pauses on each checker">
+              <SetupRow label="AI move speed" hint="Pause per move">
                 <Segmented
                   value={speed}
                   onChange={v => chooseSpeed(v as Speed)}
