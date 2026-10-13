@@ -124,13 +124,15 @@ export async function getTournamentWithMembers(id: string): Promise<TournamentWi
   if (!t) throw new Error('Tournament not found')
 
   const myMembership = t.members.find(m => m.playerId === user.id)
+  const isInsider = !!myMembership || t.createdById === user.id || user.role === 'ADMIN'
+  if (t.isPrivate && !isInsider) throw new Error('Tournament not found')
 
   return {
     id:           t.id,
     name:         t.name,
     description:  t.description,
     location:     t.location,
-    code:         t.code,
+    code:         isInsider ? t.code : '',
     format:       t.format as Tournament['format'],
     status:       t.status as Tournament['status'],
     pointsPerWin: t.pointsPerWin,

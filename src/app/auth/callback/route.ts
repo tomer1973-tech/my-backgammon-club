@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=missing-code`)
   }
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 

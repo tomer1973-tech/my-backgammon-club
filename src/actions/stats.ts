@@ -1,5 +1,7 @@
 'use server'
 
+import { maskEmail } from '@/lib/privacy'
+
 import { db }               from '@/lib/db'
 import { requireSessionUser, getSessionUser } from '@/lib/session'
 import { computePlayerAnalytics, buildWinRateTimeline } from '@/lib/analytics'
@@ -337,7 +339,7 @@ export async function getAllPlayers(): Promise<PlayerRow[]> {
     return {
       id:               p.id,
       name:             p.name,
-      email:            p.email,
+      email:            me && (me.role === 'ADMIN' || me.id === p.id) ? p.email : maskEmail(p.email),
       avatarUrl:        p.avatarUrl,
       role:             p.role,
       joinedAt:         p.createdAt,

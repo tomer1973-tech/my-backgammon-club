@@ -12,7 +12,7 @@ import type { SessionUser } from '@/types'
  * Returns null if not authenticated or if the player profile doesn't exist.
  */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const {
     data: { user },

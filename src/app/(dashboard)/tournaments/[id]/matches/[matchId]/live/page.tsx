@@ -8,16 +8,18 @@ import { Button }        from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
 
-interface Props { params: { id: string; matchId: string } }
+interface Props { params: Promise<{ id: string; matchId: string }> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   try {
     const m = await getMatch(params.matchId)
     return { title: `Live — ${m.player1Name} vs ${m.player2Name}` }
   } catch { return { title: 'Live Match' } }
 }
 
-export default async function LiveMatchPage({ params }: Props) {
+export default async function LiveMatchPage(props: Props) {
+  const params = await props.params;
   let match
   try { match = await getMatch(params.matchId) } catch { notFound() }
 

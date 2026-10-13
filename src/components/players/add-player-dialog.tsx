@@ -64,7 +64,7 @@ export function AddPlayerDialog({ open, onClose, tournamentId, addedCount = 0, m
   async function handleAddRegistered(player: Player) {
     setAddingId(player.id)
     setError(null)
-    const result = await addMemberByEmail({ tournamentId, email: player.email })
+    const result = await addMemberByEmail({ tournamentId, playerId: player.id })
     setAddingId(null)
     if (result.success) {
       setSuccess(`${player.name} added!`)

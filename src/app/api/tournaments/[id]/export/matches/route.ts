@@ -3,10 +3,8 @@ import { db }                        from '@/lib/db'
 import { requireSessionUser }        from '@/lib/session'
 import { buildMatchesCsv }           from '@/lib/csv'
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     await requireSessionUser()
   } catch {

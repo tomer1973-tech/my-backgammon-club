@@ -106,8 +106,9 @@ export const joinTournamentSchema = z.object({
 
 export const addRegisteredMemberSchema = z.object({
   tournamentId: uuidSchema,
-  email:        z.string().email('Enter a valid email address').toLowerCase().trim(),
-})
+  email:        z.string().email('Enter a valid email address').toLowerCase().trim().optional(),
+  playerId:     uuidSchema.optional(),
+}).refine(d => d.email || d.playerId, { message: 'Choose a player or enter an email address' })
 
 export const addGuestMemberSchema = z.object({
   tournamentId: uuidSchema,

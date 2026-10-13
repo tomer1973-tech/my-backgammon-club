@@ -75,8 +75,12 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase.channel(`live-game-${game.id}`, { config: { broadcast: { self: false } } })
-      .on('broadcast', { event: 'update' }, ({ payload }) => {
-        setGame(payload as LiveGameData)
+      // Broadcast payloads are unauthenticated; treat them only as a cue to refetch.
+      .on('broadcast', { event: 'update' }, async () => {
+        try {
+          const res = await getOrCreateLiveGame(game.matchId)
+          if (res.success) setGame(res.data.liveGame)
+        } catch {}
       })
       .subscribe(status => setConnected(status === 'SUBSCRIBED'))
 
@@ -86,7 +90,7 @@ export function LiveMatchClient({ match, initialLiveGame, myColor }: LiveMatchCl
   }, [game.id])
 
   function broadcast(next: LiveGameData) {
-    channelRef.current?.send({ type: 'broadcast', event: 'update', payload: next })
+    channelRef.current?.send({ type: 'broadcast', event: 'update', payload: { id: next.id } })
   }
 
   function applyResult(res: { success: true; data: LiveGameData } | { success: false; error: string }) {

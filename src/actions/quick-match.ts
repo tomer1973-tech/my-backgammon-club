@@ -63,11 +63,14 @@ export async function saveQuickGameResult(
 ): Promise<ActionResult<{ savedCount: number }>> {
   // Auth is optional on the quick-game page — return a typed error rather
   // than throwing so the client can decide how to surface it.
+  let me
   try {
-    await requireSessionUser()
+    me = await requireSessionUser()
   } catch {
     return { success: false, error: 'not-signed-in' }
   }
+
+  // Unverifiable same-device result: only the signed-in player's own record may change.
 
   // A UUID from the player DB looks like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
   const isUUID = (id: string) =>
@@ -75,7 +78,7 @@ export async function saveQuickGameResult(
 
   const tasks: Promise<unknown>[] = []
 
-  if (isUUID(winnerPlayerId)) {
+  if (isUUID(winnerPlayerId) && winnerPlayerId === me.id) {
     tasks.push(
       db.player.update({
         where: { id: winnerPlayerId },
@@ -84,7 +87,7 @@ export async function saveQuickGameResult(
     )
   }
 
-  if (isUUID(loserPlayerId)) {
+  if (isUUID(loserPlayerId) && loserPlayerId === me.id) {
     tasks.push(
       db.player.update({
         where: { id: loserPlayerId },

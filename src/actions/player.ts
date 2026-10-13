@@ -1,5 +1,7 @@
 'use server'
 
+import { maskEmail } from '@/lib/privacy'
+
 /**
  * Player / Member Server Actions
  *
@@ -42,6 +44,13 @@ async function canManageTournament(tournamentId: string, userId: string, userRol
   return !!membership
 }
 
+/** Roster additions are open to anyone already in the tournament, not outsiders. */
+async function canAddToTournament(tournamentId: string, userId: string, userRole: string): Promise<boolean> {
+  if (await canManageTournament(tournamentId, userId, userRole)) return true
+  const member = await db.tournamentMember.findFirst({ where: { tournamentId, playerId: userId }, select: { id: true } })
+  return !!member
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SEARCH
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,7 +60,10 @@ export async function searchPlayers(
   tournamentId: string,
   query: string,
 ): Promise<ActionResult<Player[]>> {
-  await requireSessionUser()
+  const me = await requireSessionUser()
+  if (!await canAddToTournament(tournamentId, me.id, me.role)) {
+    return { success: false, error: 'You do not have permission to add players to this tournament.' }
+  }
 
   if (!query.trim() || query.trim().length < 2) {
     return { success: true, data: [] }
@@ -72,7 +84,7 @@ export async function searchPlayers(
         {
           OR: [
             { name:  { contains: query, mode: 'insensitive' } },
-            { email: { contains: query, mode: 'insensitive' } },
+            { email: { equals: query.trim(), mode: 'insensitive' } },
           ],
         },
         { id: { notIn: existingPlayerIds } },
@@ -87,7 +99,7 @@ export async function searchPlayers(
     data: players.map(p => ({
       id:        p.id,
       name:      p.name,
-      email:     p.email,
+      email:     maskEmail(p.email),
       role:      p.role as Player['role'],
       avatarUrl: p.avatarUrl,
     })),
@@ -108,9 +120,11 @@ export async function addMemberByEmail(
     return { success: false, error: parsed.error.errors[0].message }
   }
 
-  const { tournamentId, email } = parsed.data
+  const { tournamentId, email, playerId } = parsed.data
 
-  // Any logged-in user may add players
+  if (!await canAddToTournament(tournamentId, user.id, user.role)) {
+    return { success: false, error: 'You do not have permission to add players to this tournament.' }
+  }
   const tournament = await db.tournament.findUnique({
     where:  { id: tournamentId, deletedAt: null },
     select: { maxPlayers: true, _count: { select: { members: true } } },
@@ -121,11 +135,11 @@ export async function addMemberByEmail(
   }
 
   const player = await db.player.findUnique({
-    where:  { email },
+    where:  playerId ? { id: playerId } : { email: email! },
     select: { id: true, name: true },
   })
   if (!player) {
-    return { success: false, error: `No account found for ${email}.` }
+    return { success: false, error: email ? `No account found for ${email}.` : 'Player not found.' }
   }
 
   const existing = await db.tournamentMember.findUnique({
@@ -165,7 +179,9 @@ export async function addGuestMember(
 
   const { tournamentId, guestName } = parsed.data
 
-  // Any logged-in user may add players
+  if (!await canAddToTournament(tournamentId, user.id, user.role)) {
+    return { success: false, error: 'You do not have permission to add players to this tournament.' }
+  }
   const tournament = await db.tournament.findUnique({
     where:  { id: tournamentId, deletedAt: null },
     select: { maxPlayers: true, _count: { select: { members: true } } },

@@ -15,12 +15,14 @@ export function generateStaticParams() {
   return STRATEGY_ARTICLES.map(a => ({ slug: a.slug }))
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const article = STRATEGY_ARTICLES.find(a => a.slug === params.slug)
   return { title: article ? `${article.title} — My Backgammon Club` : 'Strategy — My Backgammon Club' }
 }
 
-export default function StrategyArticlePage({ params }: { params: { slug: string } }) {
+export default async function StrategyArticlePage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const article = STRATEGY_ARTICLES.find(a => a.slug === params.slug)
   if (!article) notFound()
 

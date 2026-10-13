@@ -11,9 +11,10 @@ import { Shield }                   from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
-interface Props { params: { id: string; memberId: string } }
+interface Props { params: Promise<{ id: string; memberId: string }> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   try {
     const t = await getTournamentWithMembers(params.id)
     const m = t.members.find(m => m.id === params.memberId)
@@ -22,7 +23,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   } catch { return { title: 'Player' } }
 }
 
-export default async function PlayerProfilePage({ params }: Props) {
+export default async function PlayerProfilePage(props: Props) {
+  const params = await props.params;
   let tournament, analyticsData
   try {
     [tournament, analyticsData] = await Promise.all([

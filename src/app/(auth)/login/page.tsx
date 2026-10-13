@@ -5,10 +5,11 @@ import { LoginForm }      from '@/components/auth/login-form'
 export const metadata: Metadata = { title: 'Sign In' }
 
 interface Props {
-  searchParams: { from?: string; error?: string }
+  searchParams: Promise<{ from?: string; error?: string }>
 }
 
-export default function LoginPage({ searchParams }: Props) {
+export default async function LoginPage(props: Props) {
+  const searchParams = await props.searchParams;
   return (
     <div className="animate-fade-in">
       {/* Brand mark */}

@@ -5,10 +5,8 @@ import { buildPlayersCsv }           from '@/lib/csv'
 import { computePlayerAnalytics }    from '@/lib/analytics'
 import type { AnalyticsMatch, AnalyticsGame } from '@/lib/analytics'
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     await requireSessionUser()
   } catch {

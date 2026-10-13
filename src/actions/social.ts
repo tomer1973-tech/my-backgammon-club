@@ -1,5 +1,7 @@
 'use server'
 
+import { maskEmail } from '@/lib/privacy'
+
 import { revalidatePath }       from 'next/cache'
 import { db }                   from '@/lib/db'
 import { requireSessionUser, getSessionUser } from '@/lib/session'
@@ -226,7 +228,7 @@ export async function getMyGroups(): Promise<FriendGroupWithMembers[]> {
       id:        m.id,
       playerId:  m.player.id,
       name:      m.player.name,
-      email:     m.player.email,
+      email:     maskEmail(m.player.email),
       avatarUrl: m.player.avatarUrl,
       joinedAt:  m.joinedAt,
     })),
@@ -328,7 +330,7 @@ export async function getGroupMembers(
     id:        m.id,
     playerId:  m.player.id,
     name:      m.player.name,
-    email:     m.player.email,
+    email:     maskEmail(m.player.email),
     avatarUrl: m.player.avatarUrl,
     joinedAt:  m.joinedAt,
   }))
@@ -359,7 +361,7 @@ export async function searchPlayers(
         {
           OR: [
             { name:  { contains: query.trim(), mode: 'insensitive' } },
-            { email: { contains: query.trim(), mode: 'insensitive' } },
+            { email: { equals: query.trim(), mode: 'insensitive' } },
           ],
         },
       ],
@@ -368,7 +370,7 @@ export async function searchPlayers(
     take:   10,
   })
 
-  return players
+  return players.map(p => ({ ...p, email: maskEmail(p.email) }))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

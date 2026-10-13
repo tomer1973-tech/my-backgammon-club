@@ -2,7 +2,7 @@
 
 import { redirect }       from 'next/navigation'
 import { revalidatePath }  from 'next/cache'
-import { headers }         from 'next/headers'
+import { headers } from 'next/headers'
 import { createClient }    from '@/lib/supabase/server'
 import { db }              from '@/lib/db'
 import { requireSessionUser } from '@/lib/session'
@@ -19,8 +19,8 @@ import type { ActionResult } from '@/types'
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Derive the request origin for Supabase redirect URLs. */
-function getOrigin(): string {
-  const headersList = headers()
+async function getOrigin(): Promise<string> {
+  const headersList = await headers()
   const host        = headersList.get('host') ?? 'localhost:3001'
   const proto       = host.startsWith('localhost') ? 'http' : 'https'
   return `${proto}://${host}`
@@ -46,7 +46,7 @@ export async function login(
 
   let supabase
   try {
-    supabase = createClient()
+    supabase = await createClient()
   } catch (err) {
     console.error('[auth/login] createClient error:', err)
     return { success: false, error: 'Authentication service unavailable. Please try again.' }
@@ -111,7 +111,7 @@ export async function register(
 
   let supabase
   try {
-    supabase = createClient()
+    supabase = await createClient()
   } catch (err) {
     console.error('[auth/register] createClient error:', err)
     return { success: false, error: 'Authentication service unavailable. Please try again.' }
@@ -123,7 +123,7 @@ export async function register(
     password: parsed.data.password,
     options:  {
       data:       { name: parsed.data.name },
-      emailRedirectTo: `${getOrigin()}/auth/callback`,
+      emailRedirectTo: `${await getOrigin()}/auth/callback`,
     },
   })
 
@@ -169,7 +169,7 @@ export async function register(
 
 export async function logout(): Promise<void> {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     await supabase.auth.signOut()
   } catch (err) {
     console.error('[auth/logout] error:', err)
@@ -194,14 +194,14 @@ export async function forgotPassword(
 
   let supabase
   try {
-    supabase = createClient()
+    supabase = await createClient()
   } catch (err) {
     console.error('[auth/forgotPassword] createClient error:', err)
     return { success: false, error: 'Service temporarily unavailable. Please try again.' }
   }
 
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${getOrigin()}/auth/callback?next=/reset-password`,
+    redirectTo: `${await getOrigin()}/auth/callback?next=/reset-password`,
   })
 
   if (error) {
@@ -233,7 +233,7 @@ export async function updatePassword(
 
   let supabase
   try {
-    supabase = createClient()
+    supabase = await createClient()
   } catch (err) {
     console.error('[auth/updatePassword] createClient error:', err)
     return { success: false, error: 'Service temporarily unavailable. Please try again.' }
@@ -282,7 +282,7 @@ export async function updateProfile(
 
   // Keep Supabase user metadata in sync
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     await supabase.auth.updateUser({ data: { name } })
   } catch {
     // Non-fatal — DB is the source of truth
@@ -306,7 +306,7 @@ export async function updateProfile(
 export async function checkPhoneUserProfile(): Promise<ActionResult<{ isNew: boolean }>> {
   let supabase
   try {
-    supabase = createClient()
+    supabase = await createClient()
   } catch (err) {
     console.error('[auth/checkPhoneUserProfile] createClient error:', err)
     return { success: false, error: 'Service temporarily unavailable. Please try again.' }
@@ -336,7 +336,7 @@ export async function createPhoneUserProfile(
 
   let supabase
   try {
-    supabase = createClient()
+    supabase = await createClient()
   } catch (err) {
     console.error('[auth/createPhoneUserProfile] createClient error:', err)
     return { success: false, error: 'Service temporarily unavailable. Please try again.' }

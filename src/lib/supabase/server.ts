@@ -10,8 +10,8 @@ type CookieToSet = { name: string; value: string; options?: Record<string, unkno
  * The setAll try/catch is intentional — Server Components have a read-only
  * cookie store. Only Server Actions and Route Handlers can write cookies.
  */
-export function createClient() {
-  const cookieStore = cookies()
+export async function createClient() {
+  const cookieStore = await cookies()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

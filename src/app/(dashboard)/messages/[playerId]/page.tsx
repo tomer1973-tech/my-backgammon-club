@@ -10,12 +10,14 @@ import { ThreadView } from '@/components/messages/thread-view'
 
 export const dynamic = 'force-dynamic'
 
-export async function generateMetadata({ params }: { params: { playerId: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ playerId: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const profile = await getPlayerProfile(params.playerId)
   return { title: profile ? `${profile.name} — Messages` : 'Messages — My Backgammon Club' }
 }
 
-export default async function MessageThreadPage({ params }: { params: { playerId: string } }) {
+export default async function MessageThreadPage(props: { params: Promise<{ playerId: string }> }) {
+  const params = await props.params;
   const profile = await getPlayerProfile(params.playerId)
   if (!profile) notFound()
 

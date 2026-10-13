@@ -7,12 +7,14 @@ export function generateStaticParams() {
   return LESSONS.map(l => ({ slug: l.slug }))
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const lesson = getLesson(params.slug)
   return { title: lesson ? `${lesson.title} — My Backgammon Club` : 'Lesson — My Backgammon Club' }
 }
 
-export default function LessonPage({ params }: { params: { slug: string } }) {
+export default async function LessonPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const lesson = getLesson(params.slug)
   if (!lesson) notFound()
 

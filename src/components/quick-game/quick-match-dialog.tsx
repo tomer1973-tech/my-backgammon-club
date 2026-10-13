@@ -64,7 +64,7 @@ export function QuickMatchDialog({ open, onClose, currentUser }: QuickMatchDialo
   const [results,     setResults]     = useState<QuickMatchPlayer[]>([])
   const [showResults, setShowResults] = useState(false)
   const [isPending,   startTransition] = useTransition()
-  const debounceRef  = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const searchWrapRef = useRef<HTMLDivElement>(null)
 
   // ── Guest add ──

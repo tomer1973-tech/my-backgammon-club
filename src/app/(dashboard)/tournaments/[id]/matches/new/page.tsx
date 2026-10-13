@@ -7,16 +7,18 @@ import { MatchSetup }               from '@/components/match/match-setup'
 
 export const dynamic = 'force-dynamic'
 
-interface Props { params: { id: string } }
+interface Props { params: Promise<{ id: string }> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   try {
     const t = await getTournamentWithMembers(params.id)
     return { title: `New Match — ${t.name}` }
   } catch { return { title: 'New Match' } }
 }
 
-export default async function NewMatchPage({ params }: Props) {
+export default async function NewMatchPage(props: Props) {
+  const params = await props.params;
   let tournament
   try { tournament = await getTournamentWithMembers(params.id) } catch { notFound() }
 

@@ -1,5 +1,7 @@
 'use server'
 
+import { getTournamentWithMembers } from '@/actions/tournament'
+
 import { db }                        from '@/lib/db'
 import {
   computePlayerAnalytics,
@@ -93,6 +95,7 @@ export interface TournamentAnalyticsData {
 }
 
 export async function getTournamentAnalytics(tournamentId: string): Promise<TournamentAnalyticsData> {
+  await getTournamentWithMembers(tournamentId)
   const { members, matches, games } = await fetchTournamentRawData(tournamentId)
 
   // Active player IDs (currently in a match)
@@ -123,6 +126,7 @@ export async function getPlayerAnalytics(
   tournamentId: string,
   memberId:     string,
 ): Promise<PlayerAnalyticsData> {
+  await getTournamentWithMembers(tournamentId)
   const { members, matches, games } = await fetchTournamentRawData(tournamentId)
 
   const member = members.find(m => m.id === memberId)

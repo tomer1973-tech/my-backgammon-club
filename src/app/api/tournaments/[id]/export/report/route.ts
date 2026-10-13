@@ -11,10 +11,8 @@ import type { AnalyticsMatch, AnalyticsGame } from '@/lib/analytics'
 import { TOURNAMENT_FORMAT_LABEL,
          TOURNAMENT_STATUS_LABEL }      from '@/types'
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     await requireSessionUser()
   } catch {
@@ -104,7 +102,7 @@ export async function GET(
   const pdfBuffer = await renderToBuffer(
     // @react-pdf/renderer expects DocumentProps but our wrapper renders <Document> internally;
     // cast through unknown to satisfy the overly-strict type signature.
-    React.createElement(TournamentReportDocument, { data: reportData }) as unknown as React.ReactElement,
+    React.createElement(TournamentReportDocument, { data: reportData }) as unknown as Parameters<typeof renderToBuffer>[0],
   )
 
   const filename = `${tournament.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-report.pdf`

@@ -1,5 +1,7 @@
 'use server'
 
+import { maskEmail } from '@/lib/privacy'
+
 /**
  * Profile actions — public player profile data.
  */
@@ -156,7 +158,7 @@ export async function getPlayerProfile(
   return {
     id:               player.id,
     name:             player.name,
-    email:            player.email,
+    email:            me && (me.role === 'ADMIN' || me.id === player.id) ? player.email : maskEmail(player.email),
     avatarUrl:        player.avatarUrl,
     bio:              player.bio,
     isPrivate:        player.isPrivate,

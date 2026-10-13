@@ -19,9 +19,10 @@ import { cn }               from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-interface Props { params: { id: string } }
+interface Props { params: Promise<{ id: string }> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   const profile = await getPlayerProfile(params.id)
   return { title: profile ? `${profile.name} — My Backgammon Club` : 'Player not found' }
 }
@@ -36,7 +37,8 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
   )
 }
 
-export default async function PlayerProfilePage({ params }: Props) {
+export default async function PlayerProfilePage(props: Props) {
+  const params = await props.params;
   const [profile, me] = await Promise.all([
     getPlayerProfile(params.id),
     getSessionUser(),
