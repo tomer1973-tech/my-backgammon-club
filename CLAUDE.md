@@ -27,7 +27,7 @@ Schema changes always go through `npm run db:push` (`prisma db push`). This proj
 
 ## Architecture
 
-Next.js 14 App Router + TypeScript (strict) + Prisma/PostgreSQL (Supabase) + Supabase Auth + Tailwind. Single deployment unit on Vercel, no separate backend.
+Next.js 15 App Router + React 19 + TypeScript (strict) + Prisma/PostgreSQL (Supabase) + Supabase Auth + Tailwind. Single deployment unit on Vercel, no separate backend.
 
 ```
 src/
@@ -92,7 +92,10 @@ Supabase Auth (email/password + Google/Apple OAuth), session JWT in an httpOnly 
 
 ## Known sharp edges
 
-- **`DEPLOYMENT.md` contains a real database password in plaintext** as an example connection string. Treat it as compromised if this repo's history is ever made public, and prefer reading actual secrets from Vercel env vars / `.env` (gitignored), never from that doc.
+- An old DB password exists in git history (from `DEPLOYMENT.md`); it was rotated 2026-10 and is dead. Never put real credentials in docs.
+- **RLS is enabled on every `public` table with no policies**, and `anon`/`authenticated` have no table grants, so the Supabase REST API exposes nothing. Prisma connects as the table owner and bypasses RLS. After `db push` creates a new table, run `alter table public."x" enable row level security`.
+- Realtime broadcast payloads are unauthenticated — clients must treat them only as a cue to refetch via a Server Action, never as state.
+- Never return other users' emails; use `maskEmail` from `lib/privacy.ts` unless the viewer is ADMIN or the owner. Email search is exact-match only.
 - `ARCHITECTURE.md` describes an early, since-changed plan (phone+PIN auth, no realtime) — it's a historical planning doc, not current behavior. `Project Summary.md` is the more up-to-date feature/architecture overview; this file supersedes both for anything they disagree on.
 - `title` attribute tooltips for inline error messages don't work on touch devices — surface errors as visible text instead (this was a real bug in the challenge/invite flow on mobile).
 - Components that are "always mounted, hidden via CSS" per breakpoint (e.g. desktop sidebar vs. mobile bottom nav both rendering simultaneously) will double any polling hook used inside them unless that polling is lifted into a shared context/provider mounted once.
