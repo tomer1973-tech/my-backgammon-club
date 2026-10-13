@@ -1,11 +1,20 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Cormorant_Garamond } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' })
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
+// Self-hosted so builds never depend on fetching from Google Fonts.
+const inter = localFont({
+  src: './fonts/inter-latin-wght-normal.woff2',
+  weight: '100 900',
+  display: 'swap',
+  variable: '--font-sans',
+})
+const cormorant = localFont({
+  src: [
+    { path: './fonts/cormorant-garamond-latin-500-normal.woff2', weight: '500' },
+    { path: './fonts/cormorant-garamond-latin-600-normal.woff2', weight: '600' },
+    { path: './fonts/cormorant-garamond-latin-700-normal.woff2', weight: '700' },
+  ],
   display: 'swap',
   variable: '--font-display',
 })
