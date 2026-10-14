@@ -14,43 +14,43 @@
   /* Surfaces — lifted a few steps lighter than pure obsidian, with a
      glossy/satin character: each layer reads like polished lacquer rather
      than flat matte black. */
-  --surface-canvas:   222 20% 11%;   /* #14171f — lifted base            */
-  --surface-base:     222 17% 14%;   /* #1a1e27 — page body              */
-  --surface-raised:   220 15% 20%;   /* #282e3d — card surface           */
-  --surface-elevated: 218 14% 26%;   /* #353c4f — input / elevated card  */
-  --surface-muted:    216 12% 33%;   /* #454f63 — section dividers       */
-  --surface-subtle:   214 11% 41%;   /* #586275 — hover state            */
+  --surface-canvas:   222 16% 17%;   
+  --surface-base:     222 14% 20%;   
+  --surface-raised:   220 13% 26%;   
+  --surface-elevated: 218 12% 31%;   
+  --surface-muted:    216 11% 37%;   
+  --surface-subtle:   214 10% 45%;   
 
   /* Copper — vivid amber accent, pushed brighter for a fresher, more
      contemporary punch against the deeper obsidian base */
-  --gold:        26 80% 56%;         /* #e08a35 — copper primary         */
-  --gold-dim:    22 60% 32%;         /* #7d4317 — dark copper            */
-  --gold-bright: 32 88% 66%;         /* #eeae5c — bright / hover         */
-  --gold-muted:  24 50% 42%;         /* #9c5f29 — subtle copper          */
+  --gold:        26 80% 56%;         
+  --gold-dim:    22 60% 32%;         
+  --gold-bright: 32 88% 66%;         
+  --gold-muted:  24 50% 42%;         
 
   /* Jade — secondary accent (felt-green counterpoint to the copper),
      used sparingly for variety: free/secondary CTAs, alt highlights */
-  --jade:        158 42% 44%;        /* #3a9670 — jade primary           */
-  --jade-dim:    158 38% 24%;        /* #1c4332 — dark jade              */
-  --jade-bright: 156 48% 58%;        /* #58c79a — bright / hover         */
+  --jade:        158 42% 44%;        
+  --jade-dim:    158 38% 24%;        
+  --jade-bright: 156 48% 58%;        
 
   /* Silver — secondary accent from the doubling cube / bar */
-  --silver:      214 18% 68%;        /* #9aaec2 — steel blue-grey        */
-  --silver-dim:  216 14% 44%;        /* #5e7488 — muted steel            */
+  --silver:      214 18% 68%;        
+  --silver-dim:  216 14% 44%;        
 
   /* Ink — crisper, cooler white for sharper legibility */
-  --ink:         210 40% 96%;        /* #eef1f5 — primary text           */
-  --ink-muted:   214 18% 60%;        /* #8893a3 — secondary text         */
-  --ink-subtle:  216 14% 42%;        /* #5b6573 — placeholder / hint     */
+  --ink:         210 40% 96%;        
+  --ink-muted:   214 18% 72%;        
+  --ink-subtle:  216 14% 56%;        
 
   /* Lines — quiet but visible against the deeper base */
-  --line:        220 24% 16%;        /* #1c2230 — default border         */
-  --line-gold:   26 55% 30%;         /* #7a4a1c — copper border          */
+  --line:        220 14% 32%;        
+  --line-gold:   26 55% 30%;         
 
   /* Semantic */
-  --win:         150 45% 40%;        /* #338a5e — positive               */
-  --loss:           4 55% 48%;       /* #bd3a2e — negative               */
-  --warning:      28 72% 50%;        /* #cb741a — amber / cube           */
+  --win:         150 45% 40%;        
+  --loss:           4 55% 48%;       
+  --warning:      28 72% 50%;        
 
   /* Typography */
   --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
