@@ -48,7 +48,17 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
   // Start a Quick Game against a specific opponent — same localStorage
   // contract the QuickMatchDialog uses, so /quick-game picks it up
   // identically whether it came from a fresh pick or a rematch tap.
-  const startRematch = useCallback((opponent: LobbyRecentMatch) => {
+  const [rematchKey, setRematchKey] = useState<string | null>(null)
+  const [rematchRace, setRematchRace] = useState(DEFAULT_RACE_TO)
+  const openRematch = useCallback((key: string) => {
+    try {
+      const saved = Number(localStorage.getItem(QG_RACE_TO_KEY))
+      if (saved > 0) setRematchRace(saved)
+    } catch {}
+    setRematchKey(k => (k === key ? null : key))
+  }, [])
+
+  const startRematch = useCallback((opponent: LobbyRecentMatch, raceTo: number) => {
     if (!currentUser) return
     const opponentId = opponent.opponentPlayerId ?? `guest:${Math.random().toString(36).slice(2, 10)}`
     const roster = [
@@ -56,7 +66,7 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
       { id: opponentId,     name: opponent.opponentName },
     ]
     localStorage.setItem(QG_ROSTER_KEY,  JSON.stringify(roster))
-    localStorage.setItem(QG_RACE_TO_KEY, String(DEFAULT_RACE_TO))
+    localStorage.setItem(QG_RACE_TO_KEY, String(raceTo))
     router.push('/quick-game')
   }, [currentUser, router])
 
@@ -210,30 +220,63 @@ export function LobbyClient({ initialTournaments, currentUser, header }: LobbyCl
         <div className="flex flex-col gap-2.5">
           <SectionLabel>Played Recently</SectionLabel>
           <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-2.5">
-            {recentOpponents.map((m, i) => (
-              <div
-                key={m.opponentPlayerId ?? `${m.opponentName}-${i}`}
-                className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised
-                  px-3.5 py-3 shadow-sm"
-              >
-                <Avatar name={m.opponentName} size="md" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-ink">{m.opponentName}</p>
-                  <p className="text-xs text-ink-subtle">
-                    {m.win ? 'You won last time' : 'They won last time'} · {m.date}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => startRematch(m)}
-                  className="gloss flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2
-                    text-xs font-bold text-ink transition-transform active:scale-95"
+            {recentOpponents.map((m, i) => {
+              const key = m.opponentPlayerId ?? `${m.opponentName}-${i}`
+              const picking = rematchKey === key
+              return (
+                <div
+                  key={key}
+                  className="rounded-2xl border border-line bg-surface-raised px-3.5 py-3 shadow-sm"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Rematch
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-3">
+                    <Avatar name={m.opponentName} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-ink">{m.opponentName}</p>
+                      <p className="text-xs text-ink-subtle">
+                        {m.win ? 'You won last time' : 'They won last time'} · {m.date}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openRematch(key)}
+                      aria-expanded={picking}
+                      className="gloss flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2
+                        text-xs font-bold text-ink transition-transform active:scale-95"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Rematch
+                    </button>
+                  </div>
+                  {picking && (
+                    <div className="mt-3 border-t border-line pt-3">
+                      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-subtle">Match to</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[1, 3, 5, 7, 9, 11].map(n => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setRematchRace(n)}
+                            className={cn(
+                              'h-9 min-w-9 rounded-full px-3 text-sm font-bold tabular-nums transition-colors',
+                              rematchRace === n ? 'bg-gold text-surface-canvas' : 'border border-line bg-surface-elevated text-ink-muted hover:text-ink',
+                            )}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => startRematch(m, rematchRace)}
+                          className="ml-auto rounded-full bg-gold px-4 py-2 text-sm font-bold text-surface-canvas active:scale-95"
+                        >
+                          Play to {rematchRace}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

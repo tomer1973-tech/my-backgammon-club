@@ -6,6 +6,8 @@ import { getTournamentWithMembers } from '@/actions/tournament'
 import { getStandings }             from '@/actions/match'
 import { StandingsTable }           from '@/components/match/standings-table'
 import { StatusBadge }              from '@/components/tournament/status-badge'
+import { PointsAdjustments }        from '@/components/match/points-adjustments'
+import { canCorrectTournament }     from '@/actions/corrections'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,11 +23,12 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function StandingsPage(props: Props) {
   const params = await props.params;
-  let tournament, standings
+  let tournament, standings, canCorrect
   try {
-    [tournament, standings] = await Promise.all([
+    [tournament, standings, canCorrect] = await Promise.all([
       getTournamentWithMembers(params.id),
       getStandings(params.id),
+      canCorrectTournament(params.id),
     ])
   } catch { notFound() }
 
@@ -106,6 +109,8 @@ export default async function StandingsPage(props: Props) {
 
       {/* Table */}
       <StandingsTable standings={standings} />
+
+      {canCorrect && standings.length > 0 && <PointsAdjustments rows={standings} />}
 
       {/* Tiebreaker note */}
       <p className="text-xs text-ink-subtle text-center">

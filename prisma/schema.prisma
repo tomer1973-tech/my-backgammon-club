@@ -181,6 +181,7 @@ model TournamentMember {
   points       Int        @default(0)  // tournament points (wins × pointsPerWin)
   wins         Int        @default(0)
   losses       Int        @default(0)
+  pointsAdjustment Int    @default(0)  @map("points_adjustment") // organizer bonus/penalty, included in points
   joinedAt     DateTime   @default(now()) @map("joined_at")
 
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
@@ -246,6 +247,8 @@ model Match {
   startedAt    DateTime?   @map("started_at")
   completedAt  DateTime?   @map("completed_at")
   duration     Int?        // seconds, filled on completion
+  editedAt     DateTime?   @map("edited_at")      // last organizer correction after recording
+  editedById   String?     @map("edited_by")      // Player.id of that organizer
   recordedById String      @map("recorded_by")   // Player.id
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt      @map("updated_at")

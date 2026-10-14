@@ -389,6 +389,7 @@ export interface MatchRow {
   startedAt:    Date | null
   completedAt:  Date | null
   duration:     number | null
+  editedAt?:    Date | null
   recordedById: string
   createdAt:    Date
   updatedAt:    Date
@@ -431,6 +432,7 @@ export interface StandingsRow {
   wins:         number
   losses:       number
   points:       number
+  adjustment:   number   // organizer bonus/penalty already included in points
   winRate:      number   // 0–100
   matchDiff:    number   // wins - losses
   totalGames:   number

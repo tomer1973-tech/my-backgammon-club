@@ -3,6 +3,7 @@ import { notFound }      from 'next/navigation'
 import { getMatch }      from '@/actions/match'
 import { getMatchLikes } from '@/actions/social'
 import { MatchScreen }   from '@/components/match/match-screen'
+import { canCorrectTournament } from '@/actions/corrections'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,9 +26,12 @@ export default async function MatchPage(props: Props) {
   if (match.tournamentId !== params.id) notFound()
 
   // Fetch like data for the social bar (only relevant when completed)
-  const likeData = match.status === 'COMPLETED'
-    ? await getMatchLikes(match.id).catch(() => ({ count: 0, likedByMe: false }))
-    : { count: 0, likedByMe: false }
+  const [likeData, canCorrect] = await Promise.all([
+    match.status === 'COMPLETED'
+      ? getMatchLikes(match.id).catch(() => ({ count: 0, likedByMe: false }))
+      : Promise.resolve({ count: 0, likedByMe: false }),
+    canCorrectTournament(match.tournamentId),
+  ])
 
-  return <MatchScreen initialMatch={match} initialLikeData={likeData} />
+  return <MatchScreen initialMatch={match} initialLikeData={likeData} canCorrect={canCorrect} />
 }

@@ -28,6 +28,8 @@ import { redirect }           from 'next/navigation'
 import { db }                 from '@/lib/db'
 import { requireSessionUser } from '@/lib/session'
 import { applyEloIfRated }    from '@/lib/elo'
+import { overrideMatchScore } from '@/actions/corrections'
+import { getTournamentWithMembers } from '@/actions/tournament'
 import {
   createMatchSchema,
   recordMatchGameSchema,
@@ -147,6 +149,7 @@ export async function getMatch(matchId: string): Promise<Match> {
     startedAt:    m.startedAt,
     completedAt:  m.completedAt,
     duration:     m.duration,
+    editedAt:     m.editedAt,
     recordedById: m.recordedById,
     createdAt:    m.createdAt,
     updatedAt:    m.updatedAt,
@@ -200,7 +203,7 @@ export async function getTournamentMatches(tournamentId: string): Promise<MatchS
 }
 
 export async function getStandings(tournamentId: string): Promise<StandingsRow[]> {
-  await requireSessionUser()
+  await getTournamentWithMembers(tournamentId) // enforces private-tournament access
 
   const members = await db.tournamentMember.findMany({
     where:   { tournamentId },
@@ -222,6 +225,7 @@ export async function getStandings(tournamentId: string): Promise<StandingsRow[]
       wins:       m.wins,
       losses:     m.losses,
       points:     m.points,
+      adjustment: m.pointsAdjustment,
       winRate:    totalGames > 0 ? Math.round((m.wins / totalGames) * 100) : 0,
       matchDiff:  m.wins - m.losses,
       totalGames,
@@ -1007,35 +1011,7 @@ export async function finalizeMatch(
 export async function setMatchScore(
   data: unknown,
 ): Promise<ActionResult> {
-  const user = await requireSessionUser()
-
-  const parsed = setScoreSchema.safeParse(data)
-  if (!parsed.success) return { success: false, error: parsed.error.errors[0].message }
-
-  const { matchId, player1Score, player2Score } = parsed.data
-
-  const match = await db.match.findUnique({ where: { id: matchId }, select: { tournamentId: true } })
-  if (!match) return { success: false, error: 'Match not found.' }
-
-  if (user.role !== 'ADMIN' && user.role !== 'TOURNAMENT_MANAGER') {
-    const tournament = await db.tournament.findUnique({
-      where: { id: match.tournamentId }, select: { createdById: true },
-    })
-    const isOrganizer = tournament?.createdById === user.id || !!(await db.tournamentMember.findFirst({
-      where: { tournamentId: match.tournamentId, playerId: user.id, memberRole: 'ORGANIZER' },
-    }))
-    if (!isOrganizer) return { success: false, error: 'You do not have permission to edit match scores.' }
-  }
-
-  await db.match.update({
-    where: { id: matchId },
-    data:  { player1Score, player2Score },
-  })
-
-  revalidatePath(`/tournaments/${match.tournamentId}/matches/${matchId}`)
-  revalidatePath(`/tournaments/${match.tournamentId}/matches`)
-  revalidatePath(`/tournaments/${match.tournamentId}`)
-  return { success: true, data: undefined }
+  return overrideMatchScore(data)
 }
 
 export async function updateMatchTargetScore(

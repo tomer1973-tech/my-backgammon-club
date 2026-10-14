@@ -28,6 +28,7 @@ import { ScoreBoard }                  from './score-board'
 import { DoublingCube }                from './doubling-cube'
 import { RecordGamePanel }             from './record-game-panel'
 import { GameLog }                     from './game-log'
+import { ResultCorrections }           from './result-corrections'
 import { DoubleDialog }                from './double-dialog'
 import { MatchCompleteDialog }         from './match-complete-dialog'
 import { RematchButton }               from './rematch-button'
@@ -44,11 +45,13 @@ interface LikeData {
 interface MatchScreenProps {
   initialMatch:    Match
   initialLikeData?: LikeData
+  canCorrect?:      boolean
 }
 
-export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps) {
+export function MatchScreen({ initialMatch, initialLikeData, canCorrect = false }: MatchScreenProps) {
   // Local state — mirrors DB, updated optimistically after each action
   const [match, setMatch] = useState(initialMatch)
+  useEffect(() => { setMatch(initialMatch) }, [initialMatch])
 
   // Double offer dialog state
   const [doubleOffer, setDoubleOffer] = useState<{
@@ -315,6 +318,14 @@ export function MatchScreen({ initialMatch, initialLikeData }: MatchScreenProps)
         matchComplete={isOver}
         matchId={match.id}
       />
+
+      {isOver && match.editedAt && (
+        <p className="-mt-2 text-center text-xs text-ink-subtle">
+          Result corrected by an organizer · {new Date(match.editedAt).toLocaleDateString()}
+        </p>
+      )}
+
+      {isOver && canCorrect && <ResultCorrections match={match} />}
 
       {/* Opening type section for completed matches */}
       {isOver && match.openingType && (
