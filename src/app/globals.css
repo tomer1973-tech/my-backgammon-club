@@ -10,7 +10,7 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 /* ── Dark mode (opt-in via Settings → Appearance) ─────────────────────────── */
-[data-theme="dark"] {
+:root[data-theme="dark"] {
   /* Surfaces — lifted a few steps lighter than pure obsidian, with a
      glossy/satin character: each layer reads like polished lacquer rather
      than flat matte black. */
