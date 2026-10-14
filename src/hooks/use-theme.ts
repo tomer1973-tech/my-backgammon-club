@@ -33,6 +33,9 @@ export function useTheme() {
   const setTheme = useCallback((choice: ThemeChoice) => {
     setThemeState(choice)
     localStorage.setItem(KEY, choice)
+    // A full-palette skin overrides light/dark, so an explicit mode choice drops it.
+    localStorage.setItem('pb_skin', 'none')
+    document.documentElement.removeAttribute('data-skin')
     applyTheme(choice)
   }, [])
 
