@@ -833,7 +833,7 @@ function CompactTopBar({ currentUser }: { currentUser: SessionUser | null }) {
         <div className="inline-flex items-center gap-1.5 rounded-full border border-line
           bg-surface-raised px-3 py-1.5 text-xs">
           <UserCircle2 className="h-3.5 w-3.5 text-ink-subtle" />
-          <span className="text-ink-subtle">Not signed in ·</span>
+          <span className="hidden text-ink-subtle sm:inline">Not signed in ·</span>
           <Link href="/login?returnTo=/practice" className="font-semibold text-gold hover:text-gold/80 transition-colors">
             Sign in
           </Link>
